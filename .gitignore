@@ -3,6 +3,14 @@ backend/venv/
 __pycache__/
 *.pyc
 .env
+*.log
+
+# Build artifacts
+*.zip
+*.tar.gz
+
+# Temp files
+C:*
 
 # Node
 node_modules/
