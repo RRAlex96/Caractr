@@ -636,37 +636,31 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
 
 def _apply_aversion_penalty(model: dict, aversion: str, ctx: str) -> float:
     """
-    Stage E: Hard asymmetric penalties for declared aversion.
-    These sharply suppress models that violate the declared aversion
-    even when they score well on other dimensions.
+    Stage E: Smooth asymmetric penalties for declared aversion.
+    Uses linear decay below a threshold so penalties are monotonic —
+    a model with a slightly worse score always gets a worse penalty
+    (no cliff inversions between adjacent tiers).
     """
+
+    def _smooth_penalty(score: float, threshold: float, floor: float) -> float:
+        """Linear decay from 1.0 at threshold to floor at 0."""
+        if score >= threshold:
+            return 1.0
+        return max(floor, floor + (1.0 - floor) * (score / threshold))
+
     if aversion == "fiabilidade":
-        # Low-reliability models fall sharply
-        if model["avg_reliability"] < 6.5:
-            return 0.35
-        if model["avg_reliability"] < 7.0:
-            return 0.60  # softer suppression for borderline cases
+        # Below 7.5 → smooth decay to 0.30 at score=0
+        return _smooth_penalty(model["avg_reliability"], 7.5, 0.30)
 
     elif aversion == "conforto":
-        # Uncomfortable models are suppressed
-        if model["comfort_score"] < 6:
-            return 0.45
-        if model["comfort_score"] < 7:
-            return 0.70
+        return _smooth_penalty(model["comfort_score"], 7.0, 0.35)
 
     elif aversion == "espaco":
-        # Space-constrained models in family context
-        if ctx == "familia" and model["family_score"] < 6:
-            return 0.40
-        elif model["family_score"] < 5:
-            return 0.55  # suppress even outside family context
+        threshold = 6.0 if ctx == "familia" else 5.0
+        return _smooth_penalty(model["family_score"], threshold, 0.35)
 
     elif aversion == "potencia":
-        # Low-dynamism models
-        if model["driving_fun_score"] < 5:
-            return 0.50
-        if model["driving_fun_score"] < 6:
-            return 0.72
+        return _smooth_penalty(model["driving_fun_score"], 6.0, 0.40)
 
     return 1.0  # no penalty
 

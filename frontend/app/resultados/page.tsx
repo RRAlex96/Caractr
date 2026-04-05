@@ -60,6 +60,7 @@ function AnalysisMicroFeedback({ sessionId, listingUrl }: { sessionId: string; l
           {(["up", "down"] as const).map((v) => (
             <button
               key={v}
+              aria-label={v === "up" ? "Análise útil" : "Análise não útil"}
               onClick={() => handleVote(v)}
               style={{
                 background: "none", border: "none", cursor: "pointer",

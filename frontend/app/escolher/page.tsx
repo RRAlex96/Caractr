@@ -470,6 +470,7 @@ export default function EscolherPage() {
           {/* Back button */}
           {step > 0 && (
             <button
+              aria-label="Voltar à pergunta anterior"
               onClick={() => goToStep(step - 1)}
               style={{
                 marginBottom: "40px", fontSize: "13px",
@@ -512,6 +513,7 @@ export default function EscolherPage() {
                     return (
                       <button
                         key={opt.value}
+                        aria-label={opt.label}
                         onClick={() => selectChoice(current.id, opt.value)}
                         style={{
                           display: "flex", alignItems: "flex-start", gap: "20px",
@@ -669,6 +671,7 @@ export default function EscolherPage() {
                     return (
                       <button
                         key={car.id}
+                        aria-label={`Selecionar ${car.display_name || car.id} como carro de sonho`}
                         onClick={() => setAnswers((p) => ({ ...p, p7_dream_car: car.id }))}
                         style={{
                           display: "flex", alignItems: "center", gap: "20px",
@@ -783,6 +786,7 @@ export default function EscolherPage() {
                   </span>
                 </div>
                 <input
+                  aria-label="Orçamento mínimo"
                   type="range" min={3000} max={60000} step={1000}
                   value={answers.p8_budget_min || 10000}
                   onChange={(e) => setAnswers((p) => ({ ...p, p8_budget_min: Number(e.target.value) }))}
@@ -806,6 +810,7 @@ export default function EscolherPage() {
                   </span>
                 </div>
                 <input
+                  aria-label="Orçamento máximo"
                   type="range" min={5000} max={80000} step={1000}
                   value={answers.p8_budget_max || 25000}
                   onChange={(e) => setAnswers((p) => ({ ...p, p8_budget_max: Number(e.target.value) }))}
@@ -814,6 +819,7 @@ export default function EscolherPage() {
               </div>
 
               <button
+                aria-label="Ver as minhas recomendações"
                 onClick={submit}
                 disabled={submitting}
                 className="pill-btn-solid"

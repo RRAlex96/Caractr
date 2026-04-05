@@ -54,7 +54,7 @@ const CHECKS = [
   { label: "PREÇO VS. MERCADO", desc: "Comparamos com anúncios reais da mesma marca e modelo." },
   { label: "KM / ANO", desc: "Calculamos se o desgaste é compatível com o ano de matrícula." },
   { label: "VENDEDOR", desc: "Particular ou dealer — cada um tem padrões diferentes." },
-  { label: "EXTRAS", desc: "Identificamos equipamentos relevantes que afectam o valor." },
+  { label: "EXTRAS", desc: "Identificamos equipamentos relevantes que afetam o valor." },
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -216,6 +216,7 @@ function AnalysisMicroFeedback({ listingUrl }: { listingUrl: string }) {
           {(["up", "down"] as const).map((v) => (
             <button
               key={v}
+              aria-label={v === "up" ? "Análise útil" : "Análise não útil"}
               onClick={() => handleVote(v)}
               style={{
                 background: "none", border: "none", cursor: "pointer",

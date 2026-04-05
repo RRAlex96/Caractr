@@ -179,7 +179,7 @@ def _green_flags(
     if any(kw in desc for kw in ["garantia", "garante"]):
         flags.append("Garantia incluída")
 
-    if any(kw in desc for kw in ["inspeção válida", "inspecção válida", "inspeção recente"]):
+    if any(kw in desc for kw in ["inspeção válida", "inspeção recente"]):
         flags.append("Inspeção recente válida")
 
     if photo_count >= 10:
