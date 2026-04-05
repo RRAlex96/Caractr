@@ -94,15 +94,17 @@ def get_model_listings(
 
     rows = db.execute(text(base_query), params).mappings().fetchall()
 
+    import json
     listings = []
     for row in rows:
         llm = row["llm_analysis"]
-        import json
         if isinstance(llm, str):
             try:
                 llm = json.loads(llm)
             except Exception:
-                llm = None
+                llm = {}
+        if not isinstance(llm, dict):
+            llm = {}
 
         listings.append({
             "id": row["id"],

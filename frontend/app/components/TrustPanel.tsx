@@ -90,7 +90,7 @@ function ReliabilityBlock({ reliability }: { reliability: ReliabilityData }) {
           fontFamily: "var(--font-mono)",
           fontSize: "28px",
           fontWeight: 700,
-          color: "var(--foreground)",
+          color: "var(--fg)",
           letterSpacing: "-0.02em",
         }}>
           {reliability.score.toFixed(1)}
@@ -159,7 +159,7 @@ function MarketBlock({ market }: { market: MarketData }) {
           fontFamily: "var(--font-mono)",
           fontSize: "22px",
           fontWeight: 700,
-          color: "var(--foreground)",
+          color: "var(--fg)",
         }}>
           {formatPrice(market.p50)}
         </span>
@@ -206,8 +206,8 @@ function MarketBlock({ market }: { market: MarketData }) {
 
 function VerificationBlock({ modelName }: { modelName?: string }) {
   const items = [
-    { id: "recalls", label: "Verificar recalls activos (VIN check)" },
-    { id: "inspection", label: "Inspecção independente por mecânico" },
+    { id: "recalls", label: "Verificar recalls ativos (VIN check)" },
+    { id: "inspection", label: "Inspeção independente por mecânico" },
     { id: "history", label: "Histórico de manutenção documentado" },
     { id: "vin", label: "Verificação de VIN (roubo / acidente)" },
   ];
@@ -240,14 +240,14 @@ function VerificationBlock({ modelName }: { modelName?: string }) {
           }}>
             {checked.has(item.id) && (
               <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                <path d="M1 4L3.5 6.5L9 1" stroke="var(--background)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M1 4L3.5 6.5L9 1" stroke="var(--bg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
           </div>
           <span style={{
             fontFamily: "var(--font-body)",
             fontSize: "13px",
-            color: checked.has(item.id) ? "var(--muted)" : "var(--foreground)",
+            color: checked.has(item.id) ? "var(--muted)" : "var(--fg)",
             textDecoration: checked.has(item.id) ? "line-through" : "none",
             transition: "all 0.15s ease",
             fontWeight: 300,

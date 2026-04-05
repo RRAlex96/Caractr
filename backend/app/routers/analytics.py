@@ -31,6 +31,7 @@ _KNOWN_EVENTS = frozenset({
 class EventPayload(BaseModel):
     event_name: str  = Field(..., max_length=100)
     session_id: Optional[str] = None
+    anon_id:    Optional[str] = Field(None, max_length=100)
     properties: Optional[dict[str, Any]] = None
 
     @field_validator("event_name")
@@ -40,16 +41,16 @@ class EventPayload(BaseModel):
         # so we never silently store arbitrary client-sent strings as event types.
         return v if v in _KNOWN_EVENTS else "unknown_event"
 
-    @field_validator("session_id")
+    @field_validator("session_id", "anon_id")
     @classmethod
-    def validate_session_id(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
+    def validate_uuid_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
             return None
         try:
             _uuid.UUID(v)
             return v
         except ValueError:
-            return None  # silently drop malformed session IDs
+            return None  # silently drop malformed IDs
 
     @field_validator("properties")
     @classmethod
@@ -72,10 +73,11 @@ def track_event(payload: EventPayload, db: Session = Depends(get_db)):
     """
     try:
         db.execute(text("""
-            INSERT INTO analytics_events (session_id, event_name, properties)
-            VALUES (:session_id, :event_name, :properties)
+            INSERT INTO analytics_events (session_id, anon_id, event_name, properties)
+            VALUES (:session_id, :anon_id, :event_name, :properties)
         """), {
             "session_id": payload.session_id or None,
+            "anon_id":    payload.anon_id or None,
             "event_name": payload.event_name,
             "properties": json.dumps(payload.properties or {}),
         })

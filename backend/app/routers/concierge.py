@@ -232,7 +232,7 @@ async def submit_concierge(
             row = db.execute(text("""
                 SELECT profile_computed, models_shown, answers_raw
                 FROM recommendation_sessions
-                WHERE session_id = :sid
+                WHERE id = :sid
             """), {"sid": req.session_id}).mappings().fetchone()
             if row:
                 session_context = {
@@ -293,7 +293,7 @@ def delete_session_data(session_id: str, db: Session = Depends(get_db)):
 
     sessions_deleted = db.execute(text("""
         WITH del AS (
-            DELETE FROM recommendation_sessions WHERE session_id = :sid RETURNING id
+            DELETE FROM recommendation_sessions WHERE id = :sid RETURNING id
         ) SELECT COUNT(*) FROM del
     """), {"sid": session_id}).scalar()
 

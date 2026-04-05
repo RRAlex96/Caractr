@@ -212,6 +212,11 @@ def build_profile(answers: dict) -> tuple:
     total = sum(profile.values())
     if total > 0:
         profile = {k: round(v / total, 4) for k, v in profile.items()}
+    else:
+        # Safety: if all dimensions are zero (e.g. unrecognized answers),
+        # fall back to a uniform distribution so scoring doesn't collapse.
+        uniform = round(1.0 / len(DIMENSIONS), 4)
+        profile = {d: uniform for d in DIMENSIONS}
 
     # ── Stage B: Structured profile signals ──
     signals = _build_signals(profile, answers, dream)

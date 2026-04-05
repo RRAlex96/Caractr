@@ -18,7 +18,7 @@ function FeedbackContent() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("caractr_results");
+    const stored = localStorage.getItem("caractr_results");
     if (stored) setData(JSON.parse(stored));
   }, []);
 
