@@ -158,6 +158,7 @@ export default function LandingPage() {
           height: "100vh",
           overflowY: "auto",
           scrollSnapType: "y mandatory",
+          overscrollBehavior: "contain",
         }}
       >
 
@@ -167,7 +168,7 @@ export default function LandingPage() {
         <section
           style={{
             minHeight: "100vh",
-            scrollSnapAlign: "start",
+            scrollSnapAlign: "start", scrollSnapStop: "always",
             background: "var(--bg-dark)",
             position: "relative",
             overflow: "hidden",
@@ -294,7 +295,7 @@ export default function LandingPage() {
           className="hero-grid"
           style={{
             minHeight: "100vh",
-            scrollSnapAlign: "start",
+            scrollSnapAlign: "start", scrollSnapStop: "always",
             background: "var(--bg)",
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
@@ -388,7 +389,7 @@ export default function LandingPage() {
         <section
           id="statement"
           data-reveal
-          style={{ minHeight: "100vh", scrollSnapAlign: "start", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "clamp(96px, 12vh, 130px)", paddingBottom: "clamp(56px, 7vh, 100px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
+          style={{ minHeight: "100vh", scrollSnapAlign: "start", scrollSnapStop: "always", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "clamp(120px, 14vh, 160px)", paddingBottom: "clamp(56px, 7vh, 100px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
         >
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 10, maxWidth: "800px", width: "100%" }}>
             <div style={reveal("statement", 0.05)}>
@@ -450,7 +451,7 @@ export default function LandingPage() {
         <section
           id="process"
           data-reveal
-          style={{ minHeight: "100vh", scrollSnapAlign: "start", background: "var(--bg)", display: "flex", flexDirection: "column", justifyContent: "center", padding: "clamp(40px, 5vw, 72px) clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden" }}
+          style={{ minHeight: "100vh", scrollSnapAlign: "start", scrollSnapStop: "always", background: "var(--bg)", display: "flex", flexDirection: "column", justifyContent: "center", padding: "clamp(40px, 5vw, 72px) clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden" }}
         >
           <div style={{ position: "relative", zIndex: 10, maxWidth: "1100px", margin: "0 auto", width: "100%" }}>
             <div style={reveal("process", 0)}>
@@ -538,7 +539,7 @@ export default function LandingPage() {
         <section
           id="final"
           data-reveal
-          style={{ minHeight: "100vh", scrollSnapAlign: "start", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}
+          style={{ minHeight: "100vh", scrollSnapAlign: "start", scrollSnapStop: "always", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}
         >
           <img
             src="/images/jesse-bowser-c0I4ahyGIkA-unsplash.jpg"
