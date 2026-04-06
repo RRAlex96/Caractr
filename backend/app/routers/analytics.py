@@ -16,14 +16,29 @@ router = APIRouter(prefix="/api", tags=["analytics"])
 
 # Whitelist of known event names — prevents arbitrary strings from being stored
 _KNOWN_EVENTS = frozenset({
+    # Wizard / selector flow (current names)
+    "selector_started", "selector_step_completed", "selector_completed",
+    # Legacy wizard names (backwards compat for cached browser sessions)
     "wizard_started", "wizard_completed", "wizard_step",
-    "recommend_loaded", "model_expanded", "model_analysis_started",
+    # Results
+    "results_viewed", "recommend_loaded",
+    "model_clicked", "model_expanded", "model_analysis_started",
+    # Analysis
+    "ad_analysis_requested",
     "analysis_started", "analysis_completed", "analysis_shared",
     "analysis_feedback", "analysis_feedback_reason",
+    # Trust panel
     "trust_panel_viewed", "trust_panel_feedback",
-    "shortlist_added", "concierge_opened", "concierge_submitted",
+    # Shortlist / concierge
+    "shortlist_added", "watchlist_opt_in",
+    "concierge_interest", "concierge_opened", "concierge_submitted",
+    # Feedback
+    "feedback_submitted",
+    # Profile
     "profile_shown", "quick_profile_completed",
+    # Session
     "return_visit", "dual_verdict_shown",
+    # Navigation
     "page_view",
 })
 
