@@ -175,11 +175,8 @@ INSERT INTO brands (name, country, segment) VALUES
 ('Jeep', 'EUA', 'generalista'),
 ('Subaru', 'Japão', 'generalista'),
 ('Suzuki', 'Japão', 'generalista'),
-('Alpine', 'França', 'premium'),
-('Dacia', 'Roménia', 'economico');
-
--- Fix duplicate Dacia
-DELETE FROM brands WHERE name = 'Dacia' AND id > (SELECT MIN(id) FROM brands WHERE name = 'Dacia');
+('Alpine', 'França', 'premium')
+ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
 -- VEHICLE MODELS — CATEGORY 1: CITADINOS (25)
