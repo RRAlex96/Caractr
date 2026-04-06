@@ -388,16 +388,16 @@ export default function LandingPage() {
         <section
           id="statement"
           data-reveal
-          style={{ minHeight: "100vh", scrollSnapAlign: "start", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: "clamp(112px, 16vh, 180px)", paddingBottom: "clamp(56px, 7vh, 100px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
+          style={{ minHeight: "100vh", scrollSnapAlign: "start", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: "clamp(160px, 20vh, 220px)", paddingBottom: "clamp(56px, 7vh, 100px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
         >
           <div style={{ position: "relative", zIndex: 10, maxWidth: "800px", width: "100%" }}>
             <div style={reveal("statement", 0.05)}>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 800, lineHeight: 0.88, letterSpacing: "-0.04em", color: "var(--fg-inv)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 800, lineHeight: 1, letterSpacing: "-0.04em", color: "var(--fg-inv)", overflow: "visible" }}>
                 NÃO PRECISAS
               </h2>
             </div>
             <div style={reveal("statement", 0.15)}>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 400, lineHeight: 0.88, letterSpacing: "-0.04em", color: "var(--fg-inv)", opacity: 0.2 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 400, lineHeight: 1, letterSpacing: "-0.04em", color: "var(--fg-inv)", opacity: 0.2, overflow: "visible" }}>
                 de saber nada.
               </h2>
             </div>
