@@ -389,26 +389,26 @@ export default function LandingPage() {
         <section
           id="statement"
           data-reveal
-          style={{ minHeight: "100vh", scrollSnapAlign: "start", scrollSnapStop: "always", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "clamp(120px, 14vh, 160px)", paddingBottom: "clamp(56px, 7vh, 100px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
+          style={{ height: "100vh", scrollSnapAlign: "start", scrollSnapStop: "always", background: "var(--bg-dark)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "clamp(48px, 7vh, 96px)", paddingBottom: "clamp(32px, 4vh, 56px)", paddingLeft: "clamp(32px, 5vw, 80px)", paddingRight: "clamp(32px, 5vw, 80px)", position: "relative", overflow: "hidden", textAlign: "center" }}
         >
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 10, maxWidth: "800px", width: "100%" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 10, maxWidth: "860px", width: "100%" }}>
             <div style={reveal("statement", 0.05)}>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", color: "var(--fg-inv)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.04em", color: "var(--fg-inv)" }}>
                 NÃO PRECISAS
               </h2>
             </div>
-            <div style={{ ...reveal("statement", 0.15), marginTop: "-0.06em" }}>
+            <div style={{ ...reveal("statement", 0.15), marginTop: "-0.04em" }}>
               <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 8vw, 108px)", fontWeight: 400, lineHeight: 0.88, letterSpacing: "-0.04em", color: "var(--fg-inv)", opacity: 0.2 }}>
                 de saber nada.
               </h2>
             </div>
-            <div style={{ ...reveal("statement", 0.28), marginTop: "clamp(28px, 3.5vw, 52px)" }}>
-              <h3 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px, 3vw, 40px)", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--accent)" }}>
+            <div style={{ ...reveal("statement", 0.28), marginTop: "clamp(20px, 2.5vw, 36px)" }}>
+              <h3 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(18px, 2.2vw, 32px)", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--accent)" }}>
                 Só precisas de te conhecer.
               </h3>
             </div>
-            <div style={{ ...reveal("statement", 0.4), marginTop: "28px" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: "clamp(14px, 1.2vw, 17px)", fontWeight: 300, color: "rgba(242,239,233,0.4)", lineHeight: 1.85, maxWidth: "460px", margin: "0 auto" }}>
+            <div style={{ ...reveal("statement", 0.4), marginTop: "20px" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: "clamp(13px, 1.1vw, 16px)", fontWeight: 300, color: "rgba(242,239,233,0.4)", lineHeight: 1.8, maxWidth: "440px", margin: "0 auto" }}>
                 Descreve-nos o teu estilo de vida e os teus hábitos ao volante.
                 O algoritmo faz o resto — sem tabelas de cilindradas, sem confusão.
               </p>
@@ -417,8 +417,8 @@ export default function LandingPage() {
             {/* ── Stats ── */}
             <div style={{
               ...reveal("statement", 0.55),
-              marginTop: "clamp(48px, 6vw, 72px)",
-              paddingTop: "clamp(24px, 3vw, 36px)",
+              marginTop: "clamp(28px, 3.5vw, 48px)",
+              paddingTop: "clamp(16px, 2vw, 28px)",
               borderTop: "1px solid rgba(242,239,233,0.08)",
               display: "grid",
               gridTemplateColumns: "1fr 1fr 1fr",
