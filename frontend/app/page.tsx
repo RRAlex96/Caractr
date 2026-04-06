@@ -83,9 +83,9 @@ export default function LandingPage() {
 
         // Threshold-based state updates (infrequent)
         const pastBrand = p > 0.75;
-        const pastHero = scrollTop >= sectionH * 2;
+        const pastHero = scrollTop > sectionH * 1.9;
         // Dark sections: statement (2–3 × vh) and final (4 × vh+)
-        const onDark = (scrollTop >= sectionH * 2 && scrollTop < sectionH * 3) || scrollTop >= sectionH * 4;
+        const onDark = (scrollTop > sectionH * 1.9 && scrollTop < sectionH * 3) || scrollTop >= sectionH * 4;
         setNavVisible(pastBrand);
         setShowStickyNav(pastHero);
         setNavOnDark(onDark);
