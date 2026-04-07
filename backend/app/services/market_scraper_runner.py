@@ -179,7 +179,7 @@ def _insert_normalized(
 
     db.execute(text("""
         INSERT INTO normalized_listings
-            (raw_listing_id, model_id, generation_id, year, mileage_km, price,
+            (raw_listing_id, model_id, generation_id, year, km, price,
              seller_type, location, price_vs_market, price_delta, km_per_year,
              photo_count, deal_tier, deal_score, description, created_at)
         VALUES

@@ -280,16 +280,22 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
 def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
     """Fetch model reliability info, known issues, and Bayesian trust data."""
     row = db.execute(text("""
-        SELECT vm.id, vm.reliability_score, vm.comfort_score, vm.driving_fun_score,
-               vm.family_score, vm.avg_reliability,
-               STRING_AGG(ei.issue_description, '; ') AS known_issues
+        SELECT vm.id,
+               AVG(e.reliability_score)::float        AS avg_reliability,
+               MAX(dc.comfort_score)                  AS comfort_score,
+               MAX(dc.driving_fun_score)              AS driving_fun_score,
+               MAX(dc.family_score)                   AS family_score,
+               (SELECT ROUND(AVG(g.reliability_score)::numeric, 2)
+                FROM generations g WHERE g.model_id = vm.id
+                AND g.reliability_score IS NOT NULL)  AS reliability_score,
+               STRING_AGG(DISTINCT ei.description, '; ') AS known_issues
         FROM vehicle_models vm
         JOIN brands b ON b.id = vm.brand_id
         LEFT JOIN engines e ON e.model_id = vm.id
-        LEFT JOIN engine_issues ei ON ei.engine_id = e.id AND ei.severity >= 3
+        LEFT JOIN driving_character dc ON dc.model_id = vm.id
+        LEFT JOIN engine_issues ei ON ei.engine_id = e.id AND ei.severity IN ('alto', 'critico', 'medio')
         WHERE LOWER(b.name) = LOWER(:brand) AND LOWER(vm.name) = LOWER(:model)
-        GROUP BY vm.id, vm.reliability_score, vm.comfort_score, vm.driving_fun_score,
-                 vm.family_score, vm.avg_reliability
+        GROUP BY vm.id
         LIMIT 1
     """), {"brand": brand_name, "model": model_name}).mappings().fetchone()
 
