@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Analytics } from "@/lib/analytics";
 
-// ── V4 Questions (P1–P6). Dream car (P7) and Budget (P8) are special steps. ──
+// ── V5 Questions (P1–P6, all card-based, P4 merged into P3). Dream brand (P7) and Budget (P8) are special steps. ──
 const QUESTIONS = [
   {
     id: "p1_context",
     label: "01 — Dia a dia",
-    question: "Onde passas mais tempo a conduzir?",
+    question: "Onde passas mais tempo ao volante?",
     type: "choice" as const,
     options: [
       { value: "cidade",  label: "Cidade",   desc: "Trânsito, estacionamento, trajetos curtos" },
@@ -23,41 +23,38 @@ const QUESTIONS = [
     id: "p2_relationship",
     label: "02 — Relação com o carro",
     question: "Como vês o teu carro?",
-    type: "slider" as const,
-    min: 0, max: 100,
-    leftLabel: "É só um meio de transporte",
-    rightLabel: "Adoro conduzir",
+    type: "choice" as const,
+    options: [
+      { value: "apenas_transporte", label: "Apenas transporte",  desc: "Leva-me do A ao B, sem drama" },
+      { value: "gosto_conduzir",    label: "Gosto de conduzir",  desc: "Aprecio uma boa viagem, mas não é obsessão" },
+      { value: "adoro_conduzir",    label: "Adoro conduzir",     desc: "O carro é uma extensão de mim" },
+    ],
   },
   {
     id: "p3_driving_style",
-    label: "03 — Estilo de condução",
-    question: "Como preferes sentir o carro?",
-    type: "slider" as const,
-    min: 0, max: 100,
-    leftLabel: "Conforto e suavidade",
-    rightLabel: "Sentir a estrada",
-  },
-  {
-    id: "p4_risk",
-    label: "04 — Perfil",
-    question: "Segurança total ou um pouco de carácter?",
-    type: "slider" as const,
-    min: 0, max: 100,
-    leftLabel: "Segurança primeiro",
-    rightLabel: "Gosto de carácter",
+    label: "03 — Ao volante",
+    question: "O que preferes sentir ao volante?",
+    type: "choice" as const,
+    options: [
+      { value: "suave_previsivel",     label: "Suave e previsível",    desc: "Conforto acima de tudo, zero surpresas" },
+      { value: "confortavel_com_alma", label: "Confortável com alma",  desc: "Suavidade no dia a dia, capaz quando preciso" },
+      { value: "dinamico_envolvente",  label: "Dinâmico e envolvente", desc: "Quero sentir a estrada — chassis, resposta, emoção" },
+    ],
   },
   {
     id: "p5_presence",
-    label: "05 — Presença",
-    question: "O que queres que o teu carro comunique?",
-    type: "slider" as const,
-    min: 0, max: 100,
-    leftLabel: "Discreto — não preciso de atenção",
-    rightLabel: "Com presença — gosto de ser notado",
+    label: "04 — Presença",
+    question: "O que queres que o carro comunique?",
+    type: "choice" as const,
+    options: [
+      { value: "discreto",     label: "Discreto",          desc: "Não preciso de atenção — só de um bom carro" },
+      { value: "bom_aspeto",   label: "Bom aspeto",        desc: "Elegante, sem ser ostentação" },
+      { value: "vire_cabecas", label: "Que vire cabeças",  desc: "Presença forte — gosto de ser notado" },
+    ],
   },
   {
     id: "p6_aversion",
-    label: "06 — O que não toleras",
+    label: "05 — Limites",
     question: "O que seria inaceitável no teu próximo carro?",
     type: "choice" as const,
     options: [
@@ -69,26 +66,23 @@ const QUESTIONS = [
   },
 ];
 
-const DREAM_CARS_FALLBACK = [
-  { id: "porsche_911",      name: "Porsche 911" },
-  { id: "bmw_m3",           name: "BMW M3" },
-  { id: "mercedes_s",       name: "Mercedes Classe S" },
-  { id: "tesla_model3",     name: "Tesla Model 3" },
-  { id: "volvo_xc60",       name: "Volvo XC60" },
-  { id: "mazda_mx5",        name: "Mazda MX-5" },
-  { id: "range_rover",      name: "Range Rover" },
-  { id: "toyota_landcruiser", name: "Toyota Land Cruiser" },
+const DREAM_BRANDS_FALLBACK = [
+  { id: "porsche",    name: "Porsche",     identity: "Performance sem compromisso" },
+  { id: "bmw",        name: "BMW",         identity: "O prazer de conduzir" },
+  { id: "mercedes",   name: "Mercedes",    identity: "Elegância e refinamento" },
+  { id: "toyota",     name: "Toyota",      identity: "Fiável como nada" },
+  { id: "volvo",      name: "Volvo",       identity: "Segurança e conforto escandinavo" },
+  { id: "volkswagen", name: "Volkswagen",  identity: "Sólido, maduro, sem teatros" },
 ];
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Default slider values (stored as 0–100, sent as 0.0–1.0)
-const SLIDER_DEFAULTS: Record<string, number> = {
-  p2_relationship: 50,
-  p3_driving_style: 50,
-  p4_risk: 50,
-  p5_presence: 50,
-};
+const BUDGET_PRESETS = [
+  { value: "8_15",   label: "€8.000 — €15.000",  min: 8000,  max: 15000 },
+  { value: "15_25",  label: "€15.000 — €25.000", min: 15000, max: 25000 },
+  { value: "25_40",  label: "€25.000 — €40.000", min: 25000, max: 40000 },
+  { value: "40_plus", label: "€40.000+",          min: 40000, max: 80000 },
+];
 
 const DIM_LABELS: Record<string, string> = {
   economy: "economia", comfort: "conforto", driving: "condução",
@@ -129,8 +123,7 @@ export default function EscolherPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({
-    ...SLIDER_DEFAULTS,
-    p8_budget_min: 10000,
+    p8_budget_min: 8000,
     p8_budget_max: 25000,
   });
   const [dreamCars, setDreamCars] = useState<any[]>([]);
@@ -169,10 +162,10 @@ export default function EscolherPage() {
     }
   }, []);
 
-  // Step layout: 0–5 = QUESTIONS, 6 = dream car, 7 = budget
-  const totalSteps = QUESTIONS.length + 2; // 8
-  const isDreamStep = step === QUESTIONS.length;       // step 6
-  const isBudgetStep = step === QUESTIONS.length + 1;  // step 7
+  // Step layout: 0–4 = QUESTIONS (5 questions), 5 = dream brand, 6 = budget
+  const totalSteps = QUESTIONS.length + 2; // 7
+  const isDreamStep = step === QUESTIONS.length;       // step 5
+  const isBudgetStep = step === QUESTIONS.length + 1;  // step 6
   const current = step < QUESTIONS.length ? QUESTIONS[step] : null;
   const progress = ((step + 1) / totalSteps) * 100;
 
@@ -188,19 +181,18 @@ export default function EscolherPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           p1_context:       answers.p1_context || "misto",
-          p2_relationship:  (answers.p2_relationship ?? 50) / 100,
-          p3_driving_style: (answers.p3_driving_style ?? 50) / 100,
-          p4_risk:          (answers.p4_risk ?? 50) / 100,
-          p5_presence:      (answers.p5_presence ?? 50) / 100,
+          p2_relationship:  answers.p2_relationship || "gosto_conduzir",
+          p3_driving_style: answers.p3_driving_style || "confortavel_com_alma",
+          p5_presence:      answers.p5_presence || "bom_aspeto",
           p6_aversion:      answers.p6_aversion || "nenhuma",
-          p8_budget_min:    answers.p8_budget_min || 10000,
+          p8_budget_min:    answers.p8_budget_min || 8000,
           p8_budget_max:    answers.p8_budget_max || 25000,
         }),
       });
       const data = await res.json();
-      setDreamCars(data.dream_cars || DREAM_CARS_FALLBACK);
+      setDreamCars(data.dream_cars || DREAM_BRANDS_FALLBACK);
     } catch {
-      setDreamCars(DREAM_CARS_FALLBACK);
+      setDreamCars(DREAM_BRANDS_FALLBACK);
     } finally {
       setLoading(false);
     }
@@ -229,13 +221,13 @@ export default function EscolherPage() {
     try {
       const payload = {
         p1_context:       answers.p1_context || "misto",
-        p2_relationship:  (answers.p2_relationship ?? 50) / 100,
-        p3_driving_style: (answers.p3_driving_style ?? 50) / 100,
-        p4_risk:          (answers.p4_risk ?? 50) / 100,
-        p5_presence:      (answers.p5_presence ?? 50) / 100,
+        p2_relationship:  answers.p2_relationship || "gosto_conduzir",
+        p3_driving_style: answers.p3_driving_style || "confortavel_com_alma",
+        p5_presence:      answers.p5_presence || "bom_aspeto",
         p6_aversion:      answers.p6_aversion || "nenhuma",
-        p7_dream_car:     answers.p7_dream_car || null,
-        p8_budget_min:    answers.p8_budget_min || 10000,
+        p7_dream_brand:   answers.p7_dream_brand || null,
+        p8_budget_range:  answers.p8_budget_range || null,
+        p8_budget_min:    answers.p8_budget_min || 8000,
         p8_budget_max:    answers.p8_budget_max || 25000,
       };
       const res = await fetch(`${API}/api/recommend`, {
@@ -266,11 +258,6 @@ export default function EscolherPage() {
   const goToResults = () => {
     router.push("/resultados");
   };
-
-  // ── Slider value for the current step ──
-  const sliderVal = current?.type === "slider"
-    ? (answers[current.id] ?? SLIDER_DEFAULTS[current.id] ?? 50)
-    : 50;
 
   // ── Profile interpretation screens ──────────────────────────────────────
   if (profileStage === "interpreting") {
@@ -591,49 +578,10 @@ export default function EscolherPage() {
                 </div>
               )}
 
-              {/* ── Slider type (generic — works for all 4 sliders) ── */}
-              {current.type === "slider" && (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "clamp(16px, 3vw, 32px)", marginBottom: "32px" }}>
-                    <span style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "clamp(36px, 5vw, 48px)", fontWeight: 800,
-                      color: "var(--accent)", opacity: 0.3, lineHeight: 1, minWidth: "64px",
-                    }}>
-                      {sliderVal}
-                    </span>
-                    <input
-                      type="range"
-                      min={current.min} max={current.max} step={1}
-                      value={sliderVal}
-                      onChange={(e) =>
-                        setAnswers((p) => ({ ...p, [current.id]: Number(e.target.value) }))
-                      }
-                      className="w-full"
-                    />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 300, fontFamily: "var(--font-body)", maxWidth: "45%" }}>
-                      {current.leftLabel}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 300, fontFamily: "var(--font-body)", maxWidth: "45%", textAlign: "right" }}>
-                      {current.rightLabel}
-                    </span>
-                  </div>
-                  <div style={{ marginTop: "48px" }}>
-                    <button onClick={() => {
-                      Analytics.stepCompleted(step + 1, current.id, sliderVal);
-                      goToStep(step + 1);
-                    }} className="pill-btn">
-                      continuar
-                    </button>
-                  </div>
-                </div>
-              )}
             </>
           )}
 
-          {/* ── P7: Dream Car ── */}
+          {/* ── P7: Dream Brand ── */}
           {isDreamStep && (
             <>
               <div style={{ width: "48px", height: "2px", background: "var(--accent)", borderRadius: "1px", marginBottom: "20px" }} />
@@ -641,7 +589,7 @@ export default function EscolherPage() {
                 fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--accent)",
                 marginBottom: "16px", textTransform: "uppercase", letterSpacing: "2px",
               }}>
-                07 — Opcional
+                06 — Opcional
               </p>
               <h2 style={{
                 fontFamily: "var(--font-display)",
@@ -654,7 +602,7 @@ export default function EscolherPage() {
                 fontSize: "14px", color: "var(--muted)", marginBottom: "36px",
                 fontWeight: 300, lineHeight: 1.6, fontFamily: "var(--font-body)",
               }}>
-                O carro de sonho diz muito sobre ti. Escolhe um — ou salta este passo.
+                A marca de sonho diz muito sobre ti. Escolhe uma — ou salta este passo.
               </p>
 
               {loading ? (
@@ -666,13 +614,13 @@ export default function EscolherPage() {
                 </div>
               ) : (
                 <div style={{ borderTop: "1px solid var(--border)" }}>
-                  {dreamCars.slice(0, 8).map((car, idx) => {
-                    const selected = answers.p7_dream_car === car.id;
+                  {dreamCars.slice(0, 6).map((brand, idx) => {
+                    const selected = answers.p7_dream_brand === brand.id;
                     return (
                       <button
-                        key={car.id}
-                        aria-label={`Selecionar ${car.display_name || car.id} como carro de sonho`}
-                        onClick={() => setAnswers((p) => ({ ...p, p7_dream_car: car.id }))}
+                        key={brand.id}
+                        aria-label={`Selecionar ${brand.name} como marca de sonho`}
+                        onClick={() => setAnswers((p) => ({ ...p, p7_dream_brand: brand.id }))}
                         style={{
                           display: "flex", alignItems: "center", gap: "20px",
                           width: "100%", textAlign: "left",
@@ -705,26 +653,38 @@ export default function EscolherPage() {
                         }}>
                           {String(idx + 1).padStart(2, "0")}
                         </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-                          <div
-                            data-line
-                            style={{
-                              width: selected ? "24px" : "0px", height: "2px",
-                              background: "var(--accent)", borderRadius: "1px",
-                              transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)", flexShrink: 0,
-                            }}
-                          />
-                          <span
-                            data-label
-                            style={{
-                              fontFamily: "var(--font-display)",
-                              fontSize: "clamp(16px, 2vw, 20px)", fontWeight: 700,
-                              color: "var(--fg)", letterSpacing: "-0.01em",
-                              transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-                            }}
-                          >
-                            {car.name}
-                          </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div
+                              data-line
+                              style={{
+                                width: selected ? "24px" : "0px", height: "2px",
+                                background: "var(--accent)", borderRadius: "1px",
+                                transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)", flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              data-label
+                              style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(16px, 2vw, 20px)", fontWeight: 700,
+                                color: "var(--fg)", letterSpacing: "-0.01em",
+                                transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                              }}
+                            >
+                              {brand.name}
+                            </span>
+                          </div>
+                          {brand.identity && (
+                            <p style={{
+                              fontSize: "12px", color: "var(--muted)", fontWeight: 300,
+                              fontFamily: "var(--font-body)", marginTop: "3px",
+                              marginLeft: selected ? "36px" : "0px",
+                              transition: "margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                            }}>
+                              {brand.identity}
+                            </p>
+                          )}
                         </div>
                         <div style={{
                           width: "8px", height: "8px", borderRadius: "50%",
@@ -740,7 +700,7 @@ export default function EscolherPage() {
 
               <div style={{ display: "flex", gap: "16px", marginTop: "40px", flexWrap: "wrap" }}>
                 <button onClick={() => goToStep(step + 1)} className="pill-btn">
-                  {answers.p7_dream_car ? "continuar" : "saltar"}
+                  {answers.p7_dream_brand ? "continuar" : "saltar"}
                 </button>
               </div>
             </>
@@ -754,7 +714,7 @@ export default function EscolherPage() {
                 fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--accent)",
                 marginBottom: "16px", textTransform: "uppercase", letterSpacing: "2px",
               }}>
-                08 — Orçamento
+                07 — Orçamento
               </p>
               <h2 style={{
                 fontFamily: "var(--font-display)",
@@ -770,60 +730,85 @@ export default function EscolherPage() {
                 O orçamento é o último filtro — não o ponto de partida.
               </p>
 
-              <div style={{ marginBottom: "40px" }}>
-                <div style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px",
-                }}>
-                  <span style={{
-                    fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--muted)",
-                    textTransform: "uppercase", letterSpacing: "2px",
-                  }}>mínimo</span>
-                  <span style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 700, color: "var(--accent)",
-                  }}>
-                    {(answers.p8_budget_min || 10000).toLocaleString("pt-PT")}€
-                  </span>
-                </div>
-                <input
-                  aria-label="Orçamento mínimo"
-                  type="range" min={3000} max={60000} step={1000}
-                  value={answers.p8_budget_min || 10000}
-                  onChange={(e) => setAnswers((p) => ({ ...p, p8_budget_min: Number(e.target.value) }))}
-                  className="w-full"
-                />
-              </div>
-
-              <div style={{ marginBottom: "48px" }}>
-                <div style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px",
-                }}>
-                  <span style={{
-                    fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--muted)",
-                    textTransform: "uppercase", letterSpacing: "2px",
-                  }}>máximo</span>
-                  <span style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 700, color: "var(--accent)",
-                  }}>
-                    {(answers.p8_budget_max || 25000).toLocaleString("pt-PT")}€
-                  </span>
-                </div>
-                <input
-                  aria-label="Orçamento máximo"
-                  type="range" min={5000} max={80000} step={1000}
-                  value={answers.p8_budget_max || 25000}
-                  onChange={(e) => setAnswers((p) => ({ ...p, p8_budget_max: Number(e.target.value) }))}
-                  className="w-full"
-                />
+              <div style={{ borderTop: "1px solid var(--border)", marginBottom: "40px" }}>
+                {BUDGET_PRESETS.map((preset) => {
+                  const selected = answers.p8_budget_range === preset.value;
+                  return (
+                    <button
+                      key={preset.value}
+                      aria-label={`Orçamento ${preset.label}`}
+                      onClick={() => setAnswers((p) => ({
+                        ...p,
+                        p8_budget_range: preset.value,
+                        p8_budget_min: preset.min,
+                        p8_budget_max: preset.max,
+                      }))}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "20px",
+                        width: "100%", textAlign: "left",
+                        padding: "clamp(18px, 3vw, 28px) 0",
+                        background: "none", border: "none",
+                        borderBottom: "1px solid var(--border)",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!selected) {
+                          const label = e.currentTarget.querySelector('[data-label]') as HTMLElement;
+                          if (label) label.style.transform = "translateX(8px)";
+                          const line = e.currentTarget.querySelector('[data-line]') as HTMLElement;
+                          if (line) line.style.width = "24px";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!selected) {
+                          const label = e.currentTarget.querySelector('[data-label]') as HTMLElement;
+                          if (label) label.style.transform = "translateX(0)";
+                          const line = e.currentTarget.querySelector('[data-line]') as HTMLElement;
+                          if (line) line.style.width = "0px";
+                        }
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+                        <div
+                          data-line
+                          style={{
+                            width: selected ? "24px" : "0px", height: "2px",
+                            background: "var(--accent)", borderRadius: "1px",
+                            transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)", flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          data-label
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(18px, 2.5vw, 24px)", fontWeight: 700,
+                            color: "var(--fg)", letterSpacing: "-0.01em",
+                            transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                          }}
+                        >
+                          {preset.label}
+                        </span>
+                      </div>
+                      <div style={{
+                        width: "8px", height: "8px", borderRadius: "50%",
+                        background: selected ? "var(--accent)" : "transparent",
+                        border: selected ? "none" : "1px solid var(--border)",
+                        flexShrink: 0, transition: "all 0.2s ease",
+                      }} />
+                    </button>
+                  );
+                })}
               </div>
 
               <button
                 aria-label="Ver as minhas recomendações"
                 onClick={submit}
-                disabled={submitting}
+                disabled={submitting || !answers.p8_budget_range}
                 className="pill-btn-solid"
-                style={{ opacity: submitting ? 0.5 : 1, cursor: submitting ? "wait" : "pointer" }}
+                style={{
+                  opacity: (submitting || !answers.p8_budget_range) ? 0.5 : 1,
+                  cursor: submitting ? "wait" : !answers.p8_budget_range ? "default" : "pointer",
+                }}
               >
                 {submitting ? "a analisar..." : "ver resultados"}
               </button>

@@ -5,8 +5,8 @@ Endpoints: /recommend, /dream-cars, /feedback, /profile-dimensions
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, model_validator
+from typing import Optional, Union
 from app.db.database import get_db
 from app.services.recommend_service import get_recommendations, get_dream_cars, log_feedback
 
@@ -16,25 +16,36 @@ router = APIRouter(prefix="/api", tags=["recommend"])
 # ── Request models ──
 
 class WizardAnswers(BaseModel):
-    # V4 fields
-    p1_context:       str   = "misto"    # cidade | misto | estrada | familia
-    p2_relationship:  float = 0.5        # 0.0 = só uso ↔ 1.0 = adoro conduzir
-    p3_driving_style: float = 0.5        # 0.0 = conforto ↔ 1.0 = sentir o carro
-    p4_risk:          float = 0.5        # 0.0 = segurança ↔ 1.0 = carácter
-    p5_presence:      float = 0.5        # 0.0 = discreto ↔ 1.0 = presença
-    p6_aversion:      str   = "nenhuma"  # conforto | fiabilidade | espaco | potencia | nenhuma
-    p7_dream_car:     Optional[str] = None
+    """V5: Accepts both string card choices (V5) and float slider values (V4 backward compat)."""
+    p1_context:       str   = "misto"
+    p2_relationship:  Union[str, float] = "gosto_conduzir"
+    p3_driving_style: Union[str, float] = "confortavel_com_alma"
+    p4_risk:          Optional[Union[str, float]] = None   # V5 derives from P3; V4 sends explicit
+    p5_presence:      Union[str, float] = "bom_aspeto"
+    p6_aversion:      str   = "nenhuma"
+    p7_dream_brand:   Optional[str] = None
+    p7_dream_car:     Optional[str] = None   # V4 backward compat
+    p8_budget_range:  Optional[str] = None   # V5: "8_15" | "15_25" | "25_40" | "40_plus"
     p8_budget_min:    int   = 8000
     p8_budget_max:    int   = 25000
 
+    @model_validator(mode="after")
+    def _compat(self):
+        # V4 backward compat: p7_dream_car → p7_dream_brand
+        if self.p7_dream_car and not self.p7_dream_brand:
+            self.p7_dream_brand = self.p7_dream_car
+        return self
+
 
 class DreamCarRequest(BaseModel):
+    """V5: Partial profile for fetching dynamic dream brands."""
     p1_context:       str   = "misto"
-    p2_relationship:  float = 0.5
-    p3_driving_style: float = 0.5
-    p4_risk:          float = 0.5
-    p5_presence:      float = 0.5
+    p2_relationship:  Union[str, float] = "gosto_conduzir"
+    p3_driving_style: Union[str, float] = "confortavel_com_alma"
+    p4_risk:          Optional[Union[str, float]] = None
+    p5_presence:      Union[str, float] = "bom_aspeto"
     p6_aversion:      str   = "nenhuma"
+    p8_budget_range:  Optional[str] = None
     p8_budget_min:    int   = 8000
     p8_budget_max:    int   = 25000
 

@@ -46,30 +46,57 @@ BRAND_STATUS = {
     "Smart": 0.30, "Omoda": 0.10,
 }
 
-DREAM_CAR_TRAITS = {
-    "porsche_911":       {"economy": 0.0, "comfort": 0.3, "driving": 1.0, "practical": 0.0, "status": 0.7, "reliability": 0.4},
-    "bmw_m3":            {"economy": 0.0, "comfort": 0.4, "driving": 0.9, "practical": 0.2, "status": 0.6, "reliability": 0.3},
-    "alfa_giulia_qv":    {"economy": 0.0, "comfort": 0.3, "driving": 1.0, "practical": 0.1, "status": 0.5, "reliability": 0.1},
-    "toyota_supra":      {"economy": 0.0, "comfort": 0.2, "driving": 0.9, "practical": 0.0, "status": 0.5, "reliability": 0.5},
-    "audi_rs6":          {"economy": 0.0, "comfort": 0.6, "driving": 0.8, "practical": 0.7, "status": 0.8, "reliability": 0.4},
-    "mercedes_s":        {"economy": 0.0, "comfort": 1.0, "driving": 0.3, "practical": 0.4, "status": 0.9, "reliability": 0.5},
-    "bmw_7":             {"economy": 0.0, "comfort": 0.9, "driving": 0.4, "practical": 0.4, "status": 0.9, "reliability": 0.4},
-    "range_rover":       {"economy": 0.0, "comfort": 0.8, "driving": 0.3, "practical": 0.6, "status": 1.0, "reliability": 0.2},
-    "tesla_model3":      {"economy": 0.7, "comfort": 0.5, "driving": 0.5, "practical": 0.5, "status": 0.5, "reliability": 0.5},
-    "volvo_xc60":        {"economy": 0.2, "comfort": 0.8, "driving": 0.3, "practical": 0.7, "status": 0.5, "reliability": 0.6},
-    "toyota_landcruiser": {"economy": 0.1, "comfort": 0.6, "driving": 0.2, "practical": 1.0, "status": 0.4, "reliability": 0.9},
-    "honda_civic_typer":  {"economy": 0.1, "comfort": 0.3, "driving": 1.0, "practical": 0.3, "status": 0.4, "reliability": 0.7},
-    "mazda_mx5":         {"economy": 0.3, "comfort": 0.3, "driving": 1.0, "practical": 0.0, "status": 0.3, "reliability": 0.8},
-    "vw_golf_gti":       {"economy": 0.2, "comfort": 0.5, "driving": 0.8, "practical": 0.5, "status": 0.4, "reliability": 0.5},
-    "lexus_ls":          {"economy": 0.1, "comfort": 1.0, "driving": 0.3, "practical": 0.4, "status": 0.8, "reliability": 0.9},
-    "porsche_cayenne":   {"economy": 0.0, "comfort": 0.7, "driving": 0.7, "practical": 0.6, "status": 0.9, "reliability": 0.5},
-    "defender":          {"economy": 0.0, "comfort": 0.4, "driving": 0.4, "practical": 0.9, "status": 0.7, "reliability": 0.2},
-    "ford_bronco":       {"economy": 0.1, "comfort": 0.3, "driving": 0.5, "practical": 0.8, "status": 0.5, "reliability": 0.3},
-    "dacia_duster":      {"economy": 0.8, "comfort": 0.2, "driving": 0.2, "practical": 0.8, "status": 0.0, "reliability": 0.6},
-    "toyota_yaris":      {"economy": 0.9, "comfort": 0.4, "driving": 0.3, "practical": 0.4, "status": 0.0, "reliability": 0.9},
-    "mercedes_amg_gt":   {"economy": 0.0, "comfort": 0.4, "driving": 0.9, "practical": 0.0, "status": 1.0, "reliability": 0.3},
-    "kia_ev6_gt":        {"economy": 0.5, "comfort": 0.6, "driving": 0.8, "practical": 0.5, "status": 0.5, "reliability": 0.6},
-    "nenhum":            {"economy": 0.2, "comfort": 0.2, "driving": 0.2, "practical": 0.2, "status": 0.1, "reliability": 0.3},
+DREAM_BRAND_TRAITS = {
+    "porsche":    {"economy": 0.0, "comfort": 0.4, "driving": 0.9, "practical": 0.1, "status": 0.9, "reliability": 0.5},
+    "bmw":        {"economy": 0.1, "comfort": 0.5, "driving": 0.8, "practical": 0.3, "status": 0.7, "reliability": 0.4},
+    "mercedes":   {"economy": 0.0, "comfort": 0.9, "driving": 0.4, "practical": 0.5, "status": 0.8, "reliability": 0.5},
+    "audi":       {"economy": 0.1, "comfort": 0.7, "driving": 0.6, "practical": 0.5, "status": 0.7, "reliability": 0.5},
+    "tesla":      {"economy": 0.6, "comfort": 0.6, "driving": 0.5, "practical": 0.5, "status": 0.6, "reliability": 0.5},
+    "volvo":      {"economy": 0.2, "comfort": 0.8, "driving": 0.3, "practical": 0.7, "status": 0.5, "reliability": 0.7},
+    "toyota":     {"economy": 0.7, "comfort": 0.5, "driving": 0.3, "practical": 0.7, "status": 0.2, "reliability": 0.95},
+    "land_rover": {"economy": 0.0, "comfort": 0.7, "driving": 0.4, "practical": 0.7, "status": 0.8, "reliability": 0.2},
+    "alfa_romeo": {"economy": 0.0, "comfort": 0.4, "driving": 0.9, "practical": 0.2, "status": 0.5, "reliability": 0.2},
+    "lexus":      {"economy": 0.2, "comfort": 0.9, "driving": 0.3, "practical": 0.5, "status": 0.7, "reliability": 0.9},
+    "volkswagen": {"economy": 0.4, "comfort": 0.5, "driving": 0.4, "practical": 0.6, "status": 0.3, "reliability": 0.5},
+    "mazda":      {"economy": 0.4, "comfort": 0.5, "driving": 0.7, "practical": 0.4, "status": 0.3, "reliability": 0.7},
+    "dacia":      {"economy": 0.9, "comfort": 0.2, "driving": 0.2, "practical": 0.7, "status": 0.0, "reliability": 0.5},
+    "mini":       {"economy": 0.3, "comfort": 0.3, "driving": 0.7, "practical": 0.2, "status": 0.4, "reliability": 0.4},
+    "jeep":       {"economy": 0.1, "comfort": 0.4, "driving": 0.4, "practical": 0.6, "status": 0.5, "reliability": 0.3},
+    "hyundai":    {"economy": 0.6, "comfort": 0.5, "driving": 0.3, "practical": 0.6, "status": 0.2, "reliability": 0.6},
+    "nenhuma":    {"economy": 0.2, "comfort": 0.2, "driving": 0.2, "practical": 0.2, "status": 0.1, "reliability": 0.3},
+}
+
+# Backward compatibility alias
+DREAM_CAR_TRAITS = DREAM_BRAND_TRAITS
+
+_DREAM_BRAND_DISPLAY = {
+    "porsche":    "Porsche",     "bmw":        "BMW",
+    "mercedes":   "Mercedes",    "audi":       "Audi",
+    "tesla":      "Tesla",       "volvo":      "Volvo",
+    "toyota":     "Toyota",      "land_rover": "Land Rover",
+    "alfa_romeo": "Alfa Romeo",  "lexus":      "Lexus",
+    "volkswagen": "Volkswagen",  "mazda":      "Mazda",
+    "dacia":      "Dacia",       "mini":       "MINI",
+    "jeep":       "Jeep",        "hyundai":    "Hyundai",
+}
+
+_DREAM_BRAND_IDENTITY = {
+    "porsche":    "Performance sem compromisso",
+    "bmw":        "Prazer de conduzir, sempre",
+    "mercedes":   "Luxo e refinamento",
+    "audi":       "Tecnologia e elegância",
+    "tesla":      "O futuro, agora",
+    "volvo":      "Segurança e conforto escandinavo",
+    "toyota":     "Fiável como nada",
+    "land_rover": "Aventura e presença",
+    "alfa_romeo": "Paixão italiana ao volante",
+    "lexus":      "Perfeição silenciosa",
+    "volkswagen": "O clássico que funciona",
+    "mazda":      "Elegância com alma de condutor",
+    "dacia":      "O essencial, sem teatro",
+    "mini":       "Personalidade urbana",
+    "jeep":       "Liberdade sem limites",
+    "hyundai":    "Valor inteligente",
 }
 
 # Headline templates: (profile_top, model_best) -> [primary, alternate]
@@ -148,9 +175,31 @@ TRADEOFF_TEMPLATES = {
 # PHASE 1: BUILD PROFILE
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+def _resolve_float(raw, mapping: dict | None, default: float) -> float:
+    """Convert string choice to float, or pass through float values for backward compat."""
+    if mapping and isinstance(raw, str) and raw in mapping:
+        return mapping[raw]
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+# ── String → float mappings for card-based choices (V5) ──
+_P2_MAP = {"apenas_transporte": 0.15, "gosto_conduzir": 0.50, "adoro_conduzir": 0.85}
+_P3_MAP = {"suave_previsivel": 0.15, "confortavel_com_alma": 0.50, "dinamico_envolvente": 0.85}
+_P5_MAP = {"discreto": 0.15, "bom_aspeto": 0.50, "vire_cabecas": 0.90}
+_BUDGET_RANGE_MAP = {
+    "8_15":  (8000, 15000),
+    "15_25": (15000, 25000),
+    "25_40": (25000, 40000),
+    "40_plus": (40000, 80000),
+}
+
+
 def build_profile(answers: dict) -> tuple:
     """
-    V4: Build 6D normalized profile + structured signals from wizard answers.
+    V5: Build 6D normalized profile + structured signals from wizard answers.
+    Accepts both V4 float values and V5 string card choices.
     Returns (profile_dict, signals_dict).
     """
     profile = {d: 0.0 for d in DIMENSIONS}
@@ -166,30 +215,36 @@ def build_profile(answers: dict) -> tuple:
     for dim, w in ctx_weights.get(ctx, ctx_weights["misto"]).items():
         profile[dim] += w
 
-    # ── P2: Relationship with car (0 = só uso, 1 = adoro conduzir) ──
-    rel = float(answers.get("p2_relationship", 0.5))
+    # ── P2: Relationship with car ──
+    rel = _resolve_float(answers.get("p2_relationship", 0.5), _P2_MAP, 0.5)
     profile["driving"]     += rel * 0.18
     profile["economy"]     += (1.0 - rel) * 0.12
     profile["reliability"] += (1.0 - rel) * 0.08
 
-    # ── P3: Driving style (0 = conforto, 1 = sentir o carro) ──
-    style = float(answers.get("p3_driving_style", 0.5))
+    # ── P3: Driving style + risk (merged P3+P4 in V5) ──
+    style = _resolve_float(answers.get("p3_driving_style", 0.5), _P3_MAP, 0.5)
+    # Driving style weights (original P3)
     profile["driving"] += style * 0.18
     profile["comfort"] += (1.0 - style) * 0.18
-
-    # ── P4: Risk (0 = segurança, 1 = carácter) ──
-    risk = float(answers.get("p4_risk", 0.5))
+    # Risk/character weights (originally P4, now derived from driving style)
+    risk = float(answers.get("p4_risk", style))  # V4 sends explicit p4_risk; V5 derives from p3
     profile["reliability"] += (1.0 - risk) * 0.18
     profile["driving"]     += risk * 0.14
     profile["status"]      += risk * 0.06
 
-    # ── P5: Presence (0 = discreto, 1 = presença) ──
-    presence = float(answers.get("p5_presence", 0.5))
+    # ── P5: Presence ──
+    presence = _resolve_float(answers.get("p5_presence", 0.5), _P5_MAP, 0.5)
     profile["status"]  += presence * 0.20
     profile["economy"] += (1.0 - presence) * 0.06
 
     # ── P8: Budget (indirect signal — last question, light influence) ──
-    budget_max = int(answers.get("p8_budget_max", 20000))
+    budget_range = answers.get("p8_budget_range")
+    if budget_range and budget_range in _BUDGET_RANGE_MAP:
+        budget_min, budget_max = _BUDGET_RANGE_MAP[budget_range]
+        answers["p8_budget_min"] = budget_min
+        answers["p8_budget_max"] = budget_max
+    else:
+        budget_max = int(answers.get("p8_budget_max", 20000))
     if budget_max < 12000:
         profile["economy"]     += 0.14
         profile["reliability"] += 0.08
@@ -202,11 +257,11 @@ def build_profile(answers: dict) -> tuple:
         profile["status"]  += 0.12
         profile["driving"] += 0.06
 
-    # ── P7: Dream car (30% influence — identity correction) ──
-    dream = answers.get("p7_dream_car")
-    if dream and dream in DREAM_CAR_TRAITS:
+    # ── P7: Dream brand (30% influence — identity correction) ──
+    dream = answers.get("p7_dream_brand") or answers.get("p7_dream_car")
+    if dream and dream in DREAM_BRAND_TRAITS:
         for dim in DIMENSIONS:
-            profile[dim] += DREAM_CAR_TRAITS[dream].get(dim, 0.0) * 0.30
+            profile[dim] += DREAM_BRAND_TRAITS[dream].get(dim, 0.0) * 0.30
 
     # ── Normalize ──
     total = sum(profile.values())
@@ -226,15 +281,16 @@ def build_profile(answers: dict) -> tuple:
 
 def _build_signals(profile: dict, answers: dict, dream: str | None) -> dict:
     """Emit structured qualitative signals alongside the numeric vector."""
-    presence = float(answers.get("p5_presence", 0.5))
-    rel      = float(answers.get("p2_relationship", 0.5))
+    presence = _resolve_float(answers.get("p5_presence", 0.5), _P5_MAP, 0.5)
+    rel      = _resolve_float(answers.get("p2_relationship", 0.5), _P2_MAP, 0.5)
 
     # identity_bias
     if presence >= 0.65 and profile.get("status", 0) > 0.18:
         identity_bias = "prestige-oriented" if profile.get("status", 0) > 0.28 else "expressive"
     elif presence < 0.3 and rel < 0.4:
         identity_bias = "understated"
-    elif dream and dream in ("porsche_911", "bmw_m3", "alfa_giulia_qv", "mercedes_amg_gt"):
+    elif dream and dream in ("porsche_911", "bmw_m3", "alfa_giulia_qv", "mercedes_amg_gt",
+                              "porsche", "bmw", "alfa_romeo", "mercedes"):
         identity_bias = "aspirational"
     else:
         identity_bias = "balanced"
@@ -250,17 +306,18 @@ def _build_signals(profile: dict, answers: dict, dream: str | None) -> dict:
     anti_pattern = anti_pattern_map.get(aversion, "none")
 
     # engagement_bias
-    if rel > 0.65 and float(answers.get("p3_driving_style", 0.5)) > 0.55:
+    style = _resolve_float(answers.get("p3_driving_style", 0.5), _P3_MAP, 0.5)
+    if rel > 0.65 and style > 0.55:
         engagement_bias = "wants_to_enjoy_driving"
     elif presence > 0.65:
         engagement_bias = "wants_status_expression"
     else:
         engagement_bias = "wants_low_cognitive_load"
 
-    # latent_override: dream car suggests higher status/driving than explicit answers
+    # latent_override: dream brand suggests higher status/driving than explicit answers
     latent_override = False
-    if dream and dream in DREAM_CAR_TRAITS:
-        dream_traits = DREAM_CAR_TRAITS[dream]
+    if dream and dream in DREAM_BRAND_TRAITS:
+        dream_traits = DREAM_BRAND_TRAITS[dream]
         explicit_driving = profile.get("driving", 0)
         explicit_status  = profile.get("status", 0)
         if (dream_traits.get("driving", 0) > explicit_driving + 0.15 or
@@ -284,19 +341,9 @@ _DIM_LABELS = {
     "practical": "praticidade", "status": "imagem", "reliability": "fiabilidade",
 }
 
-_DREAM_CAR_NAMES = {
-    "porsche_911": "Porsche 911", "bmw_m3": "BMW M3",
-    "alfa_giulia_qv": "Alfa Romeo Giulia QV", "toyota_supra": "Toyota Supra",
-    "audi_rs6": "Audi RS6", "mercedes_s": "Mercedes Classe S",
-    "bmw_7": "BMW Série 7", "range_rover": "Range Rover",
-    "tesla_model3": "Tesla Model 3", "volvo_xc60": "Volvo XC60",
-    "toyota_landcruiser": "Toyota Land Cruiser", "honda_civic_typer": "Honda Civic Type R",
-    "mazda_mx5": "Mazda MX-5", "vw_golf_gti": "VW Golf GTI",
-    "lexus_ls": "Lexus LS", "porsche_cayenne": "Porsche Cayenne",
-    "defender": "Land Rover Defender", "ford_bronco": "Ford Bronco",
-    "dacia_duster": "Dacia Duster", "toyota_yaris": "Toyota Yaris",
-    "mercedes_amg_gt": "Mercedes-AMG GT", "kia_ev6_gt": "Kia EV6 GT",
-}
+_DREAM_BRAND_NAMES = _DREAM_BRAND_DISPLAY
+# Backward compat alias
+_DREAM_CAR_NAMES = _DREAM_BRAND_NAMES
 
 
 def generate_profile_narrative(profile: dict, signals: dict, answers: dict) -> dict:
@@ -316,12 +363,12 @@ def generate_profile_narrative(profile: dict, signals: dict, answers: dict) -> d
     else:
         priorities = "Perfil equilibrado entre as várias dimensões."
 
-    # Tension sentence (only when latent_override — dream car reveals hidden preference)
+    # Tension sentence (only when latent_override — dream brand reveals hidden preference)
     tension = None
-    dream = answers.get("p7_dream_car")
-    if signals.get("latent_override") and dream and dream in _DREAM_CAR_NAMES:
-        car_name = _DREAM_CAR_NAMES[dream]
-        tension = f"O teu carro de sonho ({car_name}) revela uma atração escondida por performance — levámos isso em conta."
+    dream = answers.get("p7_dream_car") or answers.get("p7_dream_brand")
+    if signals.get("latent_override") and dream and dream in _DREAM_BRAND_DISPLAY:
+        brand_name = _DREAM_BRAND_DISPLAY[dream]
+        tension = f"A tua marca de sonho ({brand_name}) revela uma atração escondida por performance — levámos isso em conta."
 
     # Aversion sentence
     aversion = None
@@ -565,7 +612,7 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
     # For profiles where the user is explicitly non-status-oriented (presence < 0.30),
     # compress the status dimension's contribution — prevents premium brand "bleed"
     # from pulling their models into slots they don't deserve on profile fit alone.
-    presence = float(answers.get("p5_presence", 0.5))
+    presence = _resolve_float(answers.get("p5_presence", 0.5), _P5_MAP, 0.5)
     if presence < 0.30:
         mv = dict(mv)
         # Pull status score toward the mean (0.35) — softens the premium gap
@@ -1228,13 +1275,18 @@ def _summarize_profile(profile: dict) -> str:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def get_dream_cars(answers: dict) -> list:
-    """Return sorted dream cars for P7 based on partial profile."""
+    """Return top 6 dream brands for P7 based on partial profile similarity."""
     partial, _ = build_profile(answers)
     scored = []
-    for key, traits in DREAM_CAR_TRAITS.items():
-        if key == "nenhum":
+    for key, traits in DREAM_BRAND_TRAITS.items():
+        if key == "nenhuma":
             continue
         sim = sum(partial.get(d, 0) * traits.get(d, 0) for d in DIMENSIONS)
-        scored.append({"id": key, "name": key.replace("_", " ").title(), "score": round(sim, 3)})
+        scored.append({
+            "id": key,
+            "name": _DREAM_BRAND_DISPLAY.get(key, key.replace("_", " ").title()),
+            "identity": _DREAM_BRAND_IDENTITY.get(key, ""),
+            "score": round(sim, 3),
+        })
     scored.sort(key=lambda x: x["score"], reverse=True)
-    return scored[:8]
+    return scored[:6]
