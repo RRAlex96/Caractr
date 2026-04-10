@@ -840,20 +840,166 @@ def _infer_primary_body(ctx: str) -> str:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# LLM EXPLANATION GENERATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_P2_LABEL = {
+    "apenas_transporte": "apenas transporte, sem envolvimento",
+    "gosto_conduzir":    "gosta de conduzir, aprecia uma boa viagem",
+    "adoro_conduzir":    "adora conduzir, o carro é uma extensão de si",
+}
+_P3_LABEL = {
+    "suave_previsivel":     "prefere condução suave e previsível",
+    "confortavel_com_alma": "quer conforto com alguma alma ao volante",
+    "dinamico_envolvente":  "quer dinamismo e envolvimento total",
+}
+_P5_LABEL = {
+    "discreto":     "quer um carro discreto, sem chamar atenção",
+    "bom_aspeto":   "quer bom aspeto sem ostentação",
+    "vire_cabecas": "quer presença e impacto visual",
+}
+_P6_LABEL = {
+    "fiabilidade": "problemas mecânicos/avarias",
+    "conforto":    "desconforto/suspensão dura",
+    "espaco":      "falta de espaço",
+    "potencia":    "falta de resposta do motor",
+}
+_CTX_LABEL = {
+    "cidade":  "maioritariamente cidade (trânsito, estacionamento)",
+    "estrada": "maioritariamente estrada (autoestrada, viagens longas)",
+    "familia": "uso familiar (escola, compras, todos a bordo)",
+    "misto":   "uso misto (cidade e estrada)",
+}
+
+
+def _build_llm_prompt(top5: list, profile: dict, answers: dict) -> str:
+    """Build the Gemini prompt for batch recommendation generation."""
+    dim_pt = {
+        "economy": "economia/custo", "comfort": "conforto",
+        "driving": "prazer de condução", "practical": "praticidade",
+        "status": "imagem/presença", "reliability": "fiabilidade",
+    }
+    sorted_profile = sorted(profile.items(), key=lambda x: x[1], reverse=True)
+    profile_str = ", ".join(
+        f"{dim_pt.get(k, k)} {int(v*100)}%" for k, v in sorted_profile
+    )
+
+    p1 = _CTX_LABEL.get(answers.get("p1_context", "misto"), "uso misto")
+    p2 = _P2_LABEL.get(str(answers.get("p2_relationship", "")), "gosta de conduzir")
+    p3 = _P3_LABEL.get(str(answers.get("p3_driving_style", "")), "conforto com alma")
+    p5 = _P5_LABEL.get(str(answers.get("p5_presence", "")), "bom aspeto")
+    p6 = _P6_LABEL.get(answers.get("p6_aversion", "nenhuma"), "nenhuma")
+    dream = answers.get("p7_dream_brand") or answers.get("p7_dream_car")
+    dream_str = f"{_DREAM_BRAND_DISPLAY.get(dream, dream)}" if dream else "nenhuma"
+    budget_min = int(answers.get("p8_budget_min", 8000))
+    budget_max = int(answers.get("p8_budget_max", 25000))
+
+    models_json = []
+    for rank, m in enumerate(top5, 1):
+        mv = m["vector"]
+        models_json.append({
+            "rank": rank,
+            "name": m["full_name"],
+            "brand": m["brand_name"],
+            "body_type": m["body_type"],
+            "segment": m["segment"],
+            "score": round(m["_score"], 3),
+            "dimensions": {dim_pt.get(k, k): round(v, 2) for k, v in mv.items()},
+            "price_range": f"€{m['min_price']:,}–€{m['max_price']:,}" if m.get("min_price") else "N/D",
+            "is_wildcard": m.get("is_wildcard", False),
+        })
+
+    import json as _json
+    models_str = _json.dumps(models_json, ensure_ascii=False, indent=2)
+
+    return f"""És um especialista em automóveis a ajudar um comprador português. Fala em português de Portugal (não brasileiro). Usa "tu" e linguagem direta, como um amigo especialista — não um vendedor.
+
+PERFIL DO UTILIZADOR:
+- Contexto: {p1}
+- Relação com o carro: {p2}
+- Estilo de condução: {p3}
+- Imagem: {p5}
+- Inaceitável: {p6}
+- Marca de sonho: {dream_str}
+- Orçamento: €{budget_min:,}–€{budget_max:,}
+- Perfil calculado: {profile_str}
+
+MODELOS RECOMENDADOS (por ordem de compatibilidade):
+{models_str}
+
+TAREFA: Para cada modelo, gera um headline curto (máximo 12 palavras) e 2-3 razões (cada uma 1 frase, máximo 20 palavras) e um tradeoff honesto (1 frase, máximo 15 palavras).
+
+REGRAS CRÍTICAS:
+1. Cada headline DEVE ser diferente em tom e ângulo — proibido repetir estruturas
+2. Cada razão DEVE referenciar algo específico do perfil do utilizador (contexto, estilo, budget, intolerâncias)
+3. Nunca uses chavões genéricos como "excelente relação qualidade/preço" ou "ótima opção"
+4. O tradeoff deve ser honesto e específico ao perfil — o que este utilizador em particular pode não gostar
+5. Para wildcards (is_wildcard: true), menciona que é uma opção fora da zona habitual mas que vale a pena considerar
+6. Tom: direto, conversacional, confiante — como um amigo que percebe de carros
+
+Responde APENAS com JSON válido neste formato exato:
+{{
+  "recommendations": [
+    {{
+      "rank": 1,
+      "headline": "...",
+      "reasons": ["...", "...", "..."],
+      "tradeoff": "..."
+    }},
+    ...
+  ],
+  "profile_narrative": {{
+    "summary": "...",
+    "priorities": "...",
+    "tension": null,
+    "aversion": "...",
+    "identity": "...",
+    "context": "..."
+  }}
+}}
+
+Para profile_narrative: summary é 1 frase curta sobre o perfil, priorities descreve as dimensões dominantes, tension só se a marca de sonho revela uma atração escondida (senão null), aversion sobre o que é inaceitável, identity sobre o tipo de condutor, context sobre o uso do carro."""
+
+
+def _generate_explanations_llm(top5: list, profile: dict, answers: dict) -> dict | None:
+    """
+    Try to generate all explanations + profile narrative via Gemini.
+    Returns dict with 'recommendations' list and 'profile_narrative', or None on failure.
+    """
+    try:
+        from app.services.llm_client import generate_json, LLMError, llm_available
+        if not llm_available():
+            return None
+
+        prompt = _build_llm_prompt(top5, profile, answers)
+        result = generate_json(prompt, max_tokens=1200)
+
+        recs = result.get("recommendations", [])
+        if len(recs) != len(top5):
+            return None
+
+        return result
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"LLM generation failed, falling back to templates: {e}")
+        return None
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # PHASE 6: EXPLANATIONS (with full context of all 5)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def generate_all_explanations(top5: list, profile: dict, answers: dict) -> list:
+def generate_all_explanations(top5: list, profile: dict, answers: dict, llm_result: dict | None = None) -> list:
     """
     Generate explanations for ALL 5 models at once.
-    Tracks used template KEYS (not rendered strings) to guarantee uniqueness.
+    Uses pre-computed llm_result if provided; falls back to template engine per model.
     """
     sorted_profile = sorted(profile.items(), key=lambda x: x[1], reverse=True)
     profile_top1 = sorted_profile[0][0]
     profile_top2 = sorted_profile[1][0]
 
-    used_headline_keys = []  # list of (key, variant_idx) tuples
-    used_tradeoff_dims = set()  # dimensions already used in tradeoffs
+    used_headline_keys = []
+    used_tradeoff_dims = set()
     results = []
 
     for rank, m in enumerate(top5, 1):
@@ -863,18 +1009,25 @@ def generate_all_explanations(top5: list, profile: dict, answers: dict) -> list:
         model_2nd = model_sorted[1][0]
         model_3rd = model_sorted[2][0] if len(model_sorted) > 2 else model_best
 
-        # ── Headline (unique template per model) ──
-        headline = _pick_headline(m, profile_top1, profile_top2, model_best, model_2nd, model_3rd, used_headline_keys)
+        # Use LLM output if available for this rank
+        llm_rec = None
+        if llm_result:
+            llm_recs = llm_result.get("recommendations", [])
+            matching = [r for r in llm_recs if r.get("rank") == rank]
+            if matching:
+                llm_rec = matching[0]
 
-        # ── Reasons (2-3, based on profile x model intersection) ──
-        reasons = _build_reasons(m, profile, profile_top1, profile_top2, answers)
-
-        # Wildcard extra reason
-        if m.get("is_wildcard"):
-            reasons.append("Fora da tua zona habitual, mas vale a pena olhar.")
-
-        # ── Tradeoff (comparative when significant, unique dim per model) ──
-        tradeoff = _build_tradeoff(m, profile, top5, answers, used_tradeoff_dims)
+        if llm_rec:
+            headline = llm_rec.get("headline", "")
+            reasons  = llm_rec.get("reasons", [])[:3]
+            tradeoff = llm_rec.get("tradeoff", "")
+        else:
+            # ── Template fallback ──
+            headline = _pick_headline(m, profile_top1, profile_top2, model_best, model_2nd, model_3rd, used_headline_keys)
+            reasons  = _build_reasons(m, profile, profile_top1, profile_top2, answers)
+            if m.get("is_wildcard"):
+                reasons.append("Fora da tua zona habitual, mas vale a pena olhar.")
+            tradeoff = _build_tradeoff(m, profile, top5, answers, used_tradeoff_dims)
 
         # Build trust panel data
         reliability_trust = None
@@ -1232,8 +1385,9 @@ def get_recommendations(db: Session, answers: dict) -> dict:
     # even when it outscores models added earlier.
     top5 = sorted(top5, key=lambda x: x["_score"], reverse=True)
 
-    # Phase 6: Explanations
-    results = generate_all_explanations(top5, profile, answers)
+    # Phase 6: Explanations (LLM-first, template fallback)
+    llm_result = _generate_explanations_llm(top5, profile, answers)
+    results = generate_all_explanations(top5, profile, answers, llm_result=llm_result)
 
     # Phase 7: Log session
     log_session(db, session_id, answers, profile, top5, pool_size)
@@ -1248,8 +1402,9 @@ def get_recommendations(db: Session, answers: dict) -> dict:
             if suggested > budget_max:
                 suggestions = {"stretch_budget": suggested, "models_available": pool_size}
 
-    # Profile narrative
-    narrative = generate_profile_narrative(profile, signals, answers)
+    # Profile narrative: use LLM version if available, else template
+    llm_narrative = llm_result.get("profile_narrative") if llm_result else None
+    narrative = llm_narrative if llm_narrative else generate_profile_narrative(profile, signals, answers)
 
     return {
         "session_id": session_id,
