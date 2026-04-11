@@ -36,6 +36,9 @@ function ConciergeContent() {
   const searchParams   = useSearchParams();
   const sessionId      = searchParams.get("session")         || "";
   const modelFromUrl   = searchParams.get("model")           || "";
+  const modelsFromUrl  = searchParams.get("models")          || ""; // comma-separated
+  const modelIdParam   = searchParams.get("model_id")        || "";
+  const modelIdsParam  = searchParams.get("model_ids")       || ""; // comma-separated
   const listingUrl     = searchParams.get("listing_url")     || "";
   const listingVerdict = searchParams.get("listing_verdict") || "";
 
@@ -51,18 +54,25 @@ function ConciergeContent() {
   const [error,             setError]             = useState("");
   const [profileNarrative,  setProfileNarrative]  = useState<any>(null);
   const [listingModel,      setListingModel]      = useState("");
+  const [interestedModels,  setInterestedModels]  = useState<string[]>([]);
 
   useEffect(() => {
-    // URL param takes priority (user clicked "Sim, quero ajuda" on a specific model)
-    if (modelFromUrl) {
+    // Build model interest string from URL params (single or multi-model)
+    if (modelsFromUrl) {
+      const models = decodeURIComponent(modelsFromUrl).split(",").map(s => s.trim()).filter(Boolean);
+      setInterestedModels(models);
+      setModelInterest(models.join(", "));
+    } else if (modelFromUrl) {
       setModelInterest(decodeURIComponent(modelFromUrl));
+      setInterestedModels([decodeURIComponent(modelFromUrl)]);
     }
+
     const stored = localStorage.getItem("caractr_results");
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         // Only pre-fill model from session if URL didn't provide one
-        if (!modelFromUrl && parsed.recommendations?.[0]) {
+        if (!modelFromUrl && !modelsFromUrl && parsed.recommendations?.[0]) {
           setModelInterest(parsed.recommendations[0].full_name);
         }
         if (parsed.answers?.p8_budget_max) {
@@ -78,7 +88,7 @@ function ConciergeContent() {
       const slug = listingUrl.split("/").filter(Boolean).pop() || "";
       setListingModel(slug.replace(/-/g, " ").slice(0, 60));
     }
-  }, [modelFromUrl, listingUrl]);
+  }, [modelFromUrl, modelsFromUrl, listingUrl]);
 
   const toggleTag = (id: string) => {
     setSelectedTags((prev) =>
@@ -106,6 +116,7 @@ function ConciergeContent() {
           name:             name.trim(),
           email:            email.trim(),
           model_interest:   modelInterest.trim() || null,
+          model_ids:        modelIdsParam ? modelIdsParam.split(",").map(Number).filter(Boolean) : [],
           budget_max:       budgetMax ? parseInt(budgetMax) : null,
           feedback_tags:    selectedTags,
           consent_caractr:  consentCaractr,
@@ -128,6 +139,7 @@ function ConciergeContent() {
   };
 
   if (submitted) {
+    const firstName = name.split(" ")[0] || name;
     return (
       <main style={{
         minHeight: "100vh",
@@ -137,27 +149,61 @@ function ConciergeContent() {
         background: "var(--bg)", color: "var(--fg)",
         textAlign: "center",
       }}>
-        <div style={{ width: "48px", height: "2px", background: "var(--accent)", borderRadius: "1px", marginBottom: "24px" }} />
-        <h1 style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "clamp(36px, 7vw, 64px)",
-          fontWeight: 800, letterSpacing: "-0.02em",
-          lineHeight: 0.9, marginBottom: "20px",
-        }}>
-          RECEBIDO
-        </h1>
-        <p style={{
-          fontSize: "15px", color: "var(--muted)",
-          maxWidth: "400px", lineHeight: 1.7,
-          fontWeight: 300, fontFamily: "var(--font-body)",
-          marginBottom: "40px",
-        }}>
-          Entraremos em contacto em breve para{" "}
-          <strong style={{ color: "var(--fg)", fontWeight: 500 }}>{email}</strong>.
-        </p>
-        <Link href="/resultados" className="pill-btn-ghost">
-          ← voltar à shortlist
-        </Link>
+        <div style={{ maxWidth: "480px", width: "100%" }}>
+          <div style={{ width: "48px", height: "2px", background: "var(--accent)", borderRadius: "1px", marginBottom: "24px" }} />
+          <h1 style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(36px, 7vw, 64px)",
+            fontWeight: 800, letterSpacing: "-0.02em",
+            lineHeight: 0.9, marginBottom: "20px",
+          }}>
+            RECEBIDO,<br />{firstName.toUpperCase()}.
+          </h1>
+
+          {/* What happens next */}
+          <div style={{
+            padding: "24px 28px", borderRadius: "16px",
+            border: "1px solid var(--border)", background: "var(--surface)",
+            marginBottom: "32px", textAlign: "left",
+          }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "18px" }}>
+              O que acontece agora
+            </p>
+            {[
+              "Vemos o teu perfil e os modelos que te interessam.",
+              "Pesquisamos anúncios reais que se encaixam nas tuas prioridades.",
+              "Entramos em contacto via email com uma shortlist curada.",
+            ].map((step, i) => (
+              <div key={i} style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: i < 2 ? "14px" : 0 }}>
+                <span style={{
+                  fontFamily: "var(--font-mono)", fontSize: "11px",
+                  color: "var(--accent)", flexShrink: 0, marginTop: "1px",
+                }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <p style={{ fontSize: "14px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6, fontWeight: 300 }}>
+                  {step}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p style={{
+            fontSize: "13px", color: "var(--muted)", opacity: 0.55,
+            fontFamily: "var(--font-body)", marginBottom: "32px", lineHeight: 1.6,
+          }}>
+            Enviámos uma confirmação para <strong style={{ color: "var(--fg)", fontWeight: 400 }}>{email}</strong>.
+          </p>
+
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+            <Link href="/resultados" className="pill-btn-ghost">
+              ← shortlist
+            </Link>
+            <Link href="/analisar" className="pill-btn">
+              analisar anúncio
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -197,11 +243,31 @@ function ConciergeContent() {
         </h1>
         <p style={{
           fontSize: "15px", color: "var(--muted)",
-          marginBottom: "48px", lineHeight: 1.7,
-          fontWeight: 300, fontFamily: "var(--font-body)",
+          marginBottom: interestedModels.length > 0 ? "24px" : "48px",
+          lineHeight: 1.7, fontWeight: 300, fontFamily: "var(--font-body)",
         }}>
-          Deixa os teus dados e entramos em contacto para ajudar a encontrar o carro certo para ti.
+          Pesquisamos anúncios reais que se adequam ao teu perfil e enviamos-te uma shortlist curada. Gratuito durante o lançamento.
         </p>
+
+        {/* Interested models chips */}
+        {interestedModels.length > 1 && (
+          <div style={{ marginBottom: "32px" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px", opacity: 0.6 }}>
+              Modelos com interesse
+            </p>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {interestedModels.map((m, i) => (
+                <span key={i} style={{
+                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--accent)",
+                  border: "1px solid var(--accent)", borderRadius: "100px",
+                  padding: "5px 14px", opacity: 0.8,
+                }}>
+                  {m}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Profile card (Phase 4d) ── */}
         {profileNarrative && (

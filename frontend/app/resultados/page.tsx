@@ -1032,7 +1032,7 @@ export default function ResultadosPage() {
               </div>
             )}
             <Link
-              href={`/concierge?session=${data.session_id}&model=${encodeURIComponent(interestedRecs[0]?.full_name || "")}&model_id=${interestedRecs[0]?.model_id || ""}`}
+              href={`/concierge?session=${data.session_id}&models=${encodeURIComponent(interestedRecs.map((r: any) => r.full_name).join(","))}&model_ids=${interestedRecs.map((r: any) => r.model_id).join(",")}&model=${encodeURIComponent(interestedRecs[0]?.full_name || "")}&model_id=${interestedRecs[0]?.model_id || ""}`}
               className="pill-btn-solid"
               style={{ marginTop: "12px" }}
             >
@@ -1062,14 +1062,11 @@ export default function ResultadosPage() {
           // Default — no interaction yet
           <>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(24px, 3.5vw, 40px)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: "12px" }}>
-              Queres que façamos a pesquisa por ti?
+              Queres uma shortlist de anúncios reais?
             </h2>
-            <p style={{ fontSize: "15px", fontWeight: 300, color: "var(--muted)", fontFamily: "var(--font-body)", maxWidth: "480px", lineHeight: 1.7, marginBottom: "8px" }}>
-              Durante o lançamento, estamos a fazer a pesquisa manualmente
-              para um número limitado de utilizadores — de forma completamente gratuita.
-            </p>
-            <p style={{ fontSize: "15px", fontWeight: 300, color: "var(--muted)", fontFamily: "var(--font-body)", maxWidth: "480px", lineHeight: 1.7, marginBottom: "28px", opacity: 0.65 }}>
-              É a nossa forma de testar a experiência e garantir que o que entregamos vale o teu tempo.
+            <p style={{ fontSize: "15px", fontWeight: 300, color: "var(--muted)", fontFamily: "var(--font-body)", maxWidth: "480px", lineHeight: 1.7, marginBottom: "28px" }}>
+              Pesquisamos o mercado com base no teu perfil e enviamos-te os melhores anúncios encontrados.
+              Gratuito durante o lançamento.
             </p>
             <Link href={`/concierge?session=${data.session_id}`} className="pill-btn-solid">
               reservar o meu lugar

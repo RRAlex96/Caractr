@@ -32,7 +32,8 @@ class ConciergeRequest(BaseModel):
     session_id:      Optional[str]       = None
     name:            str                 = Field(..., min_length=1, max_length=200)
     email:           EmailStr
-    model_interest:  Optional[str]       = Field(None, max_length=200)
+    model_interest:  Optional[str]       = Field(None, max_length=500)
+    model_ids:       Optional[List[int]] = Field(default_factory=list)
     budget_max:      Optional[int]       = Field(None, ge=0, le=2_000_000)
     feedback_tags:   Optional[List[str]] = Field(default_factory=list)
     consent_caractr: bool                = False
@@ -69,6 +70,40 @@ class ConciergeRequest(BaseModel):
         if v not in _ALLOWED_VERDICT_TIERS:
             raise ValueError(f"Invalid verdict tier: {v!r}")
         return v
+
+
+def _find_relevant_listings(db: Session, model_interest: str, budget_max: Optional[int]) -> list:
+    """
+    Quick DB lookup for cached listings matching the model of interest.
+    Used to give the operator a head-start — no live scrape, just existing data.
+    Returns up to 5 listings sorted by deal score.
+    """
+    if not model_interest:
+        return []
+    parts = model_interest.strip().split(None, 1)
+    brand = parts[0] if parts else ""
+    model = parts[1] if len(parts) > 1 else ""
+    try:
+        query = """
+            SELECT nl.brand_name, nl.model_name, nl.year, nl.km, nl.price,
+                   nl.deal_tier, nl.deal_score, nl.seller_type, rl.source_url
+            FROM normalized_listings nl
+            JOIN raw_listings rl ON rl.id = nl.raw_listing_id
+            WHERE LOWER(nl.brand_name) LIKE LOWER(:brand_pat)
+        """
+        params: dict = {"brand_pat": f"%{brand}%"}
+        if model:
+            query += " AND LOWER(nl.model_name) LIKE LOWER(:model_pat)"
+            params["model_pat"] = f"%{model}%"
+        if budget_max:
+            query += " AND (nl.price IS NULL OR nl.price <= :budget)"
+            params["budget"] = budget_max
+        query += " ORDER BY COALESCE(nl.deal_score, 0) DESC LIMIT 5"
+        rows = db.execute(text(query), params).mappings().fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"[CONCIERGE] Listing lookup error: {e}")
+        return []
 
 
 def _build_profile_section(session_context: dict) -> str:
@@ -108,6 +143,7 @@ async def _notify_operator(
     req: ConciergeRequest,
     request_id: int,
     session_context: Optional[dict] = None,
+    relevant_listings: Optional[list] = None,
 ) -> None:
     """Plain text operator notification. Non-blocking, best-effort."""
     if not RESEND_API_KEY or not OPERATOR_EMAIL:
@@ -128,6 +164,25 @@ async def _notify_operator(
             verdict_str = req.listing_verdict.upper() if req.listing_verdict else "?"
             listing_section = f"\nANÚNCIO ANALISADO: {req.listing_url}\nVeredicto: {verdict_str}"
 
+        # Auto-found listings section
+        listings_section = ""
+        if relevant_listings:
+            tier_label = {"forte": "✓ Forte", "razoavel": "~ Razoável", "cuidado": "⚠ Cuidado", "evitar": "✗ Evitar"}
+            lines = ["ANÚNCIOS ENCONTRADOS NO MERCADO:"]
+            for i, l in enumerate(relevant_listings, 1):
+                tier = tier_label.get(l.get("deal_tier", ""), "")
+                price = f"{int(l['price']):,} €" if l.get("price") else "?"
+                km = f"{int(l['km']):,} km" if l.get("km") else "?"
+                year = l.get("year") or "?"
+                lines.append(
+                    f"{i}. {l.get('brand_name','')} {l.get('model_name','')} {year} — {km} — {price} {tier}"
+                )
+                if l.get("source_url"):
+                    lines.append(f"   {l['source_url']}")
+            listings_section = "\n".join(lines)
+        else:
+            listings_section = "ANÚNCIOS: Nenhum encontrado em cache — pesquisa manual necessária."
+
         # NOTE: the operator email intentionally includes all fields disclosed in
         # the privacy policy under "Resend" (name, email, model, budget, tags,
         # session ID, profile summary, listing context).
@@ -145,6 +200,7 @@ async def _notify_operator(
             body_parts += ["", "─" * 40, dossier]
         if listing_section:
             body_parts += ["", listing_section.strip()]
+        body_parts += ["", "─" * 40, listings_section]
         body_parts += ["", "Responde diretamente a este email para entrar em contacto."]
 
         async with httpx.AsyncClient() as client:
@@ -265,7 +321,10 @@ async def submit_concierge(
     db.commit()
     request_id = row.scalar()
 
-    background_tasks.add_task(_notify_operator, req, request_id, session_context)
+    # Auto-search: find matching listings from DB cache to give operator a head start
+    relevant_listings = _find_relevant_listings(db, req.model_interest or "", req.budget_max)
+
+    background_tasks.add_task(_notify_operator, req, request_id, session_context, relevant_listings)
     background_tasks.add_task(_confirm_user, req, session_context)
 
     return {"status": "ok", "request_id": request_id}
