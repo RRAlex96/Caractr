@@ -2,11 +2,13 @@
 Caractr — Ad Analysis Service
 Analyses a specific listing URL using:
 1. Deal scoring (price delta, km/year, red flags)
-2. Analysis engine — rule-based by default, Claude Haiku when API key is set
+2. Analysis engine — Gemini 2.5 Flash when GEMINI_API_KEY is set, rule-based otherwise
 
 Analysis routing:
-- If ANTHROPIC_API_KEY is set AND USE_RULE_ANALYSIS != "true" → Claude Haiku
+- If GEMINI_API_KEY is set AND USE_RULE_ANALYSIS != "true" → Gemini 2.5 Flash (main analysis)
 - Otherwise → deterministic rule-based engine (zero cost, zero latency)
+- Gemini also generates narrative enrichments (extras_analysis, negotiation_script,
+  verdict_narrative, seller_read) in a second pass regardless of main engine.
 
 Cache strategy: analyse once per listing URL, serve from DB cache.
 Refresh if analysis_cached_at > 7 days.
@@ -36,19 +38,8 @@ import time
 _market_cache: dict = {}
 _MARKET_CACHE_TTL = 6 * 3600  # 6 hours
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 CACHE_TTL_HOURS = 168  # 7 days
-
-# Use rule engine when: no API key configured, or env flag explicitly set
-_USE_RULE_ENGINE = not ANTHROPIC_API_KEY or USE_RULE_ANALYSIS
-
-# ── LLM prompt ─────────────────────────────────────────────────────────────
-
-SYSTEM_PROMPT = """És um consultor especialista em carros usados em Portugal.
-Analisas anúncios de carros para compradores reais.
-Respondes SEMPRE em JSON válido. Nunca sais do formato JSON.
-O teu tom é direto, honesto e profissional — nunca alarmista sem razão."""
 
 def _compute_profile_fit(
     user_profile: dict,
@@ -149,7 +140,9 @@ Avalia também se este carro é adequado para ESTE comprador específico."""
 
     known_issues = model_info.get("known_issues", "Sem problemas conhecidos registados.")
 
-    return f"""Analisa este anúncio de carro usado:
+    return f"""És um consultor especialista em carros usados em Portugal. Analisas anúncios para compradores reais. Fala em PT-PT. Tom direto, honesto, nunca alarmista sem razão. Responde APENAS com JSON válido, sem texto extra.
+
+Analisa este anúncio de carro usado:
 
 ANÚNCIO:
 Modelo: {listing.get('brand_name', '')} {listing.get('model_name', '')}
@@ -196,29 +189,18 @@ def _run_rule_engine(
     return result
 
 
-async def _call_llm(prompt: str) -> dict:
-    """Call Claude Haiku and return parsed JSON analysis."""
+async def _call_gemini_analysis(prompt: str) -> dict:
+    """Call Gemini 2.5 Flash for structured ad analysis. Returns {} on failure (triggers rule engine fallback)."""
     try:
-        import anthropic
-        client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        message = await client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=800,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw_text = message.content[0].text.strip()
-        # Strip markdown fences if present
-        raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        return json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        print(f"[AD_ANALYSIS] LLM JSON parse error: {e}")
-        return {"verdict": "razoavel", "verdict_reason": "Erro na análise automática.", "green_flags": [], "red_flags": [], "seller_analysis": "", "profile_fit": "", "trim_level": None, "spec_tier": "base", "key_extras": [], "spec_value_assessment": "adequado"}
+        from app.services.llm_client import generate_json, LLMError
+        result = await asyncio.to_thread(generate_json, prompt, 900)
+        if not isinstance(result, dict) or not result.get("verdict"):
+            print("[AD_ANALYSIS] Gemini returned unexpected structure, falling back")
+            return {}
+        return result
     except Exception as e:
-        print(f"[AD_ANALYSIS] LLM call error: {e}")
-        # Fall back to rule engine on any LLM failure
-        print("[AD_ANALYSIS] Falling back to rule engine after LLM error")
-        return {}  # caller handles empty dict by falling back
+        print(f"[AD_ANALYSIS] Gemini analysis failed: {e}")
+        return {}
 
 
 async def _analyse(
@@ -229,21 +211,21 @@ async def _analyse(
 ) -> dict:
     """
     Route to the correct analysis engine:
-    - Rule engine: default, when no ANTHROPIC_API_KEY or USE_RULE_ANALYSIS=true
-    - Claude Haiku: when API key is set and USE_RULE_ANALYSIS != true
-    Falls back to rule engine if LLM call fails.
+    - Gemini 2.5 Flash: when GEMINI_API_KEY is set and USE_RULE_ANALYSIS != true
+    - Rule engine: fallback when no API key, flag set, or Gemini fails
     """
-    if _USE_RULE_ENGINE:
-        print("[AD_ANALYSIS] Using rule engine")
+    from app.services.llm_client import llm_available
+
+    if USE_RULE_ANALYSIS or not llm_available():
+        print("[AD_ANALYSIS] Using rule engine (Gemini unavailable or disabled)")
         return _run_rule_engine(listing, model_info, market_stats, user_profile)
 
-    print("[AD_ANALYSIS] Using Claude Haiku")
+    print("[AD_ANALYSIS] Using Gemini 2.5 Flash for analysis")
     prompt = _build_analysis_prompt(listing, model_info, market_stats, user_profile)
-    result = await _call_llm(prompt)
+    result = await _call_gemini_analysis(prompt)
 
-    # If LLM returned empty (error fallback), use rule engine
-    if not result or not result.get("verdict"):
-        print("[AD_ANALYSIS] LLM result empty, falling back to rule engine")
+    if not result:
+        print("[AD_ANALYSIS] Gemini returned empty, falling back to rule engine")
         return _run_rule_engine(listing, model_info, market_stats, user_profile)
 
     return result
@@ -720,9 +702,10 @@ async def analyse_listing(
     1. Check DB cache (return if fresh)
     2. Fetch detail page if not in DB
     3. Run deal scoring
-    4. Call Claude Haiku for LLM analysis
-    5. Cache result in DB
-    6. Return structured analysis
+    4. Call Gemini for analysis (falls back to rule engine)
+    5. Call Gemini again for narrative enrichment (extras, negotiation, verdict narrative)
+    6. Cache result in DB
+    7. Return structured analysis
 
     Always returns a dict safe to send to the frontend.
     """
@@ -839,7 +822,7 @@ async def analyse_listing(
     else:
         normalized["price_delta_pct"] = None
 
-    # ── 4. Analysis (rule engine or Claude Haiku) ──
+    # ── 4. Analysis (Gemini or rule engine fallback) ──
     llm_result = await _analyse(normalized, model_info, market_stats, user_profile)
 
     # ── 4a. Profile fit (when user_profile provided and model_info available) ──
@@ -852,7 +835,7 @@ async def analyse_listing(
     negotiation_tips     = _build_negotiation_tips(normalized, market_stats or {})
     llm_narrative        = await _generate_llm_narrative(
         normalized, model_info or {}, market_stats or {},
-        inspection_checklist, negotiation_tips, llm_result,
+        inspection_checklist, negotiation_tips, analysis=llm_result,
     )
     enrichment = {
         **llm_narrative,
@@ -970,43 +953,46 @@ async def _generate_llm_narrative(
     market_stats: dict,
     inspection_checklist: list,
     negotiation_tips: list,
-    rule_analysis: dict,
+    analysis: dict,
 ) -> dict:
     """
-    Call Gemini to generate the narrative sections of the ad analysis:
+    Call Gemini to generate narrative enrichment sections:
     extras_analysis, negotiation_script, verdict_narrative, seller_read.
-    Returns empty dict if LLM unavailable or fails.
+    Returns empty dict if LLM unavailable or fails (all fields optional on frontend).
     """
-    try:
-        from app.services.llm_client import generate_json, llm_available
-        if not llm_available():
-            return {}
+    from app.services.llm_client import generate_json, llm_available, LLMError
 
-        price = listing.get("price") or 0
-        avg_price = market_stats.get("avg_price") or 0
-        price_delta_pct = round(abs(listing.get("price_delta", 0) or 0) * 100, 1)
-        price_pos = "abaixo" if (listing.get("price_delta", 0) or 0) > 0 else "acima"
-        km = listing.get("km") or 0
-        listing_age = listing.get("listing_age_days") or 0
-        seller_type = listing.get("seller_type", "desconhecido")
-        description = (listing.get("description") or "")[:1200]
-        known_issues = model_info.get("known_issues") or "Sem problemas conhecidos registados"
-        maintenance = model_info.get("maintenance_cost_year")
-        maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
-        verdict = rule_analysis.get("verdict", "razoavel")
-        green_flags = rule_analysis.get("green_flags", [])
-        red_flags = rule_analysis.get("red_flags", [])
-        key_extras = rule_analysis.get("key_extras", [])
+    if not llm_available():
+        print("[AD_ANALYSIS] Gemini unavailable — skipping narrative enrichment")
+        return {}
 
-        prompt = f"""És um especialista em carros usados em Portugal. Fala em PT-PT, usa "tu", tom direto como um amigo especialista.
+    price       = listing.get("price") or 0
+    avg_price   = market_stats.get("avg_price") or 0
+    price_delta_pct = round(abs(listing.get("price_delta", 0) or 0) * 100, 1)
+    price_pos   = "abaixo" if (listing.get("price_delta", 0) or 0) > 0 else "acima"
+    km          = listing.get("km") or 0
+    listing_age = listing.get("listing_age_days") or 0
+    seller_type = listing.get("seller_type", "desconhecido")
+    description = (listing.get("description") or "")[:1200]
+    known_issues   = model_info.get("known_issues") or "Sem problemas conhecidos registados"
+    maintenance    = model_info.get("maintenance_cost_year")
+    maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
+    verdict    = analysis.get("verdict", "razoavel")
+    green_flags = analysis.get("green_flags") or []
+    red_flags   = analysis.get("red_flags") or []
+    key_extras  = analysis.get("key_extras") or []
+
+    listing_age_str = f"{listing_age} dias" if listing_age else "desconhecido"
+
+    prompt = f"""És um especialista em carros usados em Portugal. Fala em PT-PT, usa "tu", tom direto como um amigo especialista. Responde APENAS com JSON válido.
 
 ANÚNCIO:
 Carro: {listing.get('brand_name', '')} {listing.get('model_name', '')} {listing.get('year', '')}
 Km: {km:,} | Preço: €{price:,} | Vendedor: {seller_type}
-Anúncio há: {listing_age} dias
+Anúncio há: {listing_age_str}
 Descrição: {description}
 
-ANÁLISE AUTOMÁTICA JÁ FEITA:
+ANÁLISE JÁ FEITA:
 Veredicto: {verdict}
 Pontos positivos: {', '.join(green_flags) if green_flags else 'nenhum'}
 Pontos de atenção: {', '.join(red_flags) if red_flags else 'nenhum'}
@@ -1017,20 +1003,25 @@ Preço médio: €{int(avg_price):,} | Este carro está {price_delta_pct}% {pric
 Problemas conhecidos do modelo: {known_issues}
 Custo manutenção estimado: {maintenance_str}
 
-Gera uma análise narrativa em 4 campos. Sê específico — referencia dados reais do anúncio.
+Gera análise narrativa. Sê específico — referencia dados reais do anúncio, não generalidades.
 
-Responde APENAS com JSON válido:
 {{
-  "extras_analysis": "1-2 frases: o que os extras detetados significam em termos de valor. Específico — menciona os extras pelo nome.",
-  "negotiation_script": "1-3 frases: script concreto de negociação para este anúncio. Inclui valor a propor se relevante.",
-  "verdict_narrative": "2-3 frases: síntese final como um amigo especialista. Honesta, direta, sem chavões.",
+  "extras_analysis": "1-2 frases: o que os extras detetados significam em valor. Menciona os extras pelo nome.",
+  "negotiation_script": "1-3 frases: script concreto de negociação para ESTE anúncio. Inclui valor a propor e argumento específico.",
+  "verdict_narrative": "2-3 frases: síntese final como amigo especialista. Honesta, direta, sem chavões.",
   "seller_read": "1-2 frases: leitura do vendedor baseada na descrição — o que revela, o que esconde, tom."
 }}"""
 
-        return await asyncio.to_thread(generate_json, prompt, 600)
-
+    try:
+        print(f"[AD_ANALYSIS] Calling Gemini for narrative enrichment ({listing.get('brand_name')} {listing.get('model_name')})")
+        result = await asyncio.to_thread(generate_json, prompt, 700)
+        print(f"[AD_ANALYSIS] Narrative enrichment OK — fields: {list(result.keys())}")
+        return result
+    except LLMError as e:
+        print(f"[AD_ANALYSIS] Gemini narrative LLMError: {e}")
+        return {}
     except Exception as e:
-        print(f"[AD_ANALYSIS] LLM narrative failed: {e}")
+        print(f"[AD_ANALYSIS] Gemini narrative unexpected error: {e}")
         return {}
 
 
