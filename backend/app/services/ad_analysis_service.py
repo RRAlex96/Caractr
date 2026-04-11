@@ -278,17 +278,19 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
 
 
 def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
-    """Fetch model reliability info, known issues, and Bayesian trust data."""
+    """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data."""
     row = db.execute(text("""
         SELECT vm.id,
-               AVG(e.reliability_score)::float        AS avg_reliability,
-               MAX(dc.comfort_score)                  AS comfort_score,
-               MAX(dc.driving_fun_score)              AS driving_fun_score,
-               MAX(dc.family_score)                   AS family_score,
+               AVG(e.reliability_score)::float           AS avg_reliability,
+               AVG(e.maintenance_cost_year)::float       AS maintenance_cost_year,
+               MAX(dc.comfort_score)                     AS comfort_score,
+               MAX(dc.driving_fun_score)                 AS driving_fun_score,
+               MAX(dc.family_score)                      AS family_score,
                (SELECT ROUND(AVG(g.reliability_score)::numeric, 2)
                 FROM generations g WHERE g.model_id = vm.id
-                AND g.reliability_score IS NOT NULL)  AS reliability_score,
-               STRING_AGG(DISTINCT ei.description, '; ') AS known_issues
+                AND g.reliability_score IS NOT NULL)     AS reliability_score,
+               STRING_AGG(DISTINCT ei.description, '; ') AS known_issues,
+               STRING_AGG(DISTINCT ei.fix_cost_estimate::text, '; ') AS fix_cost_estimates
         FROM vehicle_models vm
         JOIN brands b ON b.id = vm.brand_id
         LEFT JOIN engines e ON e.model_id = vm.id
@@ -845,6 +847,19 @@ async def analyse_listing(
     if user_profile and model_info:
         fit_result = _compute_profile_fit(user_profile, model_info)
 
+    # ── 4b. Enrichment: inspection checklist + negotiation tips + Gemini narrative ──
+    inspection_checklist = _build_inspection_checklist(model_info or {}, normalized)
+    negotiation_tips     = _build_negotiation_tips(normalized, market_stats or {})
+    llm_narrative        = await _generate_llm_narrative(
+        normalized, model_info or {}, market_stats or {},
+        inspection_checklist, negotiation_tips, llm_result,
+    )
+    enrichment = {
+        **llm_narrative,
+        "inspection_checklist": inspection_checklist,
+        "negotiation_tips":     negotiation_tips,
+    }
+
     # ── 5. Cache ──
     norm_id = normalized.get("id")
     if norm_id:
@@ -856,8 +871,167 @@ async def analyse_listing(
     return _build_response(
         normalized, llm_result, from_cache=False, market_stats=market_stats,
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
-        fit=fit_result, model_info=model_info,
+        fit=fit_result, model_info=model_info, enrichment=enrichment,
     )
+
+
+def _build_inspection_checklist(model_info: dict, listing: dict) -> list[str]:
+    """
+    Build a practical inspection checklist from known engine_issues and general km checks.
+    """
+    checklist = []
+
+    # Known issues → inspection prompts
+    known = model_info.get("known_issues") or ""
+    if known:
+        for issue in known.split(";")[:3]:
+            issue = issue.strip()
+            if issue and len(issue) > 5:
+                checklist.append(f"Perguntar sobre: {issue[:90]}")
+
+    # General high-km checks
+    km = listing.get("km") or 0
+    if km > 100000:
+        checklist.append("Correia/corrente de distribuição — perguntar data da última substituição")
+    if km > 150000:
+        checklist.append("Embraiagem — testar deslizamento em aceleração")
+    if km > 80000:
+        checklist.append("Travões — verificar espessura dos discos e pastilhas")
+
+    # Always included
+    checklist.append("Histórico de serviços — pedir caderneta ou registos de manutenção")
+    checklist.append("Teste em estrada — verificar vibrações, ruídos e travagem")
+
+    return checklist[:7]  # cap at 7 items
+
+
+def _build_negotiation_tips(listing: dict, market_stats: dict) -> list[str]:
+    """
+    Generate negotiation leverage points from price position, listing age, seller type.
+    """
+    tips = []
+    price = listing.get("price") or 0
+    avg_price = market_stats.get("avg_price") or 0
+    price_delta = listing.get("price_delta", 0.0) or 0.0
+    listing_age = listing.get("listing_age_days") or 0
+    seller_type = listing.get("seller_type", "desconhecido")
+    km = listing.get("km") or 0
+
+    # Price position leverage
+    if avg_price and price:
+        if price_delta < -0.05:  # car is above market
+            pct_above = round(abs(price_delta) * 100)
+            target = round(price * 0.93 / 500) * 500
+            tips.append(
+                f"Está {pct_above}% acima do mercado — propõe {target:,}€ mencionando anúncios comparáveis"
+            )
+        elif price_delta > 0.05:  # car is below market — validate before paying
+            tips.append(
+                "Preço abaixo do mercado — confirma o estado real antes de fechar negócio"
+            )
+
+    # Listing age leverage
+    if listing_age >= 30:
+        tips.append(
+            f"Anúncio há {listing_age} dias — vendedor está provavelmente motivado, podes negociar"
+        )
+    elif listing_age >= 14:
+        tips.append(f"Anúncio há {listing_age} dias — há espaço para tentar 3-5% de desconto")
+
+    # Seller type
+    if seller_type == "particular":
+        tips.append(
+            "Vendedor particular — mais flexível em preço, mas sem garantia legal"
+        )
+    elif seller_type == "profissional":
+        tips.append(
+            "Stand profissional — menos margem de negociação, mas com garantia de 1 ano"
+        )
+
+    # High km leverage
+    if km > 150000:
+        tips.append(
+            f"Com {km:,} km, pede uma inspeção independente antes — usa o resultado para negociar"
+        )
+    elif km > 100000:
+        tips.append(
+            "Acima de 100.000 km — menciona os custos de manutenção previsíveis para justificar desconto"
+        )
+
+    if not tips:
+        tips.append("Pede sempre a história de serviços completa antes de fazer oferta")
+
+    return tips[:4]
+
+
+async def _generate_llm_narrative(
+    listing: dict,
+    model_info: dict,
+    market_stats: dict,
+    inspection_checklist: list,
+    negotiation_tips: list,
+    rule_analysis: dict,
+) -> dict:
+    """
+    Call Gemini to generate the narrative sections of the ad analysis:
+    extras_analysis, negotiation_script, verdict_narrative, seller_read.
+    Returns empty dict if LLM unavailable or fails.
+    """
+    try:
+        from app.services.llm_client import generate_json, llm_available
+        if not llm_available():
+            return {}
+
+        price = listing.get("price") or 0
+        avg_price = market_stats.get("avg_price") or 0
+        price_delta_pct = round(abs(listing.get("price_delta", 0) or 0) * 100, 1)
+        price_pos = "abaixo" if (listing.get("price_delta", 0) or 0) > 0 else "acima"
+        km = listing.get("km") or 0
+        listing_age = listing.get("listing_age_days") or 0
+        seller_type = listing.get("seller_type", "desconhecido")
+        description = (listing.get("description") or "")[:1200]
+        known_issues = model_info.get("known_issues") or "Sem problemas conhecidos registados"
+        maintenance = model_info.get("maintenance_cost_year")
+        maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
+        verdict = rule_analysis.get("verdict", "razoavel")
+        green_flags = rule_analysis.get("green_flags", [])
+        red_flags = rule_analysis.get("red_flags", [])
+        key_extras = rule_analysis.get("key_extras", [])
+
+        prompt = f"""És um especialista em carros usados em Portugal. Fala em PT-PT, usa "tu", tom direto como um amigo especialista.
+
+ANÚNCIO:
+Carro: {listing.get('brand_name', '')} {listing.get('model_name', '')} {listing.get('year', '')}
+Km: {km:,} | Preço: €{price:,} | Vendedor: {seller_type}
+Anúncio há: {listing_age} dias
+Descrição: {description}
+
+ANÁLISE AUTOMÁTICA JÁ FEITA:
+Veredicto: {verdict}
+Pontos positivos: {', '.join(green_flags) if green_flags else 'nenhum'}
+Pontos de atenção: {', '.join(red_flags) if red_flags else 'nenhum'}
+Extras detetados: {', '.join(key_extras) if key_extras else 'nenhum'}
+
+DADOS DE MERCADO:
+Preço médio: €{int(avg_price):,} | Este carro está {price_delta_pct}% {price_pos} do mercado
+Problemas conhecidos do modelo: {known_issues}
+Custo manutenção estimado: {maintenance_str}
+
+Gera uma análise narrativa em 4 campos. Sê específico — referencia dados reais do anúncio.
+
+Responde APENAS com JSON válido:
+{{
+  "extras_analysis": "1-2 frases: o que os extras detetados significam em termos de valor. Específico — menciona os extras pelo nome.",
+  "negotiation_script": "1-3 frases: script concreto de negociação para este anúncio. Inclui valor a propor se relevante.",
+  "verdict_narrative": "2-3 frases: síntese final como um amigo especialista. Honesta, direta, sem chavões.",
+  "seller_read": "1-2 frases: leitura do vendedor baseada na descrição — o que revela, o que esconde, tom."
+}}"""
+
+        return await asyncio.to_thread(generate_json, prompt, 600)
+
+    except Exception as e:
+        print(f"[AD_ANALYSIS] LLM narrative failed: {e}")
+        return {}
 
 
 def _build_response(
@@ -869,6 +1043,7 @@ def _build_response(
     gen_year_end: Optional[int] = None,
     fit: Optional[dict] = None,
     model_info: Optional[dict] = None,
+    enrichment: Optional[dict] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -913,7 +1088,15 @@ def _build_response(
             "spec_tier": llm.get("spec_tier", "base"),
             "key_extras": llm.get("key_extras", []),
             "spec_value_assessment": llm.get("spec_value_assessment", "adequado"),
+            # LLM narrative enrichment (None when Gemini unavailable)
+            "extras_analysis":    (enrichment or {}).get("extras_analysis"),
+            "negotiation_script": (enrichment or {}).get("negotiation_script"),
+            "verdict_narrative":  (enrichment or {}).get("verdict_narrative"),
+            "seller_read":        (enrichment or {}).get("seller_read"),
         },
+        "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
+        "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
+        "maintenance_estimate": (model_info or {}).get("maintenance_cost_year"),
         "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
         "fit": fit,
         "reliability": {
