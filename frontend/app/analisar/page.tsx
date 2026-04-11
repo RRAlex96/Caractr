@@ -500,6 +500,120 @@ function AnalysisResult({ result, listingUrl, onReset }: { result: any; listingU
         </div>
       )}
 
+      {/* ── Verdict narrative (LLM) ── */}
+      {analysis.verdict_narrative && (
+        <div style={{
+          padding: "20px 24px", borderRadius: "12px",
+          border: "1px solid var(--border)", background: "var(--surface)",
+          marginBottom: "20px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "10px" }}>
+            Veredicto
+          </p>
+          <p style={{ fontSize: "14px", color: "var(--fg)", fontFamily: "var(--font-body)", lineHeight: 1.7, fontWeight: 300 }}>
+            {analysis.verdict_narrative}
+          </p>
+        </div>
+      )}
+
+      {/* ── Extras analysis (LLM) ── */}
+      {analysis.extras_analysis && (
+        <div style={{
+          padding: "16px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)",
+          marginBottom: "20px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px" }}>
+            Equipamento & valor
+          </p>
+          <p style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
+            {analysis.extras_analysis}
+          </p>
+        </div>
+      )}
+
+      {/* ── Seller read (LLM) ── */}
+      {analysis.seller_read && (
+        <div style={{
+          padding: "16px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)",
+          marginBottom: "20px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px" }}>
+            Leitura do vendedor
+          </p>
+          <p style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
+            {analysis.seller_read}
+          </p>
+        </div>
+      )}
+
+      {/* ── Inspection checklist ── */}
+      {result.inspection_checklist?.length > 0 && (
+        <div style={{
+          padding: "20px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)", background: "var(--surface)",
+          marginBottom: "20px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "14px" }}>
+            O que verificar
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {result.inspection_checklist.map((item: string, i: number) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--accent)", marginTop: "2px", flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</span>
+                <span style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Negotiation tips ── */}
+      {(result.negotiation_tips?.length > 0 || analysis.negotiation_script) && (
+        <div style={{
+          padding: "20px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)",
+          marginBottom: "20px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "14px" }}>
+            Como negociar
+          </p>
+          {analysis.negotiation_script && (
+            <p style={{ fontSize: "13px", color: "var(--fg)", fontFamily: "var(--font-body)", lineHeight: 1.6, marginBottom: result.negotiation_tips?.length > 0 ? "14px" : "0" }}>
+              {analysis.negotiation_script}
+            </p>
+          )}
+          {result.negotiation_tips?.length > 0 && !analysis.negotiation_script && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {result.negotiation_tips.map((tip: string, i: number) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <span style={{ color: "var(--accent)", fontSize: "12px", marginTop: "2px", flexShrink: 0 }}>→</span>
+                  <span style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>{tip}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Maintenance estimate ── */}
+      {result.maintenance_estimate && (
+        <div style={{
+          padding: "14px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)",
+          marginBottom: "20px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
+        }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase" }}>
+            Manutenção estimada / ano
+          </p>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "16px", fontWeight: 700, color: "var(--fg)" }}>
+            ~{Math.round(result.maintenance_estimate).toLocaleString("pt-PT")} €
+          </p>
+        </div>
+      )}
+
       {/* ── Trust Panel ── */}
       <TrustPanel
         reliability={result.reliability}
