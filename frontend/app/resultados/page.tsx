@@ -526,6 +526,10 @@ export default function ResultadosPage() {
   const [interests, setInterests] = useState<number[]>([]);
   const [dismissed, setDismissed] = useState<Record<number, string>>({});
   const [showReasons, setShowReasons] = useState<number | null>(null);
+  const [alternatives, setAlternatives] = useState<any[]>([]);
+  const [alternativesLoading, setAlternativesLoading] = useState(false);
+  const [alternativesFetched, setAlternativesFetched] = useState(false);
+  const [alternativesError, setAlternativesError] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("caractr_results");
@@ -557,7 +561,8 @@ export default function ResultadosPage() {
   const first = recs[0];
   const rest = recs.slice(1);
 
-  const interestedRecs = recs.filter((r: any) => interests.includes(r.model_id));
+  const allModels = [...recs, ...alternatives];
+  const interestedRecs = allModels.filter((r: any) => interests.includes(r.model_id));
   const allDismissed = recs.length > 0 && recs.every((r: any) => dismissed[r.model_id]);
 
   const handleInterest = (modelId: number) => {
@@ -570,6 +575,36 @@ export default function ResultadosPage() {
     setInterests(prev => prev.filter(id => id !== modelId));
     setShowReasons(null);
     Analytics.feedbackSubmitted(data.session_id || "", "dismissed", modelId);
+  };
+
+  const fetchAlternatives = async () => {
+    const dismissedIds = Object.keys(dismissed).map(Number);
+    const dismissReasons = Object.values(dismissed);
+    setAlternativesLoading(true);
+    setAlternativesError(false);
+    try {
+      const res = await fetch(`${API}/api/recommend/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: data.session_id,
+          dismissed_model_ids: dismissedIds,
+          dismiss_reasons: dismissReasons,
+          count: 3,
+        }),
+      });
+      const json = await res.json();
+      if (json.recommendations?.length > 0) {
+        setAlternatives(json.recommendations);
+      } else {
+        setAlternativesError(true);
+      }
+    } catch {
+      setAlternativesError(true);
+    } finally {
+      setAlternativesLoading(false);
+      setAlternativesFetched(true);
+    }
   };
 
   // Interest row — sits at the bottom of each recommendation card
@@ -779,7 +814,7 @@ export default function ResultadosPage() {
           style={{ padding: "clamp(48px, 6vw, 80px) clamp(24px, 5vw, 80px)", cursor: "default" }}
           onClick={() => Analytics.modelClicked(data.session_id || "", first.model_id, 1, !!first.is_wildcard)}
         >
-          <div style={{ maxWidth: "800px" }}>
+          <div style={{ maxWidth: "800px", opacity: dismissed[first.model_id] ? 0.42 : 1, transition: "opacity 0.3s ease" }}>
             <p style={{
               fontFamily: "var(--font-mono)", fontSize: "10px",
               letterSpacing: "1.5px", color: "var(--accent)",
@@ -878,10 +913,11 @@ export default function ResultadosPage() {
                 borderRadius: "16px",
                 border: "1px solid var(--border)",
                 background: "var(--surface)",
-                transition: "border-color 0.2s ease",
+                transition: "border-color 0.2s ease, opacity 0.3s ease",
                 cursor: "default",
+                opacity: dismissed[rec.model_id] ? 0.42 : 1,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+              onMouseEnter={(e) => { if (!dismissed[rec.model_id]) e.currentTarget.style.borderColor = "var(--accent)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
               onClick={() => Analytics.modelClicked(data.session_id || "", rec.model_id, i + 2, !!rec.is_wildcard)}
             >
@@ -979,6 +1015,171 @@ export default function ResultadosPage() {
           ))}
         </div>
       </section>
+
+      {/* ════════════════════════════════════
+          ALTERNATIVES — appears after dismissals
+      ════════════════════════════════════ */}
+      {Object.keys(dismissed).length > 0 && (
+        <section style={{ padding: "0 clamp(24px, 5vw, 80px) clamp(40px, 5vw, 56px)" }}>
+
+          {/* CTA to fetch alternatives */}
+          {!alternativesFetched && !alternativesLoading && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "20px 24px",
+              borderRadius: "12px",
+              border: "1px dashed var(--border)",
+              gap: "16px", flexWrap: "wrap",
+            }}>
+              <p style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px", color: "var(--accent)", textTransform: "uppercase", marginRight: "10px" }}>
+                  {Object.keys(dismissed).length === 1 ? "1 descartado" : `${Object.keys(dismissed).length} descartados`}
+                </span>
+                Usámos o teu feedback para ajustar o perfil. Queres ver alternativas?
+              </p>
+              <button
+                onClick={fetchAlternatives}
+                style={{
+                  padding: "9px 22px",
+                  borderRadius: "100px",
+                  border: "1px solid var(--accent)",
+                  background: "transparent",
+                  color: "var(--accent)",
+                  fontFamily: "var(--font-mono)", fontSize: "10px",
+                  letterSpacing: "1px", textTransform: "uppercase",
+                  cursor: "pointer", whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(200,168,130,0.08)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                Ver alternativas →
+              </button>
+            </div>
+          )}
+
+          {/* Loading */}
+          {alternativesLoading && (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--muted)", letterSpacing: "2px", textTransform: "uppercase", opacity: 0.6 }}>
+                A ajustar o perfil e procurar alternativas...
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          {alternativesFetched && alternativesError && (
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--muted)", textAlign: "center", padding: "24px 0", opacity: 0.5 }}>
+              Não encontrámos alternativas suficientemente diferentes. Tenta refinar o perfil.
+            </p>
+          )}
+
+          {/* Alternative cards */}
+          {alternatives.length > 0 && (
+            <>
+              <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "16px" }}>
+                <div style={{ width: "32px", height: "1px", background: "var(--accent)", opacity: 0.4 }} />
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "2px", color: "var(--accent)", textTransform: "uppercase", opacity: 0.7 }}>
+                  Alternativas — baseadas no teu feedback
+                </p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: "12px" }}>
+                {alternatives.map((rec: any, i: number) => (
+                  <div
+                    key={`alt-${rec.model_id || i}`}
+                    style={{
+                      padding: "28px",
+                      borderRadius: "16px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      transition: "border-color 0.2s ease",
+                      cursor: "default",
+                      position: "relative",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                    onClick={() => Analytics.modelClicked(data.session_id || "", rec.model_id, 10 + i, !!rec.is_wildcard)}
+                  >
+                    {/* "Alternativa" tag */}
+                    <p style={{
+                      fontFamily: "var(--font-mono)", fontSize: "9px",
+                      letterSpacing: "1.5px", textTransform: "uppercase",
+                      color: "var(--muted)", marginBottom: "12px", opacity: 0.5,
+                    }}>
+                      Alternativa
+                    </p>
+
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "20px" }}>
+                      <div>
+                        <h3 style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: "17px", fontWeight: 700, letterSpacing: "-0.01em",
+                        }}>
+                          {rec.full_name}
+                        </h3>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--accent)" }}>
+                          {rec.price_range?.min?.toLocaleString("pt-PT")} — {rec.price_range?.max?.toLocaleString("pt-PT")} EUR
+                        </span>
+                      </div>
+                    </div>
+
+                    <p style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "16px", fontWeight: 400,
+                      lineHeight: 1.2, marginBottom: "14px",
+                      letterSpacing: "-0.01em",
+                    }}>
+                      {rec.headline}
+                    </p>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: rec.tradeoff ? "12px" : "20px" }}>
+                      {rec.reasons?.slice(0, 2).map((r: string, j: number) => (
+                        <div key={j} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                          <div style={{ marginTop: "7px", flexShrink: 0, width: "3px", height: "3px", borderRadius: "50%", background: "var(--accent)" }} />
+                          <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6, fontWeight: 300, fontFamily: "var(--font-body)" }}>{r}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {rec.tradeoff && (
+                      <div style={{ borderLeft: "2px solid var(--border)", paddingLeft: "14px", marginBottom: "20px" }}>
+                        <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.6, fontWeight: 300, fontFamily: "var(--font-body)", opacity: 0.7 }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--muted)", letterSpacing: "1px", marginRight: "6px", opacity: 0.5, textTransform: "uppercase" }}>Tradeoff</span>
+                          {rec.tradeoff}
+                        </p>
+                      </div>
+                    )}
+
+                    {rec.body_type && (
+                      <div style={{ marginBottom: "4px" }}>
+                        <span style={{
+                          fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--muted)",
+                          border: "1px solid var(--border)", padding: "3px 12px", borderRadius: "100px",
+                        }}>
+                          {rec.body_type.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+
+                    <InterestRow modelId={rec.model_id} />
+                    <AdAnalysisPanel
+                      modelId={rec.model_id}
+                      sessionId={data.session_id || ""}
+                      userProfile={data.profile || {}}
+                      rank={10 + i}
+                    />
+                    <TrustPanel
+                      reliability={rec.reliability}
+                      market={rec.market}
+                      modelName={rec.full_name}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Suggestions */}
       {data.suggestions && (
