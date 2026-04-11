@@ -433,6 +433,48 @@ function AdAnalysisPanel({
             </p>
           )}
 
+          {/* Verdict narrative (LLM) */}
+          {result.analysis?.verdict_narrative && (
+            <div style={{ padding: "12px 16px", borderRadius: "8px", background: "var(--surface)", border: "1px solid var(--border)", marginBottom: "12px" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "1.5px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "6px" }}>Veredicto</p>
+              <p style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>{result.analysis.verdict_narrative}</p>
+            </div>
+          )}
+
+          {/* Negotiation (LLM script or rule tips) */}
+          {(result.analysis?.negotiation_script || result.negotiation_tips?.length > 0) && (
+            <div style={{ marginBottom: "12px" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px" }}>Como negociar</p>
+              {result.analysis?.negotiation_script ? (
+                <p style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>{result.analysis.negotiation_script}</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {result.negotiation_tips.map((tip: string, i: number) => (
+                    <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                      <span style={{ color: "var(--accent)", fontSize: "11px", flexShrink: 0, marginTop: "1px" }}>→</span>
+                      <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Inspection checklist */}
+          {result.inspection_checklist?.length > 0 && (
+            <div style={{ marginBottom: "12px" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px" }}>O que verificar</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                {result.inspection_checklist.map((item: string, i: number) => (
+                  <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--accent)", flexShrink: 0, marginTop: "2px" }}>{String(i + 1).padStart(2, "0")}</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Caveat */}
           <p style={{
             fontSize: "10px", color: "var(--muted)", fontFamily: "var(--font-body)",
@@ -651,32 +693,55 @@ export default function ResultadosPage() {
           A TUA SHORTLIST
         </h1>
 
-        {/* Profile narrative summary */}
+        {/* Profile narrative — summary pill + story card */}
         {(data.profile_narrative?.summary || data.profile_summary) && (
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "16px",
-            padding: "10px 20px",
-            borderRadius: "100px",
-            border: "1px solid rgba(200,168,130,0.2)",
-            background: "rgba(200,168,130,0.06)",
-            marginBottom: "clamp(32px, 4vw, 48px)",
-          }}>
-            <p style={{
-              fontSize: "13px",
-              color: "rgba(242,239,233,0.6)",
-              fontWeight: 300,
-              fontFamily: "var(--font-body)",
+          <div style={{ marginBottom: "clamp(32px, 4vw, 48px)" }}>
+            {/* Summary pill */}
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "16px",
+              padding: "8px 18px",
+              borderRadius: "100px",
+              border: "1px solid rgba(200,168,130,0.2)",
+              background: "rgba(200,168,130,0.06)",
+              marginBottom: "20px",
             }}>
-              {data.profile_narrative?.summary || data.profile_summary}
-            </p>
-            <Link href="/escolher" style={{
-              fontFamily: "var(--font-mono)", fontSize: "9px",
-              letterSpacing: "1px", color: "var(--accent)",
-              textDecoration: "none", opacity: 0.7, whiteSpace: "nowrap",
-              textTransform: "uppercase",
-            }}>
-              Alterar
-            </Link>
+              <p style={{ fontSize: "13px", color: "rgba(242,239,233,0.6)", fontWeight: 300, fontFamily: "var(--font-body)" }}>
+                {data.profile_narrative?.summary || data.profile_summary}
+              </p>
+              <Link href="/escolher" style={{
+                fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px",
+                color: "var(--accent)", textDecoration: "none", opacity: 0.7,
+                whiteSpace: "nowrap", textTransform: "uppercase",
+              }}>
+                Alterar
+              </Link>
+            </div>
+
+            {/* Profile story lines */}
+            {data.profile_narrative && (() => {
+              const n = data.profile_narrative;
+              const lines = [n.priorities, n.tension, n.aversion, n.identity, n.context].filter(Boolean);
+              if (lines.length === 0) return null;
+              return (
+                <div style={{
+                  padding: "20px 24px",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(200,168,130,0.12)",
+                  background: "rgba(255,255,255,0.03)",
+                  display: "flex", flexDirection: "column", gap: "12px",
+                  maxWidth: "600px",
+                }}>
+                  {lines.map((line, i) => (
+                    <div key={i} style={{ display: "flex", gap: "14px", alignItems: "flex-start" }}>
+                      <div style={{ width: "3px", height: "3px", borderRadius: "50%", background: "var(--accent)", marginTop: "9px", flexShrink: 0 }} />
+                      <p style={{ fontSize: "13px", color: "rgba(242,239,233,0.5)", fontWeight: 300, lineHeight: 1.65, fontFamily: "var(--font-body)" }}>
+                        {line}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -867,7 +932,7 @@ export default function ResultadosPage() {
                 {rec.headline}
               </p>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: rec.tradeoff ? "12px" : "20px" }}>
                 {rec.reasons?.slice(0, 2).map((r: string, j: number) => (
                   <div key={j} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
                     <div style={{ marginTop: "7px", flexShrink: 0, width: "3px", height: "3px", borderRadius: "50%", background: "var(--accent)" }} />
@@ -875,6 +940,15 @@ export default function ResultadosPage() {
                   </div>
                 ))}
               </div>
+
+              {rec.tradeoff && (
+                <div style={{ borderLeft: "2px solid var(--border)", paddingLeft: "14px", marginBottom: "20px" }}>
+                  <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.6, fontWeight: 300, fontFamily: "var(--font-body)", opacity: 0.7 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--muted)", letterSpacing: "1px", marginRight: "6px", opacity: 0.5, textTransform: "uppercase" }}>Tradeoff</span>
+                    {rec.tradeoff}
+                  </p>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
                 {rec.is_wildcard && <Badge label="WILDCARD" />}
