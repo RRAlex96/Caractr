@@ -227,7 +227,7 @@ def build_profile(answers: dict) -> tuple:
     profile["driving"] += style * 0.18
     profile["comfort"] += (1.0 - style) * 0.18
     # Risk/character weights (originally P4, now derived from driving style)
-    risk = float(answers.get("p4_risk", style))  # V4 sends explicit p4_risk; V5 derives from p3
+    risk = _resolve_float(answers.get("p4_risk"), None, style)  # V5: None → derive from p3; V4: explicit float
     profile["reliability"] += (1.0 - risk) * 0.18
     profile["driving"]     += risk * 0.14
     profile["status"]      += risk * 0.06

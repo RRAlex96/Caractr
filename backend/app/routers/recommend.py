@@ -69,27 +69,13 @@ class RefreshRequest(BaseModel):
 @router.post("/recommend")
 def recommend(answers: WizardAnswers, db: Session = Depends(get_db)):
     """Main recommendation endpoint. Returns session_id + profile + 5 models."""
-    import traceback as _tb
-    try:
-        return get_recommendations(db, answers.model_dump())
-    except Exception as e:
-        err = _tb.format_exc()
-        print(f"[RECOMMEND] CRASH: {err}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail={"error": str(e), "trace": err})
+    return get_recommendations(db, answers.model_dump())
 
 
 @router.post("/dream-cars")
 def dream_cars(answers: DreamCarRequest):
     """Get sorted dream cars for P7 based on partial profile."""
-    import traceback as _tb
-    try:
-        return {"dream_cars": get_dream_cars(answers.model_dump())}
-    except Exception as e:
-        err = _tb.format_exc()
-        print(f"[DREAM-CARS] CRASH: {err}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail={"error": str(e), "trace": err})
+    return {"dream_cars": get_dream_cars(answers.model_dump())}
 
 
 @router.post("/recommend/refresh")
