@@ -1418,6 +1418,127 @@ def get_recommendations(db: Session, answers: dict) -> dict:
     }
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# REFRESH RECOMMENDATIONS (dislike → get alternatives)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Maps dismiss reason keywords → profile dimension adjustments
+_DISMISS_ADJUSTMENTS: list[tuple[str, dict]] = [
+    ("desportivo",  {"driving": +0.15, "economy": -0.05}),
+    ("sportier",    {"driving": +0.15, "economy": -0.05}),
+    ("luxuoso",     {"status": +0.15, "comfort": +0.05, "economy": -0.10}),
+    ("premium",     {"status": +0.12, "comfort": +0.05, "economy": -0.08}),
+    ("prático",     {"practical": +0.15, "driving": -0.05}),
+    ("pratico",     {"practical": +0.15, "driving": -0.05}),
+    ("espaço",      {"practical": +0.12}),
+    ("espaco",      {"practical": +0.12}),
+    ("conforto",    {"comfort": +0.12, "driving": -0.05}),
+    ("discreto",    {"status": -0.12}),
+    ("marca",       {}),   # brand dislike — no profile change, just exclude
+    ("orçamento",   {"economy": +0.10}),
+    ("orcamento",   {"economy": +0.10}),
+    ("estilo",      {}),   # style mismatch — no numeric adjustment
+]
+
+
+def _apply_dismiss_adjustments(profile: dict, dismiss_reasons: list[str]) -> dict:
+    """
+    Nudge the profile based on dismiss reasons.
+    Clamps all dimensions to [0.0, 1.0].
+    """
+    adjusted = dict(profile)
+    for reason in dismiss_reasons:
+        reason_lower = reason.lower()
+        for keyword, deltas in _DISMISS_ADJUSTMENTS:
+            if keyword in reason_lower:
+                for dim, delta in deltas.items():
+                    adjusted[dim] = max(0.0, min(1.0, adjusted.get(dim, 0.0) + delta))
+                break
+    return adjusted
+
+
+def get_alternative_recommendations(
+    db: Session,
+    session_id: str,
+    dismissed_model_ids: list[int],
+    dismiss_reasons: list[str],
+    count: int = 3,
+) -> dict:
+    """
+    Re-run the recommendation pipeline excluding dismissed models,
+    with profile nudged based on why the user dismissed them.
+
+    Returns a compact response: {alternatives: [...], profile_adjusted: bool}
+    """
+    import json as _json
+
+    # Load original session answers + profile
+    row = db.execute(text("""
+        SELECT answers_raw, profile_computed
+        FROM recommendation_sessions
+        WHERE id = :sid
+        LIMIT 1
+    """), {"sid": session_id}).mappings().fetchone()
+
+    if not row or not row["answers_raw"]:
+        return {"alternatives": [], "profile_adjusted": False}
+
+    answers = _json.loads(row["answers_raw"])
+    original_profile = _json.loads(row["profile_computed"]) if row["profile_computed"] else None
+
+    # Build fresh profile from answers (or use stored one)
+    profile, _ = build_profile(answers)
+    if original_profile:
+        profile = original_profile
+
+    # Nudge profile based on dismiss reasons
+    profile_adjusted = bool(dismiss_reasons)
+    if profile_adjusted:
+        profile = _apply_dismiss_adjustments(profile, dismiss_reasons)
+
+    # Load + score all models (excluding dismissed)
+    all_models = load_models(db)
+    passed, stretch = apply_hard_constraints(all_models, answers)
+
+    excluded = set(dismissed_model_ids)
+    passed  = [m for m in passed  if m["id"] not in excluded]
+    stretch = [m for m in stretch if m["id"] not in excluded]
+
+    for m in passed:
+        m["_score"] = score_model(m, profile, answers)
+        m["is_stretch"] = False
+        m["is_wildcard"] = False
+    for m in stretch:
+        m["_score"] = score_model(m, profile, answers) * 0.90
+        m["is_stretch"] = True
+        m["is_wildcard"] = False
+
+    # Take top N diverse alternatives
+    candidates = sorted(passed + stretch, key=lambda x: x["_score"], reverse=True)
+
+    # Light body-type diversity: avoid duplicating body types already in dismissed set
+    # (we don't know dismissed body types, so just pick top N unique-by-body-type)
+    seen_bodies: set[str] = set()
+    alternatives: list[dict] = []
+    for m in candidates:
+        bt = m.get("body_type", "")
+        if bt not in seen_bodies or len(alternatives) >= count - 1:
+            alternatives.append(m)
+            seen_bodies.add(bt)
+        if len(alternatives) >= count:
+            break
+
+    # Generate explanations
+    llm_result = _generate_explanations_llm(alternatives, profile, answers)
+    results = generate_all_explanations(alternatives, profile, answers, llm_result=llm_result)
+
+    return {
+        "alternatives": results,
+        "profile_adjusted": profile_adjusted,
+        "adjusted_profile": profile if profile_adjusted else None,
+    }
+
+
 def _summarize_profile(profile: dict) -> str:
     s = sorted(profile.items(), key=lambda x: x[1], reverse=True)
     pt = {"economy": "economia", "comfort": "conforto", "driving": "condução",
