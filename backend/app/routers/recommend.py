@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, model_validator
 from typing import Optional, Union
 from app.db.database import get_db
-from app.services.recommend_service import get_recommendations, get_dream_cars, log_feedback
+from app.services.recommend_service import get_recommendations, get_dream_cars, log_feedback, get_alternative_recommendations
 
 router = APIRouter(prefix="/api", tags=["recommend"])
 
@@ -57,18 +57,55 @@ class FeedbackRequest(BaseModel):
     email:               Optional[str] = None
 
 
+class RefreshRequest(BaseModel):
+    session_id:           str
+    dismissed_model_ids:  list[int] = []
+    dismiss_reasons:      list[str] = []   # free-text reasons from frontend
+    count:                int        = 3   # how many alternatives to return (max 3)
+
+
 # ── Endpoints ──
 
 @router.post("/recommend")
 def recommend(answers: WizardAnswers, db: Session = Depends(get_db)):
     """Main recommendation endpoint. Returns session_id + profile + 5 models."""
-    return get_recommendations(db, answers.model_dump())
+    import traceback as _tb
+    try:
+        return get_recommendations(db, answers.model_dump())
+    except Exception as e:
+        err = _tb.format_exc()
+        print(f"[RECOMMEND] CRASH: {err}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail={"error": str(e), "trace": err})
 
 
 @router.post("/dream-cars")
 def dream_cars(answers: DreamCarRequest):
     """Get sorted dream cars for P7 based on partial profile."""
-    return {"dream_cars": get_dream_cars(answers.model_dump())}
+    import traceback as _tb
+    try:
+        return {"dream_cars": get_dream_cars(answers.model_dump())}
+    except Exception as e:
+        err = _tb.format_exc()
+        print(f"[DREAM-CARS] CRASH: {err}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail={"error": str(e), "trace": err})
+
+
+@router.post("/recommend/refresh")
+def refresh_recommendations(req: RefreshRequest, db: Session = Depends(get_db)):
+    """
+    Get alternative recommendations after dismissing models.
+    Adjusts profile based on dismiss reasons, excludes dismissed model IDs.
+    """
+    count = max(1, min(req.count, 3))
+    return get_alternative_recommendations(
+        db,
+        session_id=req.session_id,
+        dismissed_model_ids=req.dismissed_model_ids,
+        dismiss_reasons=req.dismiss_reasons,
+        count=count,
+    )
 
 
 @router.post("/feedback")
