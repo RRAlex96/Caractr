@@ -363,44 +363,133 @@ async def fetch_listings(
         return []
 
 
+def _extract_preloaded_state(html: str) -> Optional[dict]:
+    """
+    Standvirtual (OLX Group) embeds listing data in window.__PRELOADED_STATE__.
+    Same pattern as olx.pt — both are on the OLX platform.
+    """
+    m = re.search(r"window\.__PRELOADED_STATE__\s*=\s*(\{.+?\});\s*(?:window|</script>)", html, re.DOTALL)
+    if not m:
+        m = re.search(r"__PRELOADED_STATE__\s*=\s*(\{.+\})", html, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 async def fetch_listing_detail(url: str) -> dict:
     """
-    Fetch the detail page of a single listing to extract description and more details.
-    Returns a dict with: description, photo_count, seller_type, extras.
+    Fetch the detail page of a single Standvirtual listing.
+
+    Extraction order:
+    1. Static httpx + __PRELOADED_STATE__ JSON (SV serves this in SSR HTML)
+    2. Generic scraper fallback (JSON-LD → meta → microdata → heuristic)
+
+    Returns dict with: brand, model, year, km, price, fuel_type,
+                       description, photo_count, seller_type, extras.
     """
+    result: dict = {
+        "brand": "", "model": "", "year": None, "km": None, "price": None,
+        "fuel_type": None, "description": "", "photo_count": 0,
+        "seller_type": "desconhecido", "extras": [],
+    }
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
         "Referer": f"{BASE_URL}/carros",
     }
-    result = {"description": "", "photo_count": 0, "seller_type": "desconhecido", "extras": []}
+
+    html = ""
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
-            await asyncio.sleep(random.uniform(2.0, 3.5))
+            await asyncio.sleep(random.uniform(1.5, 3.0))
             resp = await client.get(url)
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "lxml")
-
-            # Description
-            for sel in ["[class*='description']", "#description", "[itemprop='description']", "section p"]:
-                desc = soup.select_one(sel)
-                if desc:
-                    result["description"] = desc.get_text("\n", strip=True)[:3000]
-                    break
-
-            # Photos
-            imgs = soup.select("img[src*='photo'], img[src*='image'], [class*='gallery'] img")
-            result["photo_count"] = len(imgs)
-
-            # Seller type
-            page_text = soup.get_text(" ", strip=True).lower()
-            if "particular" in page_text or "privado" in page_text:
-                result["seller_type"] = "privado"
-            elif any(w in page_text for w in ["stand", "dealer", "concessionário"]):
-                result["seller_type"] = "stand"
-
+            html = resp.text
     except Exception as e:
-        print(f"[SCRAPER] Detail fetch error for {url}: {e}")
+        print(f"[SV SCRAPER] Detail fetch error for {url}: {e}")
+
+    if html:
+        state = _extract_preloaded_state(html)
+        if state:
+            # Path: ad.ad / adview.ad / listing.ad (varies by SV version)
+            ad = (
+                state.get("ad", {}).get("ad") or
+                state.get("adview", {}).get("ad") or
+                state.get("listing", {}).get("ad") or
+                {}
+            )
+            if ad:
+                result["description"] = (ad.get("description") or "")[:3000]
+                result["photo_count"] = len(ad.get("photos", []) or ad.get("images", []))
+
+                # Price
+                price_obj = ad.get("price", {})
+                if isinstance(price_obj, dict):
+                    raw_price = price_obj.get("value", {})
+                    result["price"] = _parse_price(str(raw_price.get("value", "") if isinstance(raw_price, dict) else raw_price))
+                elif isinstance(price_obj, (int, float)):
+                    result["price"] = int(price_obj)
+
+                # Seller type
+                user = ad.get("user", {}) or {}
+                user_type = user.get("userType", "").lower()
+                result["seller_type"] = (
+                    "privado" if user_type in ("private", "particular")
+                    else "stand" if user_type in ("business", "company", "dealer")
+                    else "desconhecido"
+                )
+
+                # Params: year, km, fuel, brand, model
+                for p in (ad.get("params", []) or ad.get("parameters", [])):
+                    key = (p.get("key") or p.get("name", "")).lower()
+                    val = str(p.get("value", {}).get("label", "") or p.get("value", "") or "")
+                    if not val:
+                        continue
+                    if key in ("ano", "year"):
+                        result["year"] = _parse_year(val)
+                    elif key in ("quilometragem", "km", "mileage"):
+                        result["km"] = _parse_km(val)
+                    elif key in ("combustivel", "combustível", "fuel"):
+                        result["fuel_type"] = val
+                    elif key in ("marca", "make", "brand"):
+                        result["brand"] = val.strip().title()
+                    elif key in ("modelo", "model"):
+                        result["model"] = val.strip().title()
+
+                # Title fallback for brand/model
+                if not result["brand"] and ad.get("title"):
+                    title = ad["title"]
+                    try:
+                        from app.scrapers.generic import _infer_brand_model
+                        b, m = _infer_brand_model(title)
+                        if b:
+                            result["brand"] = b
+                        if m and not result["model"]:
+                            result["model"] = m
+                    except Exception:
+                        pass
+
+                if result.get("brand") or result.get("year") or result.get("price"):
+                    print(f"[SV SCRAPER] __PRELOADED_STATE__ OK — "
+                          f"{result.get('brand')} {result.get('model')} "
+                          f"{result.get('year')} {result.get('km')}km €{result.get('price')}")
+                    return result
+
+    # ── Fallback: generic scraper (JSON-LD → meta → microdata → heuristic) ──
+    print(f"[SV SCRAPER] __PRELOADED_STATE__ missing/empty, falling back to generic scraper")
+    try:
+        from app.scrapers.generic import fetch_listing_detail as generic_fetch
+        generic = await generic_fetch(url)
+        # Merge: use generic result but keep any fields already extracted
+        for key in ("brand", "model", "year", "km", "price", "fuel_type", "description",
+                    "photo_count", "seller_type"):
+            if generic.get(key) and not result.get(key):
+                result[key] = generic[key]
+    except Exception as e:
+        print(f"[SV SCRAPER] Generic fallback error: {e}")
 
     return result

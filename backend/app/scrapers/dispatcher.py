@@ -214,7 +214,9 @@ def extract_slugs_from_url(url: str) -> tuple[str, str]:
         m = re.search(r"/d/anuncio/([^/]+)-ID[A-Za-z0-9]+", path)
         if m:
             parts = m.group(1).split("-")
-            # First token is likely brand, second is model (heuristic)
-            return parts[0] if parts else "", parts[1] if len(parts) > 1 else ""
+            # Skip stop-words that OLX prefixes to listing URL slugs
+            _SLUG_STOP = {"anuncio", "vendo", "venda", "usado", "carro"}
+            candidates = [p for p in parts if p.lower() not in _SLUG_STOP]
+            return candidates[0] if candidates else "", candidates[1] if len(candidates) > 1 else ""
 
     return "", ""
