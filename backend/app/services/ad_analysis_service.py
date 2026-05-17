@@ -1126,6 +1126,7 @@ def _build_response(
             "negotiation_script": (enrichment or {}).get("negotiation_script"),
             "verdict_narrative":  (enrichment or {}).get("verdict_narrative"),
             "seller_read":        (enrichment or {}).get("seller_read"),
+            "_llm_error":         (enrichment or {}).get("_llm_error"),  # temporary diagnostic
         },
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
