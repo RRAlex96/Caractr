@@ -25,7 +25,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_MODEL   = os.getenv("LLM_MODEL", "gemini-2.5-flash-preview-05-20")
+_MODEL   = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 _RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))
 _API_KEY = os.getenv("GEMINI_API_KEY", "")
 

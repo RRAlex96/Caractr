@@ -1058,14 +1058,13 @@ Gera análise narrativa. Sê específico — referencia dados reais do anúncio,
         print(f"[AD_ANALYSIS] Calling Gemini for narrative enrichment ({listing.get('brand_name')} {listing.get('model_name')})")
         result = await asyncio.to_thread(generate_json, prompt, 700)
         print(f"[AD_ANALYSIS] Narrative enrichment OK — fields: {list(result.keys())}")
-        result["_llm_debug"] = f"ok:keys={list(result.keys())}"  # temporary diagnostic
         return result
     except LLMError as e:
         print(f"[AD_ANALYSIS] Gemini narrative LLMError: {e}")
-        return {"_llm_debug": f"LLMError:{e}"}
+        return {}
     except Exception as e:
         print(f"[AD_ANALYSIS] Gemini narrative unexpected error: {e}")
-        return {"_llm_debug": f"Exception:{e}"}
+        return {}
 
 
 def _build_response(
@@ -1127,7 +1126,6 @@ def _build_response(
             "negotiation_script": (enrichment or {}).get("negotiation_script"),
             "verdict_narrative":  (enrichment or {}).get("verdict_narrative"),
             "seller_read":        (enrichment or {}).get("seller_read"),
-            "_llm_debug":         (enrichment or {}).get("_llm_debug"),  # temporary diagnostic
         },
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
