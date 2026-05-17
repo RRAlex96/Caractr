@@ -791,13 +791,18 @@ async def analyse_listing(
     market_stats = {}
     if brand_name and model_name:
         try:
-            market_stats = await _fetch_live_market_data(
-                brand_name, model_name, year,
-                fuel_type=fuel_type,
-                engine_hint=engine_hint,
-                gen_year_start=gen_year_start,
-                gen_year_end=gen_year_end,
+            market_stats = await asyncio.wait_for(
+                _fetch_live_market_data(
+                    brand_name, model_name, year,
+                    fuel_type=fuel_type,
+                    engine_hint=engine_hint,
+                    gen_year_start=gen_year_start,
+                    gen_year_end=gen_year_end,
+                ),
+                timeout=45,  # 45s hard cap — Playwright can't hang the whole app
             )
+        except asyncio.TimeoutError:
+            print(f"[ANALYSIS] Live market fetch timed out after 45s — falling back to DB")
         except Exception as e:
             print(f"[ANALYSIS] Live market fetch failed: {e}")
 
