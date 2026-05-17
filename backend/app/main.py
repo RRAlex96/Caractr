@@ -251,7 +251,13 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "app": "Caractr", "version": "4.4.0"}
+    from app.services.llm_client import llm_available
+    return {
+        "status": "ok",
+        "app": "Caractr",
+        "version": "4.4.0",
+        "llm_available": llm_available(),
+    }
 
 
 app.include_router(models.router)

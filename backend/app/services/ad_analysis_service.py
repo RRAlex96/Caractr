@@ -729,7 +729,32 @@ async def analyse_listing(
     cached = _get_cached_analysis(db, listing_url)
     if cached and cached.get("llm_analysis"):
         llm = cached["llm_analysis"] if isinstance(cached["llm_analysis"], dict) else json.loads(cached["llm_analysis"])
-        return _build_response(cached, llm, from_cache=True)
+        # Re-hydrate enrichment from cached llm blob (stored there since v4.4.1)
+        cached_enrichment = {
+            "extras_analysis":      llm.get("extras_analysis"),
+            "negotiation_script":   llm.get("negotiation_script"),
+            "verdict_narrative":    llm.get("verdict_narrative"),
+            "seller_read":          llm.get("seller_read"),
+            "inspection_checklist": llm.get("inspection_checklist", []),
+            "negotiation_tips":     llm.get("negotiation_tips", []),
+        }
+        # Re-fetch model_info for reliability / maintenance (cheap DB query)
+        cached_model_info: dict = {}
+        brand_n = cached.get("brand_name", "")
+        model_n = cached.get("model_name", "")
+        if brand_n and model_n:
+            cached_model_info = _get_model_info(db, brand_n, model_n) or {}
+        # Pull market stats from DB (no live scrape on cache hit)
+        cached_market: dict = {}
+        cached_model_id = cached_model_info.get("id") if cached_model_info else None
+        if cached_model_id and cached.get("year"):
+            cached_market = _get_market_stats(db, cached_model_id, cached.get("year")) or {}
+        return _build_response(
+            cached, llm, from_cache=True,
+            enrichment=cached_enrichment or None,
+            model_info=cached_model_info or None,
+            market_stats=cached_market or None,
+        )
 
     # ── 2. Resolve or scrape listing ──
     normalized = _resolve_model_from_url(db, listing_url)
@@ -857,7 +882,9 @@ async def analyse_listing(
     norm_id = normalized.get("id")
     if norm_id:
         try:
-            _store_analysis(db, norm_id, llm_result, deal_tier, deal_score)
+            # Include enrichment in the cached blob so cache hits return full responses
+            llm_result_to_cache = {**llm_result, **enrichment}
+            _store_analysis(db, norm_id, llm_result_to_cache, deal_tier, deal_score)
         except Exception as e:
             print(f"[AD_ANALYSIS] Cache store error: {e}")
 
