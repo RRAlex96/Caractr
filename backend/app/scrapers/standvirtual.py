@@ -363,37 +363,53 @@ async def fetch_listings(
         return []
 
 
-def _extract_preloaded_state(html: str) -> Optional[dict]:
+def _extract_next_data_advert(html: str) -> Optional[dict]:
     """
-    Standvirtual (OLX Group) embeds listing data in window.__PRELOADED_STATE__.
-    Same pattern as olx.pt — both are on the OLX platform.
+    Standvirtual uses Next.js. Detail pages embed the full ad object in
+    <script id="__NEXT_DATA__"> as server-side props — no JS execution needed.
+    Returns the 'advert' dict, or None if not a detail page / parse error.
     """
-    m = re.search(r"window\.__PRELOADED_STATE__\s*=\s*(\{.+?\});\s*(?:window|</script>)", html, re.DOTALL)
-    if not m:
-        m = re.search(r"__PRELOADED_STATE__\s*=\s*(\{.+\})", html, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-    return None
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "lxml")
+    tag = soup.find("script", id="__NEXT_DATA__")
+    if not tag or not tag.string:
+        return None
+    try:
+        data = json.loads(tag.string)
+        return data["props"]["pageProps"].get("advert")
+    except Exception:
+        return None
+
+
+def _param_val(params_dict: dict, key: str) -> str:
+    """Extract first value label from SV parametersDict entry."""
+    entry = params_dict.get(key, {})
+    values = entry.get("values", [])
+    return values[0].get("value", "") if values else ""
+
+
+def _param_label(params_dict: dict, key: str) -> str:
+    """Extract first value label (human-readable) from SV parametersDict entry."""
+    entry = params_dict.get(key, {})
+    values = entry.get("values", [])
+    return values[0].get("label", "") if values else ""
 
 
 async def fetch_listing_detail(url: str) -> dict:
     """
-    Fetch the detail page of a single Standvirtual listing.
+    Fetch a Standvirtual listing detail page and extract structured data.
 
-    Extraction order:
-    1. Static httpx + __PRELOADED_STATE__ JSON (SV serves this in SSR HTML)
-    2. Generic scraper fallback (JSON-LD → meta → microdata → heuristic)
+    SV uses Next.js SSR — the full advert object is embedded in
+    <script id="__NEXT_DATA__"> without any JS execution needed.
+    Static httpx is sufficient; Playwright is not required.
 
     Returns dict with: brand, model, year, km, price, fuel_type,
-                       description, photo_count, seller_type, extras.
+                       description, photo_count, seller_type, listing_age_days.
     """
     result: dict = {
         "brand": "", "model": "", "year": None, "km": None, "price": None,
         "fuel_type": None, "description": "", "photo_count": 0,
-        "seller_type": "desconhecido", "extras": [],
+        "seller_type": "desconhecido",
     }
     headers = {
         "User-Agent": _random_ua(),
@@ -402,94 +418,87 @@ async def fetch_listing_detail(url: str) -> dict:
         "Referer": f"{BASE_URL}/carros",
     }
 
-    html = ""
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(1.0, 2.5))
             resp = await client.get(url)
             resp.raise_for_status()
             html = resp.text
     except Exception as e:
         print(f"[SV SCRAPER] Detail fetch error for {url}: {e}")
+        return result
 
-    if html:
-        state = _extract_preloaded_state(html)
-        if state:
-            # Path: ad.ad / adview.ad / listing.ad (varies by SV version)
-            ad = (
-                state.get("ad", {}).get("ad") or
-                state.get("adview", {}).get("ad") or
-                state.get("listing", {}).get("ad") or
-                {}
-            )
-            if ad:
-                result["description"] = (ad.get("description") or "")[:3000]
-                result["photo_count"] = len(ad.get("photos", []) or ad.get("images", []))
+    advert = _extract_next_data_advert(html)
+    if not advert:
+        print(f"[SV SCRAPER] No __NEXT_DATA__ advert found for {url}")
+        return result
 
-                # Price
-                price_obj = ad.get("price", {})
-                if isinstance(price_obj, dict):
-                    raw_price = price_obj.get("value", {})
-                    result["price"] = _parse_price(str(raw_price.get("value", "") if isinstance(raw_price, dict) else raw_price))
-                elif isinstance(price_obj, (int, float)):
-                    result["price"] = int(price_obj)
+    params = advert.get("parametersDict", {})
 
-                # Seller type
-                user = ad.get("user", {}) or {}
-                user_type = user.get("userType", "").lower()
-                result["seller_type"] = (
-                    "privado" if user_type in ("private", "particular")
-                    else "stand" if user_type in ("business", "company", "dealer")
-                    else "desconhecido"
-                )
+    # ── Brand / Model ──────────────────────────────────────────────────────────
+    result["brand"] = _param_label(params, "make").strip() or ""
+    result["model"] = _param_label(params, "model").strip() or ""
 
-                # Params: year, km, fuel, brand, model
-                for p in (ad.get("params", []) or ad.get("parameters", [])):
-                    key = (p.get("key") or p.get("name", "")).lower()
-                    val = str(p.get("value", {}).get("label", "") or p.get("value", "") or "")
-                    if not val:
-                        continue
-                    if key in ("ano", "year"):
-                        result["year"] = _parse_year(val)
-                    elif key in ("quilometragem", "km", "mileage"):
-                        result["km"] = _parse_km(val)
-                    elif key in ("combustivel", "combustível", "fuel"):
-                        result["fuel_type"] = val
-                    elif key in ("marca", "make", "brand"):
-                        result["brand"] = val.strip().title()
-                    elif key in ("modelo", "model"):
-                        result["model"] = val.strip().title()
+    # Fallback: infer from title
+    if not result["brand"] and advert.get("title"):
+        try:
+            from app.scrapers.generic import _infer_brand_model
+            b, m = _infer_brand_model(advert["title"])
+            if b:
+                result["brand"] = b
+            if m and not result["model"]:
+                result["model"] = m
+        except Exception:
+            pass
 
-                # Title fallback for brand/model
-                if not result["brand"] and ad.get("title"):
-                    title = ad["title"]
-                    try:
-                        from app.scrapers.generic import _infer_brand_model
-                        b, m = _infer_brand_model(title)
-                        if b:
-                            result["brand"] = b
-                        if m and not result["model"]:
-                            result["model"] = m
-                    except Exception:
-                        pass
+    # ── Year ───────────────────────────────────────────────────────────────────
+    year_raw = _param_val(params, "first_registration_year")
+    result["year"] = _parse_year(year_raw) if year_raw else None
 
-                if result.get("brand") or result.get("year") or result.get("price"):
-                    print(f"[SV SCRAPER] __PRELOADED_STATE__ OK — "
-                          f"{result.get('brand')} {result.get('model')} "
-                          f"{result.get('year')} {result.get('km')}km €{result.get('price')}")
-                    return result
+    # ── Km ─────────────────────────────────────────────────────────────────────
+    km_raw = _param_val(params, "mileage")
+    result["km"] = _parse_km(km_raw) if km_raw else None
 
-    # ── Fallback: generic scraper (JSON-LD → meta → microdata → heuristic) ──
-    print(f"[SV SCRAPER] __PRELOADED_STATE__ missing/empty, falling back to generic scraper")
+    # ── Price ──────────────────────────────────────────────────────────────────
+    price_obj = advert.get("price", {}) or {}
+    result["price"] = _parse_price(str(price_obj.get("value", "")))
+
+    # ── Fuel type ──────────────────────────────────────────────────────────────
+    result["fuel_type"] = _param_label(params, "fuel_type") or None
+
+    # ── Seller type ────────────────────────────────────────────────────────────
+    seller = advert.get("seller", {}) or {}
+    seller_type_raw = seller.get("type", "").upper()
+    result["seller_type"] = (
+        "privado" if seller_type_raw == "PRIVATE"
+        else "stand" if seller_type_raw == "PROFESSIONAL"
+        else "desconhecido"
+    )
+
+    # ── Photos ─────────────────────────────────────────────────────────────────
+    photos = (advert.get("images") or {}).get("photos", [])
+    result["photo_count"] = len(photos)
+
+    # ── Description ────────────────────────────────────────────────────────────
+    desc_raw = advert.get("description", "") or ""
+    # Strip HTML tags from description
     try:
-        from app.scrapers.generic import fetch_listing_detail as generic_fetch
-        generic = await generic_fetch(url)
-        # Merge: use generic result but keep any fields already extracted
-        for key in ("brand", "model", "year", "km", "price", "fuel_type", "description",
-                    "photo_count", "seller_type"):
-            if generic.get(key) and not result.get(key):
-                result[key] = generic[key]
-    except Exception as e:
-        print(f"[SV SCRAPER] Generic fallback error: {e}")
+        from bs4 import BeautifulSoup as _BS
+        result["description"] = _BS(desc_raw, "lxml").get_text("\n", strip=True)[:3000]
+    except Exception:
+        result["description"] = re.sub(r"<[^>]+>", " ", desc_raw).strip()[:3000]
 
+    # ── Listing age ────────────────────────────────────────────────────────────
+    created_at = advert.get("createdAt") or advert.get("originalCreatedAt")
+    if created_at:
+        try:
+            from datetime import datetime, timezone
+            created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            age_days = (datetime.now(timezone.utc) - created).days
+            result["listing_age_days"] = age_days
+        except Exception:
+            pass
+
+    print(f"[SV SCRAPER] __NEXT_DATA__ OK — {result['brand']} {result['model']} "
+          f"{result['year']} {result['km']}km €{result['price']}")
     return result

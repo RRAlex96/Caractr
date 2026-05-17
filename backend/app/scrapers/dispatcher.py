@@ -199,8 +199,15 @@ def extract_slugs_from_url(url: str) -> tuple[str, str]:
     path = urlparse(url).path.rstrip("/")
 
     if source == "standvirtual":
-        # /carros/bmw/serie-3/ID...
-        m = re.search(r"/carros/([^/]+)/([^/]+)(?:/|$)", path)
+        # New format: /carros/anuncio/{brand}-{model}-...-ID{id}.html
+        m = re.search(r"/carros/anuncio/([^/]+)-ID[A-Za-z0-9]+", path)
+        if m:
+            parts = m.group(1).split("-")
+            _SLUG_STOP = {"anuncio", "ver", "usado", "vendo", "venda"}
+            candidates = [p for p in parts if p.lower() not in _SLUG_STOP]
+            return candidates[0] if candidates else "", candidates[1] if len(candidates) > 1 else ""
+        # Old format (legacy): /carros/{brand}/{model}/ID...
+        m = re.search(r"/carros/([^/]+)/([^/]+)/ID", path)
         if m:
             return m.group(1), m.group(2)
 
