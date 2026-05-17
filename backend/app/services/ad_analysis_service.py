@@ -630,7 +630,17 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         VALUES (:raw_id, :model_id, :brand, :model,
                 :seller_type, :desc, :photos,
                 :year, :km, :price, :fuel_type)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (raw_listing_id) DO UPDATE
+            SET model_id    = EXCLUDED.model_id,
+                brand_name  = EXCLUDED.brand_name,
+                model_name  = EXCLUDED.model_name,
+                seller_type = EXCLUDED.seller_type,
+                description = EXCLUDED.description,
+                photo_count = EXCLUDED.photo_count,
+                year        = COALESCE(EXCLUDED.year, normalized_listings.year),
+                km          = COALESCE(EXCLUDED.km, normalized_listings.km),
+                price       = COALESCE(EXCLUDED.price, normalized_listings.price),
+                fuel_type   = COALESCE(EXCLUDED.fuel_type, normalized_listings.fuel_type)
         RETURNING id
     """), {
         "raw_id":      raw_id,
