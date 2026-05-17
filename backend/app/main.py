@@ -251,12 +251,16 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    from app.services.llm_client import llm_available
+    try:
+        from app.services.llm_client import llm_available
+        llm_ok = llm_available()
+    except Exception:
+        llm_ok = False
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.4.0",
-        "llm_available": llm_available(),
+        "version": "4.4.1",
+        "llm_available": llm_ok,
     }
 
 
