@@ -1061,10 +1061,10 @@ Gera análise narrativa. Sê específico — referencia dados reais do anúncio,
         return result
     except LLMError as e:
         print(f"[AD_ANALYSIS] Gemini narrative LLMError: {e}")
-        return {}
+        return {"_llm_error": str(e)}  # temporary diagnostic
     except Exception as e:
         print(f"[AD_ANALYSIS] Gemini narrative unexpected error: {e}")
-        return {}
+        return {"_llm_error": str(e)}  # temporary diagnostic
 
 
 def _build_response(
