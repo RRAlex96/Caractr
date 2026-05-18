@@ -231,6 +231,63 @@ SELLER_SELECTORS = [
 ]
 
 
+# ── Portuguese label-value extraction (Layer 5) ─────────────────────────────
+# Many PT dealer sites render specs as "Ano: 2020", "Quilómetros: 185.000 km"
+# This catches sites where JSON-LD, microdata, and CSS selectors all miss.
+
+_PT_LABEL_PATTERNS = [
+    # (compiled regex, field name, parser lambda)
+    (re.compile(r'Ano\s*[:/]\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'(?:Ano\s+de\s+)?[Rr]egisto\s*[:/]\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'(?:Ano\s*/\s*)?M[eê]s\s*[:/]\s*(\d{1,2})/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(2)) if 1990 <= int(m.group(2)) <= 2030 else None),
+    (re.compile(r'Quil[oó]metros?\s*[:/]\s*([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Quil[oó]metragem\s*[:/]\s*([\d\s.]+)', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Combust[ií]vel\s*[:/]\s*(\w[\w\s/-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
+    (re.compile(r'Pot[eê]ncia\s*[:/]\s*(\d+)\s*(?:cv|hp)', re.IGNORECASE), "engine_power_hp", lambda m: int(m.group(1))),
+    (re.compile(r'Cilindrada\s*[:/]\s*([\d.]+)\s*(?:cc|cm)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
+    (re.compile(r'(?:Tipo\s+de\s+)?Caixa\s*[:/]\s*(\w[\w\s]*)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
+    (re.compile(r'Portas\s*[:/]\s*(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
+    (re.compile(r'Lugares\s*[:/]\s*(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
+    (re.compile(r'Cor\s*[:/]\s*(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
+    (re.compile(r'Marca\s*[:/]\s*(\w[\w\s-]*)', re.IGNORECASE), "brand", lambda m: m.group(1).strip()),
+    (re.compile(r'Modelo\s*[:/]\s*(\w[\w\s-]*)', re.IGNORECASE), "model", lambda m: m.group(1).strip()),
+    (re.compile(r'Vers[aã]o\s*[:/]\s*(\w[\w\s.-]*)', re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
+]
+
+
+def _extract_pt_labels(page_text: str, result: dict) -> None:
+    """Extract car specs from Portuguese label-value patterns in page text."""
+    for pattern, field, parser in _PT_LABEL_PATTERNS:
+        if field in result and result[field]:
+            continue  # already have a value from a higher-priority layer
+        m = pattern.search(page_text)
+        if m:
+            try:
+                val = parser(m)
+                if val is not None:
+                    result[field] = val
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback price: "XX.XXX €" anywhere in text (if no price yet)
+    if not result.get("price"):
+        m = re.search(r'(\d[\d\s.]*)\s*€', page_text)
+        if m:
+            result["price"] = _parse_price(m.group(1))
+
+    # Fallback year
+    if not result.get("year"):
+        m = re.search(r'\b(20[0-2]\d|19[89]\d)\b', page_text)
+        if m:
+            result["year"] = int(m.group(1))
+
+    # Fallback km
+    if not result.get("km"):
+        m = re.search(r'(\d[\d\s.]{2,8})\s*km\b', page_text, re.IGNORECASE)
+        if m:
+            result["km"] = _parse_km(m.group(1))
+
+
 def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
     result: dict = {}
 
@@ -409,6 +466,11 @@ async def fetch_listing_detail(url: str) -> dict:
         if v and not result.get(k):
             result[k] = v
 
+    # ── Layer 5: Portuguese label-value patterns ──
+    # Catches "Ano: 2020", "Quilómetros: 150.000 km" etc. from PT dealer sites
+    # Only fills fields not already populated by earlier layers.
+    _extract_pt_labels(page_text, result)
+
     # ── Post-processing: infer brand/model from title if not found ──
     if not result.get("brand") and result.get("title"):
         brand, model = _infer_brand_model(result["title"])
@@ -417,16 +479,20 @@ async def fetch_listing_detail(url: str) -> dict:
         if model:
             result.setdefault("model", model)
 
-    # Normalise fuel string from schema.org URLs/codes
-    fuel = result.get("fuel_type") or ""
-    if "diesel" in fuel.lower():
+    # Normalise fuel string from schema.org URLs/codes or Portuguese labels
+    fuel = (result.get("fuel_type") or "").lower().strip()
+    if "diesel" in fuel or "gasóleo" in fuel or "gasoleo" in fuel:
         result["fuel_type"] = "diesel"
-    elif "petrol" in fuel.lower() or "gasoline" in fuel.lower():
+    elif "gasolina" in fuel or "petrol" in fuel or "gasoline" in fuel:
         result["fuel_type"] = "gasolina"
-    elif "electric" in fuel.lower():
-        result["fuel_type"] = "elétrico"
-    elif "hybrid" in fuel.lower():
+    elif "híbrido plug" in fuel or "plug-in" in fuel or "phev" in fuel:
+        result["fuel_type"] = "híbrido plug-in"
+    elif "híbrido" in fuel or "hibrido" in fuel or "hybrid" in fuel:
         result["fuel_type"] = "híbrido"
+    elif "elétrico" in fuel or "eletrico" in fuel or "electric" in fuel or "bev" in fuel:
+        result["fuel_type"] = "elétrico"
+    elif "gás" in fuel or "gnv" in fuel or "glp" in fuel or "gpl" in fuel:
+        result["fuel_type"] = "GPL"
 
     # Trim photo_count sanity
     result["photo_count"] = max(0, result.get("photo_count") or 0)

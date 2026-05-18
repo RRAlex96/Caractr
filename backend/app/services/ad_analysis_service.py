@@ -733,12 +733,19 @@ async def analyse_listing(
     Always returns a dict safe to send to the frontend.
     """
     try:
-        return await _analyse_listing_inner(db, listing_url, user_profile)
+        return await asyncio.wait_for(
+            _analyse_listing_inner(db, listing_url, user_profile),
+            timeout=90,  # hard cap: entire pipeline must finish in 90s
+        )
+    except asyncio.TimeoutError:
+        print(f"[AD_ANALYSIS] Global timeout (90s) for {listing_url}")
+        return {
+            "error": "A análise demorou demasiado. Tente novamente — pode ser uma questão temporária.",
+        }
     except Exception as e:
         print(f"[AD_ANALYSIS] Unhandled error analysing {listing_url}: {e}")
         import traceback
         traceback.print_exc()
-        # Return a graceful error instead of 500
         return {
             "error": "Ocorreu um erro ao analisar este anúncio. Tente novamente em breve.",
             "_debug_error": str(e),

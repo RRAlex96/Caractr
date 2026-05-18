@@ -346,8 +346,9 @@ async def fetch_listings(
 async def fetch_listing_detail(url: str) -> dict:
     """
     Fetch an OLX listing detail page.
-    Strategy: __PRELOADED_STATE__ → __NEXT_DATA__ → JSON-LD → HTML parsing.
-    Returns: {description, photo_count, seller_type, year, km, price, fuel_type}
+    OLX detail pages use server-rendered HTML with Portuguese label-value pairs:
+      "Ano: 2020", "Quilómetros: 185.000 km", "Combustível: Diesel"
+    No __PRELOADED_STATE__ or __NEXT_DATA__ on detail pages.
     """
     headers = {
         "User-Agent": _random_ua(),
@@ -362,140 +363,89 @@ async def fetch_listing_detail(url: str) -> dict:
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
-            await asyncio.sleep(random.uniform(2.0, 3.5))
+            await asyncio.sleep(random.uniform(1.5, 2.5))
             resp = await client.get(url)
             resp.raise_for_status()
             html = resp.text
 
-            # ── Strategy 1: __PRELOADED_STATE__ ──
+            # ── Try embedded JSON first (some OLX pages have it) ──
             state = _extract_preloaded_state(html)
             if state:
                 ad = (
                     state.get("ad", {}).get("ad") or
                     state.get("adview", {}).get("ad") or
-                    state.get("listing", {}).get("ad") or
                     state.get("adPage", {}).get("ad") or
-                    state.get("adPage", {}).get("advert") or
                     {}
                 )
-                if ad and (ad.get("title") or ad.get("description")):
-                    _extract_from_olx_ad_object(ad, result)
+                if ad and (ad.get("title") or ad.get("price")):
+                    _extract_from_olx_json(ad, result)
                     if result["price"] or result["year"]:
-                        print(f"[OLX SCRAPER] __PRELOADED_STATE__ OK — {result.get('title', '')[:40]}")
+                        print(f"[OLX SCRAPER] JSON OK — {result.get('title', '')[:50]}")
                         return result
 
-            # ── Strategy 2: __NEXT_DATA__ (OLX uses Next.js) ──
-            next_data = _extract_next_data(html)
-            if next_data:
-                props = next_data.get("props", {}).get("pageProps", {})
-                ad = props.get("ad") or props.get("advert") or props.get("listing") or {}
-                if ad and (ad.get("title") or ad.get("description")):
-                    _extract_from_olx_ad_object(ad, result)
-                    if result["price"] or result["year"]:
-                        print(f"[OLX SCRAPER] __NEXT_DATA__ OK — {result.get('title', '')[:40]}")
-                        return result
-
-            # ── Strategy 3: JSON-LD ──
+            # ── Primary strategy: HTML text pattern matching ──
+            # OLX detail pages render as plain HTML with "Label: Value" pairs
             soup = BeautifulSoup(html, "lxml")
-            for script in soup.select('script[type="application/ld+json"]'):
-                try:
-                    ld = json.loads(script.string or "")
-                    if isinstance(ld, list):
-                        ld = ld[0] if ld else {}
-                    if ld.get("@type") in ("Product", "Car", "Vehicle", "Offer"):
-                        result["title"] = ld.get("name", "")
-                        result["description"] = (ld.get("description") or "")[:3000]
-                        # Price from JSON-LD
-                        offers = ld.get("offers", {})
-                        if isinstance(offers, list):
-                            offers = offers[0] if offers else {}
-                        price_val = offers.get("price") or ld.get("price")
-                        if price_val:
-                            result["price"] = _parse_price(str(price_val))
-                        # Photos
-                        images = ld.get("image", [])
-                        if isinstance(images, list):
-                            result["photo_count"] = len(images)
-                        # Year from name/description
-                        for txt in [result["title"], result["description"]]:
-                            if not result["year"] and txt:
-                                yr = _parse_year(txt)
-                                if yr:
-                                    result["year"] = yr
-                        if result["price"]:
-                            print(f"[OLX SCRAPER] JSON-LD OK — {result.get('title', '')[:40]}")
-                            # Don't return yet — try HTML for km/year if missing
-                except (json.JSONDecodeError, TypeError):
-                    continue
+            page_text = soup.get_text(" ", strip=True)
 
-            # ── Strategy 4: HTML fallback ──
-            if not soup:
-                soup = BeautifulSoup(html, "lxml")
+            # Title — first h1 on the page
+            h1 = soup.select_one("h1")
+            if h1:
+                result["title"] = h1.get_text(strip=True)
 
-            # Description
+            # ── Price: find text matching "XX.XXX €" pattern ──
+            # OLX shows price in a prominent heading element
+            price_pattern = re.compile(r'(\d[\d\s.]*)\s*€')
+            for el in soup.select("h2, h3, h4, [class*='price'], [data-testid*='price']"):
+                m = price_pattern.search(el.get_text(strip=True))
+                if m:
+                    result["price"] = _parse_price(m.group(1))
+                    if result["price"]:
+                        break
+            # Fallback: scan full page
+            if not result["price"]:
+                m = price_pattern.search(page_text)
+                if m:
+                    result["price"] = _parse_price(m.group(1))
+
+            # ── Portuguese label-value pairs ──
+            # OLX renders specs as "Ano: 2020", "Quilómetros: 185.000 km", etc.
+            _extract_pt_label_values(page_text, result)
+
+            # ── Description ──
+            # Look for the section after "Descrição" heading
+            desc_heading = soup.find(string=re.compile(r'Descri[çc][ãa]o', re.IGNORECASE))
+            if desc_heading:
+                # Get the parent and then the next sibling content
+                parent = desc_heading.find_parent()
+                if parent:
+                    next_el = parent.find_next_sibling()
+                    if next_el:
+                        result["description"] = next_el.get_text("\n", strip=True)[:3000]
             if not result["description"]:
-                for sel in ["[data-cy='ad_description']", "#description", "[class*='description']",
-                            "[data-testid='ad-description']", "section[class*='content'] p"]:
+                for sel in ["[data-cy='ad_description']", "[class*='description']", "[class*='descri']"]:
                     desc = soup.select_one(sel)
-                    if desc:
+                    if desc and len(desc.get_text(strip=True)) > 30:
                         result["description"] = desc.get_text("\n", strip=True)[:3000]
                         break
 
-            # Photos
-            if not result["photo_count"]:
-                result["photo_count"] = len(soup.select(
-                    "[data-cy='ad-photo'] img, [class*='photo'] img, [class*='gallery'] img, "
-                    "[data-testid*='photo'] img, picture img, [class*='swiper'] img"
-                ))
+            # ── Photos: count CDN images ──
+            cdn_imgs = soup.select("img[src*='olxcdn'], img[src*='apollo'], img[data-src*='olxcdn'], img[data-src*='apollo']")
+            if cdn_imgs:
+                result["photo_count"] = len(cdn_imgs)
+            else:
+                # Fallback: count all listing images
+                all_imgs = soup.select("[class*='gallery'] img, [class*='photo'] img, [class*='swiper'] img, picture img")
+                result["photo_count"] = len(all_imgs)
 
-            # Price (if not already found)
-            if not result["price"]:
-                for sel in ["[data-testid='ad-price-container']", "h3[class*='price']",
-                            "[class*='price-label']", "[data-cy='ad_price']",
-                            "[class*='pricelabel']", "[class*='offer-price']"]:
-                    p = soup.select_one(sel)
-                    if p:
-                        result["price"] = _parse_price(p.get_text(strip=True))
-                        if result["price"]:
-                            break
+            # ── Seller type ──
+            if "particular" in page_text.lower():
+                result["seller_type"] = "privado"
+            elif any(w in page_text.lower() for w in ["stand", "empresa", "profissional", "dealer"]):
+                result["seller_type"] = "stand"
 
-            # Seller type from page text
-            if result["seller_type"] == "desconhecido":
-                page_text = soup.get_text(" ", strip=True).lower()
-                if "particular" in page_text:
-                    result["seller_type"] = "privado"
-                elif any(w in page_text for w in ["stand", "empresa", "profissional", "dealer"]):
-                    result["seller_type"] = "stand"
-
-            # Year/km from various parameter displays
-            param_selectors = [
-                "[class*='param'] li", "ul[class*='params'] li",
-                "[data-testid*='param']", "[class*='detail'] li",
-                "table tr", "[class*='specs'] li", "[class*='attribute'] li",
-            ]
-            for sel in param_selectors:
-                for row in soup.select(sel):
-                    text = row.get_text(" ", strip=True)
-                    if _parse_year(text) and not result["year"]:
-                        result["year"] = _parse_year(text)
-                    elif "km" in text.lower() and not result["km"]:
-                        result["km"] = _parse_km(text)
-                    elif any(f in text.lower() for f in ["gasolina", "diesel", "híbrido", "elétrico", "eletrico"]) and not result["fuel_type"]:
-                        result["fuel_type"] = text.strip()
-
-            # Last resort: scan full page text for year/km patterns
-            if not result["year"] or not result["km"]:
-                page_text = soup.get_text(" ", strip=True)
-                if not result["year"]:
-                    yr_match = re.search(r'\b(20[0-2]\d|19[89]\d)\b', page_text)
-                    if yr_match:
-                        result["year"] = int(yr_match.group(1))
-                if not result["km"]:
-                    km_match = re.search(r'(\d[\d\s.]{2,8})\s*km', page_text, re.IGNORECASE)
-                    if km_match:
-                        result["km"] = _parse_km(km_match.group(0))
-
-            print(f"[OLX SCRAPER] HTML fallback — price={result['price']} year={result['year']} km={result['km']}")
+            extracted = f"price={result['price']} year={result['year']} km={result['km']} fuel={result['fuel_type']}"
+            print(f"[OLX SCRAPER] Detail OK — {result.get('title', '')[:40]} | {extracted}")
 
     except Exception as e:
         print(f"[OLX SCRAPER] Detail fetch error {url}: {e}")
@@ -503,36 +453,64 @@ async def fetch_listing_detail(url: str) -> dict:
     return result
 
 
-def _extract_next_data(html: str) -> Optional[dict]:
-    """Extract __NEXT_DATA__ JSON from a Next.js page."""
-    m = re.search(r'<script\s+id="__NEXT_DATA__"\s+type="application/json">(.*?)</script>', html, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-    return None
+# ── Portuguese label-value extraction ──────────────────────────────────────
+
+# Patterns for Portuguese car spec labels as displayed on OLX
+_PT_LABEL_PATTERNS = [
+    # (regex pattern matching "Label: Value", field name, parser function)
+    (re.compile(r'Ano\s*:\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'Quil[oó]metros?\s*:\s*([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Combust[ií]vel\s*:\s*(\w[\w\s-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
+    (re.compile(r'Pot[eê]ncia\s*:\s*(\d+)', re.IGNORECASE), "power", lambda m: int(m.group(1))),
+    (re.compile(r'Cilindrada\s*:\s*([\d.]+)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
+    (re.compile(r'Tipo de Caixa\s*:\s*(\w+)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
+    (re.compile(r'Portas\s*:\s*(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
+    (re.compile(r'Lugares\s*:\s*(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
+    (re.compile(r'Cor\s*:\s*(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
+]
 
 
-def _extract_from_olx_ad_object(ad: dict, result: dict) -> None:
-    """Extract listing fields from an OLX ad object (shared by __PRELOADED_STATE__ and __NEXT_DATA__)."""
+def _extract_pt_label_values(page_text: str, result: dict) -> None:
+    """Extract car specs from Portuguese label-value patterns in page text."""
+    for pattern, field, parser in _PT_LABEL_PATTERNS:
+        if field in result and result[field]:
+            continue  # already extracted
+        m = pattern.search(page_text)
+        if m:
+            try:
+                val = parser(m)
+                if val is not None:
+                    result[field] = val
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback year: scan for 4-digit year near "ano" or standalone
+    if not result.get("year"):
+        m = re.search(r'\b(20[0-2]\d|19[89]\d)\b', page_text)
+        if m:
+            result["year"] = int(m.group(1))
+
+    # Fallback km: scan for number followed by "km"
+    if not result.get("km"):
+        m = re.search(r'(\d[\d\s.]{2,8})\s*km\b', page_text, re.IGNORECASE)
+        if m:
+            result["km"] = _parse_km(m.group(1))
+
+
+def _extract_from_olx_json(ad: dict, result: dict) -> None:
+    """Extract listing fields from an OLX JSON object (when available)."""
     result["title"] = ad.get("title", "")
     result["description"] = (ad.get("description") or "")[:3000]
     result["photo_count"] = len(ad.get("photos", []) or ad.get("images", []))
 
-    # Price — handle multiple nesting patterns
+    # Price
     price_obj = ad.get("price", {})
     if isinstance(price_obj, dict):
-        # Try: price.value.value, price.value, price.regularPrice.value
         raw_price = price_obj.get("value", {})
         if isinstance(raw_price, dict):
             result["price"] = _parse_price(str(raw_price.get("value", "") or raw_price.get("amount", "")))
         else:
             result["price"] = _parse_price(str(raw_price))
-        if not result["price"]:
-            reg = price_obj.get("regularPrice", {})
-            if isinstance(reg, dict):
-                result["price"] = _parse_price(str(reg.get("value", "")))
         if not result["price"]:
             result["price"] = _parse_price(str(price_obj.get("displayValue", "")))
     elif isinstance(price_obj, (int, float)):
@@ -547,35 +525,16 @@ def _extract_from_olx_ad_object(ad: dict, result: dict) -> None:
         else "desconhecido"
     )
 
-    # Params — handle both list[{key, value}] and dict formats
+    # Params
     params = ad.get("params", []) or ad.get("parameters", []) or ad.get("attributes", [])
     if isinstance(params, list):
         for p in params:
             key = (p.get("key") or p.get("name") or p.get("code") or "").lower()
-            # Value can be: string, {label: str}, {value: str}, nested dict
             raw_val = p.get("value", "")
-            if isinstance(raw_val, dict):
-                val = str(raw_val.get("label", "") or raw_val.get("key", "") or raw_val.get("value", "") or "")
-            else:
-                val = str(raw_val)
-            # Also check normalizedValue / displayValue
-            if not val:
-                val = str(p.get("normalizedValue", "") or p.get("displayValue", ""))
-
-            if any(k in key for k in ("ano", "year", "registration")):
+            val = str(raw_val.get("label", "") if isinstance(raw_val, dict) else raw_val)
+            if any(k in key for k in ("ano", "year")):
                 result["year"] = _parse_year(val)
-            elif any(k in key for k in ("km", "quilomet", "mileage", "odometer")):
+            elif any(k in key for k in ("km", "quilomet", "mileage")):
                 result["km"] = _parse_km(val)
-            elif any(k in key for k in ("combust", "fuel", "motor")):
+            elif any(k in key for k in ("combust", "fuel")):
                 result["fuel_type"] = val
-    elif isinstance(params, dict):
-        # dict format: {"year": "2018", "mileage": "150000", ...}
-        for key, val in params.items():
-            key_l = key.lower()
-            val_s = str(val) if not isinstance(val, dict) else str(val.get("label", val.get("value", "")))
-            if any(k in key_l for k in ("ano", "year")):
-                result["year"] = _parse_year(val_s)
-            elif any(k in key_l for k in ("km", "quilomet", "mileage")):
-                result["km"] = _parse_km(val_s)
-            elif any(k in key_l for k in ("combust", "fuel")):
-                result["fuel_type"] = val_s

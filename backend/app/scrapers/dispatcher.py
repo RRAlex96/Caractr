@@ -29,11 +29,12 @@ NATIVE_SOURCES = {
 # Known Portuguese dealer/aggregator domains → labelled as "dealer"
 # The generic scraper handles all of these — no code needed per site.
 KNOWN_DEALER_DOMAINS = {
-    "autosapo.pt", "autoscout24.pt", "carsnow.pt", "carsgu.pt",
+    "autosapo.pt", "auto.sapo.pt", "autoscout24.pt", "carsnow.pt", "carsgu.pt",
     "autoclick.pt", "carnext.pt", "flexicar.pt", "soauto.pt",
     "sebe.pt", "autohub.pt", "gruposalvador.pt", "centroauto.pt",
     "caetanoretail.pt", "caetanomoveo.pt", "autogarante.pt",
     "grupojmr.pt", "automotor.pt", "automaster.pt",
+    "custojusto.pt",
 }
 
 
