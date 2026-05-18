@@ -39,6 +39,7 @@ _market_cache: dict = {}
 _MARKET_CACHE_TTL = 6 * 3600  # 6 hours
 
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
+DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "true").lower() == "true"  # Playwright OOMs on Railway
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -789,7 +790,7 @@ async def analyse_listing(
             print(f"[ANALYSIS] No generation record for {brand_name} {model_name} {year} — using ±3 fallback")
 
     market_stats = {}
-    if brand_name and model_name:
+    if brand_name and model_name and not DISABLE_LIVE_MARKET:
         try:
             market_stats = await asyncio.wait_for(
                 _fetch_live_market_data(
@@ -805,6 +806,8 @@ async def analyse_listing(
             print(f"[ANALYSIS] Live market fetch timed out after 45s — falling back to DB")
         except Exception as e:
             print(f"[ANALYSIS] Live market fetch failed: {e}")
+    elif DISABLE_LIVE_MARKET and brand_name:
+        print(f"[ANALYSIS] Live market scrape disabled (DISABLE_LIVE_MARKET=true) — using DB only")
 
     # Write live result back to DB so future requests skip scraping
     if market_stats.get("source") == "live" and model_id and market_stats.get("avg_price"):
