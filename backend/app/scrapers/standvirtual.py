@@ -18,15 +18,25 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
-try:
-    from playwright.async_api import async_playwright
-    _PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    _PLAYWRIGHT_AVAILABLE = False
+# Playwright import is lazy — only loaded when fetch_listings actually needs it.
+# Importing playwright at module level wastes ~50MB RAM even when unused.
+_PLAYWRIGHT_AVAILABLE: Optional[bool] = None  # None = not checked yet
+
+
+def _check_playwright() -> bool:
+    global _PLAYWRIGHT_AVAILABLE
+    if _PLAYWRIGHT_AVAILABLE is None:
+        try:
+            import playwright.async_api  # noqa: F401
+            _PLAYWRIGHT_AVAILABLE = True
+        except ImportError:
+            _PLAYWRIGHT_AVAILABLE = False
+    return _PLAYWRIGHT_AVAILABLE
 
 
 async def _render_page(url: str, wait_selector: str, timeout: int = 12000) -> str:
     """Launch headless Chromium, wait for selector to appear, return rendered HTML."""
+    from playwright.async_api import async_playwright
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         ctx = await browser.new_context(
@@ -334,7 +344,7 @@ async def fetch_listings(
     """
     search_url = _build_search_url(brand, model, budget_max, year_from, year_to)
 
-    if _PLAYWRIGHT_AVAILABLE:
+    if _check_playwright():
         try:
             html = await _render_page(search_url, wait_selector="article[data-id]")
             listings = _extract_listings_from_html(html, search_url)
