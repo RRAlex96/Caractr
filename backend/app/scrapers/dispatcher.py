@@ -227,4 +227,27 @@ def extract_slugs_from_url(url: str) -> tuple[str, str]:
             candidates = [p for p in parts if p.lower() not in _SLUG_STOP]
             return candidates[0] if candidates else "", candidates[1] if len(candidates) > 1 else ""
 
+    # ── Generic / dealer URL: best-effort brand/model from path slugs ──
+    # Common patterns:
+    #   /carro-usado/{id}/{brand}-{model}
+    #   /.../sedan/{brand}-{model}-...-{id}
+    #   /.../carros-usados/{brand}/{model}/...
+    from app.scrapers.generic import KNOWN_BRANDS
+    path_lower = path.lower()
+    # Split path into slug segments and look for a known brand
+    segments = [s for s in path.replace("-", "/").split("/") if s]
+    for i, seg in enumerate(segments):
+        for brand in KNOWN_BRANDS:
+            if seg == brand.lower().replace(" ", "").replace("-", ""):
+                # Next segment(s) after the brand are likely the model
+                model_parts = segments[i+1:i+3] if i+1 < len(segments) else []
+                # Filter out IDs (long hex or numeric), stop words
+                _GENERIC_STOP = {"carro", "usado", "usados", "anuncio", "venda", "sedan",
+                                 "suv", "berlina", "carrinha", "monovolume", "cabrio"}
+                model_parts = [p for p in model_parts
+                               if p.lower() not in _GENERIC_STOP
+                               and len(p) < 20 and not p.isdigit()]
+                model_slug = model_parts[0] if model_parts else ""
+                return brand, model_slug
+
     return "", ""

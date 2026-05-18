@@ -618,17 +618,20 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     }).scalar()
     db.commit()
 
-    # Lookup model
-    model_row = db.execute(text("""
-        SELECT vm.id, b.name as brand_name, vm.name as model_name
-        FROM vehicle_models vm
-        JOIN brands b ON b.id = vm.brand_id
-        WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
-        LIMIT 1
-    """), {
-        "brand": f"%{brand_name.lower()}%",
-        "model": f"%{model_name.lower().split()[0]}%"
-    }).mappings().fetchone()
+    # Lookup model — guard against empty brand/model (generic scraper may not resolve them)
+    model_first_word = (model_name.lower().split() or [""])[0]
+    model_row = None
+    if brand_name and model_first_word:
+        model_row = db.execute(text("""
+            SELECT vm.id, b.name as brand_name, vm.name as model_name
+            FROM vehicle_models vm
+            JOIN brands b ON b.id = vm.brand_id
+            WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
+            LIMIT 1
+        """), {
+            "brand": f"%{brand_name.lower()}%",
+            "model": f"%{model_first_word}%"
+        }).mappings().fetchone()
 
     model_id = model_row["id"] if model_row else None
     resolved_brand = model_row["brand_name"] if model_row else brand_name
