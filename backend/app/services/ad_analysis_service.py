@@ -191,14 +191,20 @@ def _run_rule_engine(
 
 
 async def _call_gemini_analysis(prompt: str) -> dict:
-    """Call Gemini 2.5 Flash for structured ad analysis. Returns {} on failure (triggers rule engine fallback)."""
+    """Call Gemini for structured ad analysis. Returns {} on failure (triggers rule engine fallback)."""
     try:
         from app.services.llm_client import generate_json, LLMError
-        result = await asyncio.to_thread(generate_json, prompt, 900)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(generate_json, prompt, 900),
+            timeout=60,
+        )
         if not isinstance(result, dict) or not result.get("verdict"):
             print("[AD_ANALYSIS] Gemini returned unexpected structure, falling back")
             return {}
         return result
+    except asyncio.TimeoutError:
+        print("[AD_ANALYSIS] Gemini analysis timed out after 60s — falling back to rule engine")
+        return {}
     except Exception as e:
         print(f"[AD_ANALYSIS] Gemini analysis failed: {e}")
         return {}
@@ -1059,7 +1065,10 @@ Gera análise narrativa. Sê específico — referencia dados reais do anúncio,
 
     try:
         print(f"[AD_ANALYSIS] Calling Gemini for narrative enrichment ({listing.get('brand_name')} {listing.get('model_name')})")
-        result = await asyncio.to_thread(generate_json, prompt, 700)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(generate_json, prompt, 700),
+            timeout=60,
+        )
         print(f"[AD_ANALYSIS] Narrative enrichment OK — fields: {list(result.keys())}")
         return result
     except LLMError as e:

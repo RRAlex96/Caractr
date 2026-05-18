@@ -1,5 +1,5 @@
 """
-LLM Client — abstraction layer for Gemini 2.5 Flash.
+LLM Client — abstraction layer for Gemini Flash.
 
 Usage:
     from app.services.llm_client import generate_text, LLMError
@@ -13,7 +13,7 @@ Fallback:
 
 Config (env vars):
     GEMINI_API_KEY       — required for LLM calls
-    LLM_MODEL            — default: gemini-2.5-flash-preview-05-20
+    LLM_MODEL            — default: gemini-2.5-flash
     LLM_MAX_RETRIES      — default: 2
 """
 
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 _MODEL   = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 _RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))
 _API_KEY = os.getenv("GEMINI_API_KEY", "")
+_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "30"))  # seconds per API call
 
 # Lazy-initialised client — avoids import errors when SDK not installed
 _client: Any = None
@@ -69,7 +70,11 @@ def generate_text(prompt: str, max_tokens: int = 1024) -> str:
     last_err = None
     for attempt in range(_RETRIES + 1):
         try:
-            response = client.generate_content(prompt, generation_config=config)
+            response = client.generate_content(
+                prompt,
+                generation_config=config,
+                request_options={"timeout": _TIMEOUT},
+            )
             text = response.text.strip()
             if not text:
                 raise LLMError("Empty response from Gemini")
