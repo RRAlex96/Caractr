@@ -27,6 +27,8 @@ _LIMIT_GLOBAL = int(os.getenv("RATE_LIMIT_GLOBAL", "60"))
 _WINDOW       = 60.0  # seconds
 
 _counters: dict[str, list[float]] = defaultdict(list)
+_MAX_COUNTER_KEYS = 10_000  # evict stale keys if dict grows beyond this
+_last_eviction = 0.0
 
 
 def _get_client_ip(request: Request) -> str:
@@ -45,6 +47,18 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _evict_stale_counters() -> None:
+    """Remove keys with no recent timestamps. Called periodically to bound memory."""
+    global _last_eviction
+    now = time.monotonic()
+    if now - _last_eviction < 120:  # at most every 2 min
+        return
+    _last_eviction = now
+    stale = [k for k, ts in _counters.items() if not ts or (now - ts[-1]) > _WINDOW * 2]
+    for k in stale:
+        del _counters[k]
+
+
 def _is_rate_limited(ip: str, path: str) -> bool:
     now   = time.monotonic()
     key   = f"{ip}:{path}"
@@ -56,6 +70,11 @@ def _is_rate_limited(ip: str, path: str) -> bool:
         return True
 
     _counters[key].append(now)
+
+    # Periodic eviction to prevent unbounded growth
+    if len(_counters) > _MAX_COUNTER_KEYS:
+        _evict_stale_counters()
+
     return False
 
 
@@ -203,7 +222,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Caractr API",
     description="Assistente inteligente de compra de carro para Portugal",
-    version="4.4.0",
+    version="4.5.0",
     lifespan=lifespan,
 )
 
@@ -261,7 +280,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.4.2",
+        "version": "4.5.0",
         "llm_available": llm_ok,
         "llm_model": model,
     }

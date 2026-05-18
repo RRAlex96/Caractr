@@ -12,7 +12,13 @@ if not DATABASE_URL:
         "Set it in .env or as an environment variable."
     )
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=5,           # persistent connections
+    max_overflow=10,       # burst connections above pool_size
+    pool_recycle=300,      # recycle connections after 5 min (prevents stale connections)
+    pool_pre_ping=True,    # test connection liveness before use
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

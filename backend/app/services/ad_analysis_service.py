@@ -37,6 +37,7 @@ import time
 # Keyed by "{brand}_{model_first_word}" — refreshed every 6h
 _market_cache: dict = {}
 _MARKET_CACHE_TTL = 6 * 3600  # 6 hours
+_MAX_MARKET_CACHE_KEYS = 500  # evict oldest entries if cache grows beyond this
 
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "true").lower() == "true"  # Playwright OOMs on Railway
@@ -526,6 +527,11 @@ async def _fetch_live_market_data(
         }
 
         _market_cache[cache_key] = {"stats": stats, "cached_at": now}
+        # Evict oldest entries if cache grows too large
+        if len(_market_cache) > _MAX_MARKET_CACHE_KEYS:
+            oldest = sorted(_market_cache, key=lambda k: _market_cache[k].get("cached_at", 0))
+            for k in oldest[:len(_market_cache) - _MAX_MARKET_CACHE_KEYS]:
+                del _market_cache[k]
         print(f"[MARKET] {cache_key}: median={median:.0f} avg={trimmed_avg:.0f} n={n}")
         return stats
 
@@ -726,6 +732,25 @@ async def analyse_listing(
 
     Always returns a dict safe to send to the frontend.
     """
+    try:
+        return await _analyse_listing_inner(db, listing_url, user_profile)
+    except Exception as e:
+        print(f"[AD_ANALYSIS] Unhandled error analysing {listing_url}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return a graceful error instead of 500
+        return {
+            "error": "Ocorreu um erro ao analisar este anúncio. Tente novamente em breve.",
+            "_debug_error": str(e),
+        }
+
+
+async def _analyse_listing_inner(
+    db: Session,
+    listing_url: str,
+    user_profile: Optional[dict] = None,
+) -> dict:
+    """Inner implementation — caller wraps in try/except."""
     # ── 0. Validate source URL ──
     if not is_supported_url(listing_url):
         return {

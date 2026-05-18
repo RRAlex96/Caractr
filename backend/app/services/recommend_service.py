@@ -1472,71 +1472,89 @@ def get_alternative_recommendations(
     """
     import json as _json
 
-    # Load original session answers + profile
-    row = db.execute(text("""
-        SELECT answers_raw, profile_computed
-        FROM recommendation_sessions
-        WHERE id = :sid
-        LIMIT 1
-    """), {"sid": session_id}).mappings().fetchone()
+    try:
+        # Load original session answers + profile
+        row = db.execute(text("""
+            SELECT answers_raw, profile_computed
+            FROM recommendation_sessions
+            WHERE id = :sid
+            LIMIT 1
+        """), {"sid": session_id}).mappings().fetchone()
 
-    if not row or not row["answers_raw"]:
-        return {"alternatives": [], "profile_adjusted": False}
+        if not row or not row["answers_raw"]:
+            return {"alternatives": [], "profile_adjusted": False}
 
-    answers = _json.loads(row["answers_raw"])
-    original_profile = _json.loads(row["profile_computed"]) if row["profile_computed"] else None
+        answers = _json.loads(row["answers_raw"]) if isinstance(row["answers_raw"], str) else dict(row["answers_raw"])
+        original_profile = (
+            _json.loads(row["profile_computed"]) if isinstance(row["profile_computed"], str)
+            else dict(row["profile_computed"])
+        ) if row["profile_computed"] else None
 
-    # Build fresh profile from answers (or use stored one)
-    profile, _ = build_profile(answers)
-    if original_profile:
-        profile = original_profile
+        # Build fresh profile from answers (or use stored one)
+        profile, _ = build_profile(answers)
+        if original_profile:
+            profile = original_profile
 
-    # Nudge profile based on dismiss reasons
-    profile_adjusted = bool(dismiss_reasons)
-    if profile_adjusted:
-        profile = _apply_dismiss_adjustments(profile, dismiss_reasons)
+        # Nudge profile based on dismiss reasons
+        profile_adjusted = bool(dismiss_reasons)
+        if profile_adjusted:
+            profile = _apply_dismiss_adjustments(profile, dismiss_reasons)
 
-    # Load + score all models (excluding dismissed)
-    all_models = load_models(db)
-    passed, stretch = apply_hard_constraints(all_models, answers)
+        # Load + score all models (excluding dismissed)
+        all_models = load_models(db)
+        passed, stretch = apply_hard_constraints(all_models, answers)
 
-    excluded = set(dismissed_model_ids)
-    passed  = [m for m in passed  if m["id"] not in excluded]
-    stretch = [m for m in stretch if m["id"] not in excluded]
+        excluded = set(dismissed_model_ids)
+        passed  = [m for m in passed  if m["id"] not in excluded]
+        stretch = [m for m in stretch if m["id"] not in excluded]
 
-    for m in passed:
-        m["_score"] = score_model(m, profile, answers)
-        m["is_stretch"] = False
-        m["is_wildcard"] = False
-    for m in stretch:
-        m["_score"] = score_model(m, profile, answers) * 0.90
-        m["is_stretch"] = True
-        m["is_wildcard"] = False
+        for m in passed:
+            m["_score"] = score_model(m, profile, answers)
+            m["is_stretch"] = False
+            m["is_wildcard"] = False
+        for m in stretch:
+            m["_score"] = score_model(m, profile, answers) * 0.90
+            m["is_stretch"] = True
+            m["is_wildcard"] = False
 
-    # Take top N diverse alternatives
-    candidates = sorted(passed + stretch, key=lambda x: x["_score"], reverse=True)
+        # Take top N diverse alternatives
+        candidates = sorted(passed + stretch, key=lambda x: x["_score"], reverse=True)
 
-    # Light body-type diversity: avoid duplicating body types already in dismissed set
-    # (we don't know dismissed body types, so just pick top N unique-by-body-type)
-    seen_bodies: set[str] = set()
-    alternatives: list[dict] = []
-    for m in candidates:
-        bt = m.get("body_type", "")
-        if bt not in seen_bodies or len(alternatives) >= count - 1:
-            alternatives.append(m)
-            seen_bodies.add(bt)
-        if len(alternatives) >= count:
-            break
+        # Light body-type diversity: avoid duplicating body types already in dismissed set
+        # (we don't know dismissed body types, so just pick top N unique-by-body-type)
+        seen_bodies: set[str] = set()
+        alternatives: list[dict] = []
+        for m in candidates:
+            bt = m.get("body_type", "")
+            if bt not in seen_bodies or len(alternatives) >= count - 1:
+                alternatives.append(m)
+                seen_bodies.add(bt)
+            if len(alternatives) >= count:
+                break
 
-    # Generate explanations
-    llm_result = _generate_explanations_llm(alternatives, profile, answers)
-    results = generate_all_explanations(alternatives, profile, answers, llm_result=llm_result)
+        if not alternatives:
+            return {"alternatives": [], "profile_adjusted": profile_adjusted}
 
-    return {
-        "alternatives": results,
-        "profile_adjusted": profile_adjusted,
-        "adjusted_profile": profile if profile_adjusted else None,
-    }
+        # Generate explanations (LLM-first, template fallback)
+        llm_result = None
+        try:
+            llm_result = _generate_explanations_llm(alternatives, profile, answers)
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f"LLM explanations failed in refresh: {e}")
+
+        results = generate_all_explanations(alternatives, profile, answers, llm_result=llm_result)
+
+        return {
+            "alternatives": results,
+            "profile_adjusted": profile_adjusted,
+            "adjusted_profile": profile if profile_adjusted else None,
+        }
+
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).error(f"get_alternative_recommendations failed: {e}", exc_info=True)
+        return {"alternatives": [], "profile_adjusted": False, "error": str(e)}
 
 
 def _summarize_profile(profile: dict) -> str:
