@@ -1071,12 +1071,15 @@ Gera análise narrativa. Sê específico — referencia dados reais do anúncio,
         )
         print(f"[AD_ANALYSIS] Narrative enrichment OK — fields: {list(result.keys())}")
         return result
+    except asyncio.TimeoutError:
+        print("[AD_ANALYSIS] Gemini narrative timed out after 60s")
+        return {"_narrative_error": "timeout_60s"}
     except LLMError as e:
         print(f"[AD_ANALYSIS] Gemini narrative LLMError: {e}")
-        return {}
+        return {"_narrative_error": f"LLMError:{e}"}
     except Exception as e:
         print(f"[AD_ANALYSIS] Gemini narrative unexpected error: {e}")
-        return {}
+        return {"_narrative_error": f"Exception:{type(e).__name__}:{e}"}
 
 
 def _build_response(
@@ -1138,6 +1141,7 @@ def _build_response(
             "negotiation_script": (enrichment or {}).get("negotiation_script"),
             "verdict_narrative":  (enrichment or {}).get("verdict_narrative"),
             "seller_read":        (enrichment or {}).get("seller_read"),
+            "_narrative_error":   (enrichment or {}).get("_narrative_error"),
         },
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
