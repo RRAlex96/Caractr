@@ -229,25 +229,39 @@ def extract_slugs_from_url(url: str) -> tuple[str, str]:
 
     # ── Generic / dealer URL: best-effort brand/model from path slugs ──
     # Common patterns:
-    #   /carro-usado/{id}/{brand}-{model}
-    #   /.../sedan/{brand}-{model}-...-{id}
+    #   /carro-usado/{id}/{brand}-{model}  (AutoSapo: /carro-usado/{hex}/audi-a3)
+    #   /.../sedan/mercedes-benz-cla-180-carro-{id}  (CustoJusto)
     #   /.../carros-usados/{brand}/{model}/...
     from app.scrapers.generic import KNOWN_BRANDS
     path_lower = path.lower()
-    # Split path into slug segments and look for a known brand
-    segments = [s for s in path.replace("-", "/").split("/") if s]
-    for i, seg in enumerate(segments):
-        for brand in KNOWN_BRANDS:
-            if seg == brand.lower().replace(" ", "").replace("-", ""):
-                # Next segment(s) after the brand are likely the model
-                model_parts = segments[i+1:i+3] if i+1 < len(segments) else []
-                # Filter out IDs (long hex or numeric), stop words
-                _GENERIC_STOP = {"carro", "usado", "usados", "anuncio", "venda", "sedan",
-                                 "suv", "berlina", "carrinha", "monovolume", "cabrio"}
-                model_parts = [p for p in model_parts
-                               if p.lower() not in _GENERIC_STOP
-                               and len(p) < 20 and not p.isdigit()]
-                model_slug = model_parts[0] if model_parts else ""
-                return brand, model_slug
+
+    # Sort brands by length DESC so "Mercedes-Benz" matches before "Mercedes"
+    _GENERIC_STOP = {"carro", "usado", "usados", "anuncio", "venda", "sedan",
+                     "suv", "berlina", "carrinha", "monovolume", "cabrio",
+                     "veiculos", "carros", "porto", "lisboa", "faro", "braga"}
+
+    brands_sorted = sorted(KNOWN_BRANDS, key=len, reverse=True)
+    for brand in brands_sorted:
+        # Normalise brand to slug form: "Mercedes-Benz" → "mercedes-benz"
+        brand_slug = brand.lower().replace(" ", "-")
+        idx = path_lower.find(brand_slug)
+        if idx == -1:
+            # Also try without hyphens: "mercedes-benz" may appear as "mercedesbenz"
+            brand_slug_nohyphen = brand.lower().replace(" ", "").replace("-", "")
+            idx = path_lower.find(brand_slug_nohyphen)
+            if idx == -1:
+                continue
+            brand_slug = brand_slug_nohyphen
+
+        # Extract what follows the brand in the path
+        after = path_lower[idx + len(brand_slug):].lstrip("-/")
+        # Split on hyphens and slashes, take first 1-2 tokens as model
+        model_parts = re.split(r'[-/]', after)
+        model_parts = [p for p in model_parts
+                       if p and p not in _GENERIC_STOP
+                       and len(p) < 20 and not p.isdigit()
+                       and not (len(p) > 8 and re.match(r'^[a-f0-9]+$', p))]  # skip hex IDs
+        model_slug = model_parts[0] if model_parts else ""
+        return brand, model_slug
 
     return "", ""

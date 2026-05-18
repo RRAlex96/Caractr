@@ -233,26 +233,90 @@ SELLER_SELECTORS = [
 
 # ── Portuguese label-value extraction (Layer 5) ─────────────────────────────
 # Many PT dealer sites render specs as "Ano: 2020", "Quilómetros: 185.000 km"
-# This catches sites where JSON-LD, microdata, and CSS selectors all miss.
+# or WITHOUT colon: "Quilometragem 207.100 Km" (AutoSapo), "Ano do modelo 2014" (CustoJusto)
+# The separator [:/]? is optional to cover both styles.
+
+# Separator: colon, slash, or just whitespace — covers "Ano: 2020", "Ano 2020", "Ano / 2020"
+_SEP = r'\s*[:/]?\s+'
 
 _PT_LABEL_PATTERNS = [
     # (compiled regex, field name, parser lambda)
-    (re.compile(r'Ano\s*[:/]\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
-    (re.compile(r'(?:Ano\s+de\s+)?[Rr]egisto\s*[:/]\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
-    (re.compile(r'(?:Ano\s*/\s*)?M[eê]s\s*[:/]\s*(\d{1,2})/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(2)) if 1990 <= int(m.group(2)) <= 2030 else None),
-    (re.compile(r'Quil[oó]metros?\s*[:/]\s*([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
-    (re.compile(r'Quil[oó]metragem\s*[:/]\s*([\d\s.]+)', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
-    (re.compile(r'Combust[ií]vel\s*[:/]\s*(\w[\w\s/-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
-    (re.compile(r'Pot[eê]ncia\s*[:/]\s*(\d+)\s*(?:cv|hp)', re.IGNORECASE), "engine_power_hp", lambda m: int(m.group(1))),
-    (re.compile(r'Cilindrada\s*[:/]\s*([\d.]+)\s*(?:cc|cm)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
-    (re.compile(r'(?:Tipo\s+de\s+)?Caixa\s*[:/]\s*(\w[\w\s]*)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
-    (re.compile(r'Portas\s*[:/]\s*(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
-    (re.compile(r'Lugares\s*[:/]\s*(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
-    (re.compile(r'Cor\s*[:/]\s*(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
-    (re.compile(r'Marca\s*[:/]\s*(\w[\w\s-]*)', re.IGNORECASE), "brand", lambda m: m.group(1).strip()),
-    (re.compile(r'Modelo\s*[:/]\s*(\w[\w\s-]*)', re.IGNORECASE), "model", lambda m: m.group(1).strip()),
-    (re.compile(r'Vers[aã]o\s*[:/]\s*(\w[\w\s.-]*)', re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
+    # Year — multiple label variants
+    (re.compile(r'(?:Ano\s+(?:do\s+)?modelo|Ano|Data\s+da\s+Matr[ií]cula)' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'(?:Ano\s+de\s+)?[Rr]egisto' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'(?:Ano\s*/\s*)?M[eê]s' + _SEP + r'(\d{1,2})/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(2)) if 1990 <= int(m.group(2)) <= 2030 else None),
+    # Mileage — "Quilómetros", "Quilometragem", "Km"
+    (re.compile(r'Quil[oó]metros?' + _SEP + r'([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Quil[oó]metragem' + _SEP + r'([\d\s.]+)', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    # Fuel type
+    (re.compile(r'Combust[ií]vel' + _SEP + r'(\w[\w\s/-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
+    # Power — "150cv", "150 hp"
+    (re.compile(r'Pot[eê]ncia' + _SEP + r'(\d+)\s*(?:cv|hp)', re.IGNORECASE), "engine_power_hp", lambda m: int(m.group(1))),
+    # Displacement
+    (re.compile(r'Cilindrada' + _SEP + r'([\d.]+)\s*(?:cc|cm|CC)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
+    # Transmission
+    (re.compile(r'(?:Tipo\s+de\s+)?Caixa' + _SEP + r'(\w[\w\s]*)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
+    # Doors / seats
+    (re.compile(r'Portas' + _SEP + r'(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
+    (re.compile(r'Lugares' + _SEP + r'(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
+    # Colour
+    (re.compile(r'Cor' + _SEP + r'(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
+    # Brand / model — only use as last resort (many pages have these in navigation context)
+    (re.compile(r'Marca' + _SEP + r'(\w[\w\s-]*)', re.IGNORECASE), "brand", lambda m: m.group(1).strip()),
+    (re.compile(r'Modelo' + _SEP + r'(\w[\w\s-]*)', re.IGNORECASE), "model", lambda m: m.group(1).strip()),
+    (re.compile(r'Vers[aã]o' + _SEP + r'(\w[\w\s.-]*)', re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
 ]
+
+
+def _extract_dt_dd(soup: BeautifulSoup, result: dict) -> None:
+    """
+    Extract specs from <dt>/<dd> definition lists (used by CustoJusto, etc.).
+    Maps Portuguese labels to result fields.
+    """
+    _DT_LABEL_MAP = {
+        "ano": "year", "ano do modelo": "year", "ano de registo": "year",
+        "quilómetros": "km", "quilometros": "km", "quilometragem": "km", "km": "km",
+        "combustível": "fuel_type", "combustivel": "fuel_type",
+        "potência": "engine_power_hp", "potencia": "engine_power_hp",
+        "cilindrada": "displacement",
+        "tipo de caixa": "transmission", "caixa": "transmission",
+        "portas": "doors", "lugares": "seats",
+        "cor": "colour",
+        "marca": "brand", "modelo": "model", "versão": "trim", "versao": "trim",
+    }
+    _DT_PARSERS = {
+        "year": lambda v: _parse_year(v),
+        "km": lambda v: _parse_km(v),
+        "fuel_type": lambda v: v.strip(),
+        "engine_power_hp": lambda v: int(re.search(r'\d+', v).group()) if re.search(r'\d+', v) else None,
+        "displacement": lambda v: v.strip(),
+        "transmission": lambda v: v.strip(),
+        "doors": lambda v: v.strip()[:1],
+        "seats": lambda v: v.strip()[:1],
+        "colour": lambda v: v.strip(),
+        "brand": lambda v: v.strip(),
+        "model": lambda v: v.strip(),
+        "trim": lambda v: v.strip(),
+    }
+
+    for dt in soup.find_all("dt"):
+        label = dt.get_text(strip=True).lower().rstrip(":")
+        field = _DT_LABEL_MAP.get(label)
+        if not field or (field in result and result[field]):
+            continue
+        dd = dt.find_next_sibling("dd")
+        if not dd:
+            continue
+        raw_val = dd.get_text(strip=True)
+        if not raw_val:
+            continue
+        parser = _DT_PARSERS.get(field, lambda v: v.strip())
+        try:
+            val = parser(raw_val)
+            if val is not None:
+                result[field] = val
+        except (ValueError, TypeError, AttributeError):
+            pass
 
 
 def _extract_pt_labels(page_text: str, result: dict) -> None:
@@ -377,11 +441,13 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
 # ── Brand/model inference from title ─────────────────────────────────────────
 
 KNOWN_BRANDS = [
-    "BMW", "Mercedes", "Audi", "Volkswagen", "VW", "Toyota", "Honda", "Mazda",
-    "Volvo", "Peugeot", "Renault", "Ford", "Opel", "SEAT", "Skoda", "Hyundai",
-    "Kia", "Fiat", "Dacia", "Citroen", "Citroën", "Nissan", "MINI", "Mini",
+    "BMW", "Mercedes-Benz", "Mercedes", "Audi", "Volkswagen", "VW",
+    "Toyota", "Honda", "Mazda", "Volvo", "Peugeot", "Renault", "Ford",
+    "Opel", "SEAT", "Skoda", "Škoda", "Hyundai", "Kia", "Fiat", "Dacia",
+    "Citroen", "Citroën", "Nissan", "MINI", "Mini",
     "Alfa Romeo", "Land Rover", "Porsche", "Tesla", "Subaru", "Suzuki",
     "Cupra", "DS", "Lexus", "Mitsubishi", "Jeep", "Jaguar", "Maserati", "MG",
+    "Smart", "SsangYong", "BYD", "Polestar",
 ]
 
 def _infer_brand_model(title: str) -> tuple[str, str]:
@@ -427,11 +493,17 @@ async def fetch_listing_detail(url: str) -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=20.0, headers=headers) as client:
+        # Explicit timeout: 10s connect, 15s read, 30s total pool wait
+        # Wrapped in asyncio.wait_for as a hard cap (25s) to prevent slow-drip attacks
+        timeout = httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=5.0)
+        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout, headers=headers) as client:
             await asyncio.sleep(random.uniform(1.0, 2.5))
-            resp = await client.get(url)
+            resp = await asyncio.wait_for(client.get(url), timeout=25.0)
             resp.raise_for_status()
             html = resp.text
+    except asyncio.TimeoutError:
+        print(f"[GENERIC SCRAPER] Hard timeout (25s) for {url}")
+        return result
     except httpx.HTTPStatusError as e:
         print(f"[GENERIC SCRAPER] HTTP {e.response.status_code}: {url}")
         return result
@@ -466,8 +538,11 @@ async def fetch_listing_detail(url: str) -> dict:
         if v and not result.get(k):
             result[k] = v
 
-    # ── Layer 5: Portuguese label-value patterns ──
-    # Catches "Ano: 2020", "Quilómetros: 150.000 km" etc. from PT dealer sites
+    # ── Layer 5a: dt/dd definition lists (CustoJusto, etc.) ──
+    _extract_dt_dd(soup, result)
+
+    # ── Layer 5b: Portuguese label-value patterns in page text ──
+    # Catches "Ano: 2020", "Quilómetros: 150.000 km", "Quilometragem 207.100 Km"
     # Only fills fields not already populated by earlier layers.
     _extract_pt_labels(page_text, result)
 
