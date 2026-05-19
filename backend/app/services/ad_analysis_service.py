@@ -814,6 +814,10 @@ async def _analyse_listing_inner(
     if not normalized:
         return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente."}
 
+    # Short-circuit if scraper detected an error (e.g. JS-only SPA)
+    if normalized.get("error"):
+        return normalized
+
     # ── 3. Fetch market stats ──
     model_id   = normalized.get("model_id")
     brand_name = normalized.get("brand_name", "")

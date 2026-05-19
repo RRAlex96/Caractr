@@ -239,32 +239,44 @@ SELLER_SELECTORS = [
 # Separator: colon, slash, or just whitespace — covers "Ano: 2020", "Ano 2020", "Ano / 2020"
 _SEP = r'\s*[:/]?\s+'
 
+# Value capture helpers — stop before the next known label word
+_STOP = (r'(?:Ano|Quil[oó]|Combust|Pot[eê]n|Cilind|Caixa|Tipo\s+de|Portas|Lugares|'
+         r'Cor\b|Marca|Fabricante|Modelo|Vers[aã]o|Pre[çc]o|Id\s|Descri|Especif|'
+         r'Anunciant|Concelho|Freguesia|Sedan|Carro|Venda)')
+_VAL_SHORT = r'(\w+(?:[\s/-](?!' + _STOP + r')\w+){0,2})'
+_VAL_BRAND = r'(\w[\w-]*(?:\s+(?!' + _STOP + r')\w[\w-]*){0,2})'
+_VAL_NUM   = r'([\d\s.]+)'  # digits, spaces, dots
+
 _PT_LABEL_PATTERNS = [
     # (compiled regex, field name, parser lambda)
     # Year — multiple label variants
     (re.compile(r'(?:Ano\s+(?:do\s+)?modelo|Ano|Data\s+da\s+Matr[ií]cula)' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
     (re.compile(r'(?:Ano\s+de\s+)?[Rr]egisto' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
     (re.compile(r'(?:Ano\s*/\s*)?M[eê]s' + _SEP + r'(\d{1,2})/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(2)) if 1990 <= int(m.group(2)) <= 2030 else None),
-    # Mileage — "Quilómetros", "Quilometragem", "Km"
+    # Mileage — "Quilómetros: 185.000 km" OR "Quilómetros 180 000 - 189 999" (range)
     (re.compile(r'Quil[oó]metros?' + _SEP + r'([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
-    (re.compile(r'Quil[oó]metragem' + _SEP + r'([\d\s.]+)', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
-    # Fuel type
-    (re.compile(r'Combust[ií]vel' + _SEP + r'(\w[\w\s/-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
-    # Power — "150cv", "150 hp"
-    (re.compile(r'Pot[eê]ncia' + _SEP + r'(\d+)\s*(?:cv|hp)', re.IGNORECASE), "engine_power_hp", lambda m: int(m.group(1))),
-    # Displacement
-    (re.compile(r'Cilindrada' + _SEP + r'([\d.]+)\s*(?:cc|cm|CC)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
-    # Transmission
-    (re.compile(r'(?:Tipo\s+de\s+)?Caixa' + _SEP + r'(\w[\w\s]*)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
+    (re.compile(r'Quil[oó]metros?' + _SEP + r'(\d[\d\s.]*\d)\s*(?:\s-\s|\s*$)', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Quil[oó]metragem' + _SEP + _VAL_NUM, re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
+    # Fuel type — short value (1-3 words: "Diesel", "Gasolina", "Híbrido plug-in")
+    (re.compile(r'Combust[ií]vel' + _SEP + _VAL_SHORT, re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
+    # Power — "150cv", "150 hp", or just number after label
+    (re.compile(r'Pot[eê]ncia' + _SEP + r'(\d+)\s*(?:cv|hp|CV|HP)?', re.IGNORECASE), "engine_power_hp", lambda m: int(m.group(1))),
+    # Displacement — "1500 cm³", "1.6", "1968 CC"
+    (re.compile(r'Cilindrada(?:\s*\(cm[³3]\))?' + _SEP + r'(\d[\d.\s]*)', re.IGNORECASE), "displacement", lambda m: m.group(1).strip()),
+    # Transmission — short value (1-2 words: "Manual", "Automática", "Sequencial")
+    (re.compile(r'(?:Tipo\s+de\s+)?[Cc]aixa(?:\s+de\s+velocidades)?' + _SEP + _VAL_SHORT, re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
     # Doors / seats
     (re.compile(r'Portas' + _SEP + r'(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
     (re.compile(r'Lugares' + _SEP + r'(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
-    # Colour
-    (re.compile(r'Cor' + _SEP + r'(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
-    # Brand / model — only use as last resort (many pages have these in navigation context)
-    (re.compile(r'Marca' + _SEP + r'(\w[\w\s-]*)', re.IGNORECASE), "brand", lambda m: m.group(1).strip()),
-    (re.compile(r'Modelo' + _SEP + r'(\w[\w\s-]*)', re.IGNORECASE), "model", lambda m: m.group(1).strip()),
-    (re.compile(r'Vers[aã]o' + _SEP + r'(\w[\w\s.-]*)', re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
+    # Colour — short (1-2 words: "Preto", "Cinzento escuro")
+    (re.compile(r'Cor' + _SEP + _VAL_SHORT, re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
+    # Brand — "Marca", "Fabricante" (CustoJusto uses Fabricante)
+    (re.compile(r'(?:Marca|Fabricante)' + _SEP + _VAL_BRAND, re.IGNORECASE), "brand", lambda m: m.group(1).strip()),
+    # Model — short (1-3 words). Negative lookbehind: skip "Ano do modelo"
+    (re.compile(r'(?<!do )(?<!do\s)Modelo' + _SEP + _VAL_SHORT, re.IGNORECASE), "model", lambda m: m.group(1).strip()),
+    (re.compile(r'Vers[aã]o' + _SEP + _VAL_SHORT, re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
+    # Price label — "Preço: 14 900 €"
+    (re.compile(r'Pre[çc]o' + _SEP + r'([\d\s.]+)\s*€', re.IGNORECASE), "price", lambda m: _parse_price(m.group(1))),
 ]
 
 
