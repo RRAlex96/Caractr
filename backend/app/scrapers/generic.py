@@ -2,11 +2,19 @@
 Caractr — Generic car listing scraper
 Extracts structured data from any car dealer website URL.
 
-Extraction priority:
+Extraction priority (per layer):
   1. JSON-LD (schema.org/Car, schema.org/Product, schema.org/Offer) — most reliable
   2. OpenGraph + meta tags
   3. Microdata (itemprop="price" etc.)
   4. Heuristic HTML patterns (price with €, km in params, year detection)
+  5. Portuguese label-value regex (dt/dd + page text)
+  6. LLM extraction via Gemini (universal fallback, ~$0.001/call)
+
+JS SPA handling:
+  - If httpx returns < 200 chars of text → JS-rendered SPA detected
+  - Re-fetches with Playwright (headless Chromium) to render JavaScript
+  - All 6 extraction layers then run on the fully-rendered HTML
+  - Works for omeustand.pt, shakenauto.pt, joaomaiaautomoveis.com, etc.
 
 Handles Portuguese dealer sites: AutoHub, CarsGuru, AutoClick, CarNext,
 AutoSapo, SeBe, Flexicar, Soauto, and any site using schema.org markup.
@@ -581,6 +589,48 @@ Extrai o máximo possível. Devolve null para campos que não encontres.
         return {}
 
 
+# ── Playwright JS rendering fallback ────────────────────────────────────────
+
+async def _fetch_with_playwright(url: str) -> Optional[str]:
+    """
+    Render a JS-heavy page using headless Chromium via Playwright.
+    Returns the fully-rendered HTML string, or None on failure.
+
+    Used as fallback when httpx returns a near-empty page (JS SPA).
+    Timeout: 30s total (navigate + wait for network idle).
+    """
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        print("[GENERIC SCRAPER] Playwright not installed — cannot render JS SPA")
+        return None
+
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                user_agent=random.choice(USER_AGENTS),
+                locale="pt-PT",
+                viewport={"width": 1280, "height": 900},
+            )
+            page = await context.new_page()
+            try:
+                await page.goto(url, wait_until="networkidle", timeout=25_000)
+                # Extra wait for late-loading JS frameworks (Vue/React hydration)
+                await page.wait_for_timeout(2000)
+                html = await page.content()
+                print(f"[GENERIC SCRAPER] Playwright rendered {len(html)} chars for {url}")
+                return html
+            except Exception as nav_err:
+                print(f"[GENERIC SCRAPER] Playwright navigation error: {nav_err}")
+                return None
+            finally:
+                await browser.close()
+    except Exception as e:
+        print(f"[GENERIC SCRAPER] Playwright launch error: {e}")
+        return None
+
+
 # ── Main entry point ─────────────────────────────────────────────────────────
 
 async def fetch_listing_detail(url: str) -> dict:
@@ -629,6 +679,16 @@ async def fetch_listing_detail(url: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
     page_text = soup.get_text(" ", strip=True)
 
+    # ── JS SPA detection: if httpx got almost no text, re-render with Playwright ──
+    if len(page_text) < 200:
+        print(f"[GENERIC SCRAPER] JS SPA detected ({len(page_text)} chars) — trying Playwright for {url}")
+        pw_html = await _fetch_with_playwright(url)
+        if pw_html and len(pw_html) > len(html):
+            html = pw_html
+            soup = BeautifulSoup(html, "lxml")
+            page_text = soup.get_text(" ", strip=True)
+            print(f"[GENERIC SCRAPER] Playwright got {len(page_text)} chars of text")
+
     # ── Layer 1: JSON-LD (most reliable) ──
     jsonld = _extract_jsonld(soup)
     for k, v in jsonld.items():
@@ -667,7 +727,7 @@ async def fetch_listing_detail(url: str) -> dict:
     # regardless of HTML structure — no per-site code needed.
     # Only fires when we're missing critical data (price OR year OR km).
     _key_missing = not result.get("price") or not result.get("year") or not result.get("km")
-    _has_content = len(page_text) > 200  # skip JS-only shells
+    _has_content = len(page_text) > 200  # skip empty shells
 
     if _key_missing and _has_content:
         llm_data = await _extract_via_llm(page_text, url)
@@ -677,10 +737,10 @@ async def fetch_listing_detail(url: str) -> dict:
                     result[k] = v
             print(f"[GENERIC SCRAPER] LLM extraction filled: {[k for k,v in llm_data.items() if v]}")
 
-    # ── JS SPA detection: page has no useful content ──
+    # ── Still no content after Playwright? Flag as JS-limited ──
     if not _has_content and not result.get("price") and not result.get("year"):
         result["_js_only"] = True
-        print(f"[GENERIC SCRAPER] JS-only SPA detected ({len(page_text)} chars) — {url}")
+        print(f"[GENERIC SCRAPER] No content even after Playwright ({len(page_text)} chars) — {url}")
 
     # ── Post-processing: infer brand/model from title if not found ──
     if not result.get("brand") and result.get("title"):
