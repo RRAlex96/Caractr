@@ -568,7 +568,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     # JS SPA flag — site had minimal page text, but may still have meta tags.
     # Continue with whatever data we have; the response will include a caveat.
-    is_js_limited = detail.pop("_js_only", False)
+    _js_limited = detail.pop("_js_only", False)
 
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
@@ -699,6 +699,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "photo_count":   detail.get("photo_count", 0),
         "source_url":    listing_url,
         "source":        source,
+        "_js_limited":   _js_limited,
     }
 
 
@@ -945,7 +946,7 @@ async def _analyse_listing_inner(
         normalized, llm_result, from_cache=False, market_stats=market_stats,
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
         fit=fit_result, model_info=model_info, enrichment=enrichment,
-        js_limited=is_js_limited,
+        js_limited=normalized.get("_js_limited", False),
     )
 
 
