@@ -702,7 +702,18 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            # Railway / Docker containers need --no-sandbox and --disable-dev-shm-usage
+            # Without these, Chromium crashes silently in containerised environments
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--single-process",
+                ],
+            )
             context = await browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
                 locale="pt-PT",
