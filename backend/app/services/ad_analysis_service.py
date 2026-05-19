@@ -566,6 +566,14 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     # Route to correct scraper via dispatcher
     detail = await fetch_detail_for_url(listing_url)
 
+    # JS SPA detection — site requires browser rendering we can't do yet
+    if detail.get("_js_only"):
+        return {
+            "error": "Este site usa JavaScript e não conseguimos ler os dados automaticamente. "
+                     "Experimenta colar um link do Standvirtual, OLX ou CustoJusto.",
+            "_js_only": True,
+        }
+
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
     brand_name = detail.get("brand", "")

@@ -466,6 +466,109 @@ def _infer_brand_model(title: str) -> tuple[str, str]:
     return "", ""
 
 
+# ── LLM-powered extraction (Layer 6) ────────────────────────────────────────
+
+async def _extract_via_llm(page_text: str, url: str) -> dict:
+    """
+    Universal car data extractor using Gemini.
+    When regex/CSS/JSON-LD layers all fail, send the page text to the LLM
+    and ask it to extract structured car listing data.
+
+    This is the "any website" solution — no per-site code needed.
+    Cost: ~$0.001 per call (Gemini 2.5 Flash, ~800 input tokens + 200 output).
+    """
+    try:
+        from app.services.llm_client import generate_json, llm_available
+    except ImportError:
+        return {}
+
+    if not llm_available():
+        return {}
+
+    # Truncate page text to ~4000 chars to keep cost/latency low
+    truncated = page_text[:4000]
+
+    prompt = f"""Extrai os dados deste anúncio de carro usado. Responde APENAS com JSON válido, sem texto extra.
+
+TEXTO DA PÁGINA:
+{truncated}
+
+URL: {url}
+
+Extrai o máximo possível. Devolve null para campos que não encontres.
+{{
+  "brand": "marca do carro (ex: Peugeot, BMW, Mercedes-Benz)",
+  "model": "modelo (ex: 308, Série 3, CLA)",
+  "year": 2020,
+  "km": 150000,
+  "price": 18500,
+  "fuel_type": "diesel|gasolina|híbrido|elétrico|GPL",
+  "transmission": "manual|automática",
+  "engine_power_hp": 150,
+  "colour": "cor do carro",
+  "doors": "5",
+  "seller_type": "privado|stand|desconhecido",
+  "title": "título do anúncio",
+  "description": "descrição resumida do anúncio (máx 500 chars)"
+}}"""
+
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(generate_json, prompt, 500),
+            timeout=15,
+        )
+        if not isinstance(result, dict):
+            return {}
+
+        # Parse and validate extracted fields
+        extracted: dict = {}
+        if result.get("brand"):
+            extracted["brand"] = str(result["brand"]).strip()
+        if result.get("model"):
+            extracted["model"] = str(result["model"]).strip()
+        if result.get("year"):
+            y = _parse_year(str(result["year"]))
+            if y:
+                extracted["year"] = y
+        if result.get("km"):
+            km = _parse_km(str(result["km"]))
+            if km:
+                extracted["km"] = km
+        if result.get("price"):
+            p = _parse_price(str(result["price"]))
+            if p:
+                extracted["price"] = p
+        if result.get("fuel_type"):
+            extracted["fuel_type"] = str(result["fuel_type"]).strip()
+        if result.get("transmission"):
+            extracted["transmission"] = str(result["transmission"]).strip()
+        if result.get("engine_power_hp"):
+            try:
+                extracted["engine_power_hp"] = int(result["engine_power_hp"])
+            except (ValueError, TypeError):
+                pass
+        if result.get("colour"):
+            extracted["colour"] = str(result["colour"]).strip()
+        if result.get("seller_type") and result["seller_type"] != "desconhecido":
+            extracted["seller_type"] = str(result["seller_type"]).strip()
+        if result.get("title"):
+            extracted["title"] = str(result["title"]).strip()
+        if result.get("description") and len(str(result["description"])) > 20:
+            extracted["description"] = str(result["description"])[:3000]
+
+        print(f"[GENERIC SCRAPER] LLM extracted: price={extracted.get('price')} "
+              f"year={extracted.get('year')} km={extracted.get('km')} "
+              f"brand={extracted.get('brand')} model={extracted.get('model')}")
+        return extracted
+
+    except asyncio.TimeoutError:
+        print(f"[GENERIC SCRAPER] LLM extraction timed out (15s)")
+        return {}
+    except Exception as e:
+        print(f"[GENERIC SCRAPER] LLM extraction error: {e}")
+        return {}
+
+
 # ── Main entry point ─────────────────────────────────────────────────────────
 
 async def fetch_listing_detail(url: str) -> dict:
@@ -545,6 +648,27 @@ async def fetch_listing_detail(url: str) -> dict:
     # Catches "Ano: 2020", "Quilómetros: 150.000 km", "Quilometragem 207.100 Km"
     # Only fills fields not already populated by earlier layers.
     _extract_pt_labels(page_text, result)
+
+    # ── Layer 6: LLM extraction (universal fallback) ──────────────────────
+    # When traditional layers fail to extract key fields, send page text to
+    # Gemini and ask it to extract structured car data. Works on ANY site
+    # regardless of HTML structure — no per-site code needed.
+    # Only fires when we're missing critical data (price OR year OR km).
+    _key_missing = not result.get("price") or not result.get("year") or not result.get("km")
+    _has_content = len(page_text) > 200  # skip JS-only shells
+
+    if _key_missing and _has_content:
+        llm_data = await _extract_via_llm(page_text, url)
+        if llm_data:
+            for k, v in llm_data.items():
+                if v and not result.get(k):
+                    result[k] = v
+            print(f"[GENERIC SCRAPER] LLM extraction filled: {[k for k,v in llm_data.items() if v]}")
+
+    # ── JS SPA detection: page has no useful content ──
+    if not _has_content and not result.get("price") and not result.get("year"):
+        result["_js_only"] = True
+        print(f"[GENERIC SCRAPER] JS-only SPA detected ({len(page_text)} chars) — {url}")
 
     # ── Post-processing: infer brand/model from title if not found ──
     if not result.get("brand") and result.get("title"):
