@@ -277,12 +277,34 @@ def health_check():
     except Exception:
         llm_ok = False
         model = "unknown"
+
+    # Playwright / Chromium diagnostics
+    pw_status = "unknown"
+    try:
+        import playwright
+        pw_status = f"installed (v{playwright.__version__})"
+    except ImportError:
+        pw_status = "not_installed"
+    except Exception as e:
+        pw_status = f"error: {e}"
+
+    chromium_path = "unknown"
+    try:
+        import subprocess
+        result = subprocess.run(["playwright", "install", "--dry-run", "chromium"],
+                                capture_output=True, text=True, timeout=5)
+        chromium_path = result.stdout.strip()[:200] if result.stdout else result.stderr.strip()[:200]
+    except Exception as e:
+        chromium_path = str(e)[:200]
+
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.5.0",
+        "version": "4.5.1",
         "llm_available": llm_ok,
         "llm_model": model,
+        "playwright": pw_status,
+        "chromium_check": chromium_path,
     }
 
 
