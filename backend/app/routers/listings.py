@@ -25,6 +25,7 @@ class AnalyseRequest(BaseModel):
     listing_url: str
     model_id: Optional[int] = None        # hint to skip DB model lookup
     user_profile: Optional[dict] = None  # {economy, comfort, driving, practical, status, reliability}
+    force_refresh: bool = False           # bust cache and re-scrape/re-analyse
 
 
 @router.get("/sources")
@@ -58,6 +59,7 @@ async def analyse_ad(req: AnalyseRequest, db: Session = Depends(get_db)):
         db=db,
         listing_url=req.listing_url,
         user_profile=req.user_profile,
+        force_refresh=req.force_refresh,
     )
     return result
 

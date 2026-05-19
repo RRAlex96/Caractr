@@ -727,10 +727,11 @@ async def analyse_listing(
     db: Session,
     listing_url: str,
     user_profile: Optional[dict] = None,
+    force_refresh: bool = False,
 ) -> dict:
     """
     Full ad analysis pipeline for a listing URL:
-    1. Check DB cache (return if fresh)
+    1. Check DB cache (return if fresh) — skipped when force_refresh=True
     2. Fetch detail page if not in DB
     3. Run deal scoring
     4. Call Gemini for analysis (falls back to rule engine)
@@ -742,7 +743,7 @@ async def analyse_listing(
     """
     try:
         return await asyncio.wait_for(
-            _analyse_listing_inner(db, listing_url, user_profile),
+            _analyse_listing_inner(db, listing_url, user_profile, force_refresh),
             timeout=90,  # hard cap: entire pipeline must finish in 90s
         )
     except asyncio.TimeoutError:
@@ -764,6 +765,7 @@ async def _analyse_listing_inner(
     db: Session,
     listing_url: str,
     user_profile: Optional[dict] = None,
+    force_refresh: bool = False,
 ) -> dict:
     """Inner implementation — caller wraps in try/except."""
     # ── 0. Validate source URL ──
@@ -772,8 +774,10 @@ async def _analyse_listing_inner(
             "error": "URL inválido. Cole um link direto de um anúncio (Standvirtual, OLX, ou qualquer site de dealer)."
         }
 
-    # ── 1. Check cache ──
-    cached = _get_cached_analysis(db, listing_url)
+    # ── 1. Check cache (skip on force_refresh) ──
+    cached = None if force_refresh else _get_cached_analysis(db, listing_url)
+    if force_refresh:
+        print(f"[AD_ANALYSIS] force_refresh=True — skipping cache for {listing_url}")
     if cached and cached.get("llm_analysis"):
         llm = cached["llm_analysis"] if isinstance(cached["llm_analysis"], dict) else json.loads(cached["llm_analysis"])
         # Re-hydrate enrichment from cached llm blob (stored there since v4.4.1)
@@ -804,9 +808,13 @@ async def _analyse_listing_inner(
         )
 
     # ── 2. Resolve or scrape listing ──
-    normalized = _resolve_model_from_url(db, listing_url)
-    if not normalized:
+    if force_refresh:
+        # Always re-scrape on force_refresh (bypasses stale cached scrape data)
         normalized = await _scrape_and_store_listing(db, listing_url)
+    else:
+        normalized = _resolve_model_from_url(db, listing_url)
+        if not normalized:
+            normalized = await _scrape_and_store_listing(db, listing_url)
 
     if not normalized:
         return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente."}
