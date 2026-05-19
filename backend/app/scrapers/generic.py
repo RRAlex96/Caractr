@@ -691,20 +691,23 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
     Render a JS-heavy page using headless Chromium via Playwright.
     Returns the fully-rendered HTML string, or None on failure.
 
-    Used as fallback when httpx returns a near-empty page (JS SPA).
+    Uses sync Playwright API in a thread to avoid async-within-async issues
+    that can occur in FastAPI's event loop on some platforms.
     Timeout: 30s total (navigate + wait for network idle).
     """
     try:
-        from playwright.async_api import async_playwright
+        from playwright.sync_api import sync_playwright
     except ImportError:
         print("[GENERIC SCRAPER] Playwright not installed — cannot render JS SPA")
         return None
 
-    try:
-        async with async_playwright() as p:
-            # Railway / Docker containers need --no-sandbox and --disable-dev-shm-usage
-            # Without these, Chromium crashes silently in containerised environments
-            browser = await p.chromium.launch(
+    def _sync_render() -> Optional[str]:
+        """Run Playwright synchronously in a thread."""
+        pw = None
+        browser = None
+        try:
+            pw = sync_playwright().start()
+            browser = pw.chromium.launch(
                 headless=True,
                 args=[
                     "--no-sandbox",
@@ -714,26 +717,43 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
                     "--single-process",
                 ],
             )
-            context = await browser.new_context(
+            context = browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
                 locale="pt-PT",
                 viewport={"width": 1280, "height": 900},
             )
-            page = await context.new_page()
-            try:
-                await page.goto(url, wait_until="networkidle", timeout=25_000)
-                # Extra wait for late-loading JS frameworks (Vue/React hydration)
-                await page.wait_for_timeout(2000)
-                html = await page.content()
-                print(f"[GENERIC SCRAPER] Playwright rendered {len(html)} chars for {url}")
-                return html
-            except Exception as nav_err:
-                print(f"[GENERIC SCRAPER] Playwright navigation error: {nav_err}")
-                return None
-            finally:
-                await browser.close()
+            page = context.new_page()
+            page.goto(url, wait_until="networkidle", timeout=25_000)
+            # Extra wait for late-loading JS frameworks (Vue/React hydration)
+            page.wait_for_timeout(2000)
+            html = page.content()
+            print(f"[GENERIC SCRAPER] Playwright rendered {len(html)} chars for {url}")
+            return html
+        except Exception as e:
+            print(f"[GENERIC SCRAPER] Playwright error: {type(e).__name__}: {e}")
+            return None
+        finally:
+            if browser:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+            if pw:
+                try:
+                    pw.stop()
+                except Exception:
+                    pass
+
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_sync_render),
+            timeout=35,  # hard cap: 35s for entire Playwright operation
+        )
+    except asyncio.TimeoutError:
+        print(f"[GENERIC SCRAPER] Playwright hard timeout (35s) for {url}")
+        return None
     except Exception as e:
-        print(f"[GENERIC SCRAPER] Playwright launch error: {e}")
+        print(f"[GENERIC SCRAPER] Playwright thread error: {type(e).__name__}: {e}")
         return None
 
 
@@ -787,6 +807,7 @@ async def fetch_listing_detail(url: str) -> dict:
     _used_playwright = False
 
     # ── JS SPA detection (pass 1): httpx got almost no text → Playwright ──
+    _pw_debug = None  # capture Playwright status for debugging
     if len(page_text) < 200:
         print(f"[GENERIC SCRAPER] JS SPA detected ({len(page_text)} chars) — trying Playwright for {url}")
         pw_html = await _fetch_with_playwright(url)
@@ -795,7 +816,10 @@ async def fetch_listing_detail(url: str) -> dict:
             soup = BeautifulSoup(html, "lxml")
             page_text = soup.get_text(" ", strip=True)
             _used_playwright = True
+            _pw_debug = f"pass1_ok:{len(page_text)}chars"
             print(f"[GENERIC SCRAPER] Playwright rendered {len(page_text)} chars of text")
+        else:
+            _pw_debug = f"pass1_fail:pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
 
     # ── Run all extraction layers (1-5) ──
     _run_extraction_layers(soup, page_text, result)
@@ -817,10 +841,13 @@ async def fetch_listing_detail(url: str) -> dict:
             soup = BeautifulSoup(html, "lxml")
             page_text = soup.get_text(" ", strip=True)
             _used_playwright = True
+            _pw_debug = f"pass2_ok:{len(page_text)}chars"
             # Re-run extraction layers on rendered HTML (layers only fill empty fields)
             _run_extraction_layers(soup, page_text, result)
             print(f"[GENERIC SCRAPER] Playwright pass 2: {len(page_text)} chars, "
                   f"price={result.get('price')} year={result.get('year')} km={result.get('km')}")
+        else:
+            _pw_debug = (_pw_debug or "") + f"|pass2_fail:pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
 
     # ── Layer 6: LLM extraction (universal fallback) ──────────────────────
     # When traditional layers fail to extract key fields, send page text to
@@ -881,5 +908,9 @@ async def fetch_listing_detail(url: str) -> dict:
 
     # Trim photo_count sanity
     result["photo_count"] = max(0, result.get("photo_count") or 0)
+
+    # Debug: Playwright status (temporary — remove after verifying Railway works)
+    if _pw_debug:
+        result["_pw_debug"] = _pw_debug
 
     return result
