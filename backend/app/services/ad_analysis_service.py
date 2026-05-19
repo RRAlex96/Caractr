@@ -566,13 +566,9 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     # Route to correct scraper via dispatcher
     detail = await fetch_detail_for_url(listing_url)
 
-    # JS SPA detection — site requires browser rendering we can't do yet
-    if detail.get("_js_only"):
-        return {
-            "error": "Este site usa JavaScript e não conseguimos ler os dados automaticamente. "
-                     "Experimenta colar um link do Standvirtual, OLX ou CustoJusto.",
-            "_js_only": True,
-        }
+    # JS SPA flag — site had minimal page text, but may still have meta tags.
+    # Continue with whatever data we have; the response will include a caveat.
+    is_js_limited = detail.pop("_js_only", False)
 
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
@@ -814,10 +810,6 @@ async def _analyse_listing_inner(
     if not normalized:
         return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente."}
 
-    # Short-circuit if scraper detected an error (e.g. JS-only SPA)
-    if normalized.get("error"):
-        return normalized
-
     # ── 3. Fetch market stats ──
     model_id   = normalized.get("model_id")
     brand_name = normalized.get("brand_name", "")
@@ -953,6 +945,7 @@ async def _analyse_listing_inner(
         normalized, llm_result, from_cache=False, market_stats=market_stats,
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
         fit=fit_result, model_info=model_info, enrichment=enrichment,
+        js_limited=is_js_limited,
     )
 
 
@@ -1139,6 +1132,7 @@ def _build_response(
     fit: Optional[dict] = None,
     model_info: Optional[dict] = None,
     enrichment: Optional[dict] = None,
+    js_limited: bool = False,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -1192,7 +1186,13 @@ def _build_response(
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
         "maintenance_estimate": (model_info or {}).get("maintenance_cost_year"),
-        "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
+        "caveat": (
+            "Este site usa JavaScript — só conseguimos extrair dados parciais. "
+            "Para uma análise completa, usa um link do Standvirtual, OLX ou CustoJusto."
+            if js_limited else
+            "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento."
+        ),
+        "js_limited": js_limited,
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),
