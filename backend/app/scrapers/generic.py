@@ -68,16 +68,24 @@ def _parse_year(raw: str) -> Optional[int]:
 
 
 def _detect_fuel(text: str) -> Optional[str]:
-    text = text.lower()
-    if "híbrido plug" in text or "phev" in text:
+    """
+    Detect fuel type from text. Uses word-boundary regex to avoid false positives
+    like "Vidros Elétricos" matching "elétrico".
+    """
+    t = text.lower()
+    if "híbrido plug" in t or "phev" in t:
         return "híbrido plug-in"
-    if "híbrido" in text or "hybrid" in text or "hev" in text:
+    if "híbrido" in t or "hybrid" in t or "hev" in t:
         return "híbrido"
-    if "elétrico" in text or "electric" in text or "bev" in text:
+    # "elétrico" must appear as a standalone fuel reference, not as adjective
+    # "Vidros Elétricos", "Espelhos Elétricos" → false positive
+    if re.search(r'\b(?:100%\s*)?el[eé]trico\b(?!\s+(?:vidros|espelhos|bancos|teto))', t):
         return "elétrico"
-    if "diesel" in text or "gasoleo" in text:
+    if "electric" in t or " bev " in t or " ev " in t:
+        return "elétrico"
+    if "diesel" in t or "gasoleo" in t or "gasóleo" in t:
         return "diesel"
-    if "gasolina" in text or "petrol" in text or "gasoline" in text:
+    if "gasolina" in t or "petrol" in t or "gasoline" in t:
         return "gasolina"
     if "gás" in text or "gnv" in text or "glp" in text:
         return "gás"
@@ -154,12 +162,58 @@ def _extract_jsonld(soup: BeautifulSoup) -> dict:
                     images = [images]
                 result.setdefault("photo_count", len(images))
 
-            # Standalone Product / Offer
+            # Standalone Product / Offer (CustoJusto uses this)
             elif schema_type in ("product", "offer"):
                 result.setdefault("title", item.get("name", ""))
-                result.setdefault("description", item.get("description", ""))
-                price_val = item.get("price") or (item.get("offers", {}) or {}).get("price")
-                result.setdefault("price", _parse_price(str(price_val or "")))
+                raw_desc = item.get("description", "")
+                result.setdefault("description", raw_desc)
+
+                # Price from offers (CustoJusto: offers.price = "15500")
+                offer = item.get("offers") or {}
+                if isinstance(offer, list):
+                    offer = offer[0] if offer else {}
+                if isinstance(offer, dict):
+                    price_val = offer.get("price") or offer.get("lowPrice")
+                    result.setdefault("price", _parse_price(str(price_val or "")))
+                if not result.get("price"):
+                    result.setdefault("price", _parse_price(str(item.get("price", ""))))
+
+                # Brand from schema — only trust if it matches a known car brand
+                brand_obj = item.get("brand") or {}
+                brand_name = brand_obj.get("name", "") if isinstance(brand_obj, dict) else str(brand_obj)
+                # CustoJusto sets brand to seller name ("WORKCAR no CustoJusto.pt") — filter that out
+                if brand_name:
+                    brand_lower = brand_name.lower()
+                    is_known = any(b.lower() in brand_lower for b in KNOWN_BRANDS)
+                    if is_known:
+                        result.setdefault("brand", brand_name)
+
+                # Parse description for car specs (CustoJusto embeds specs in free text)
+                # Description has HTML tags like <br /> — strip them first
+                if raw_desc:
+                    desc_clean = re.sub(r'<[^>]+>', ' ', str(raw_desc))
+                    # Year: "Ano 01/2014" or "Ano: 2020"
+                    if not result.get("year"):
+                        ym = re.search(r'\bAno\s*[:/]?\s*(?:\d{1,2}/)?(\d{4})\b', desc_clean, re.IGNORECASE)
+                        if ym:
+                            y = int(ym.group(1))
+                            if 1990 <= y <= 2030:
+                                result["year"] = y
+                    # KM: "215.000 kms" or "150 000 km"
+                    if not result.get("km"):
+                        km_m = re.search(r'(\d[\d\s.]+)\s*kms?\b', desc_clean, re.IGNORECASE)
+                        if km_m:
+                            km = _parse_km(km_m.group(1))
+                            if km:
+                                result["km"] = km
+                    # Fuel: "Diesel", "Gasolina", etc.
+                    if not result.get("fuel_type"):
+                        result["fuel_type"] = _detect_fuel(desc_clean)
+                    # Power: "200 cv" or "150 hp"
+                    if not result.get("engine_power_hp"):
+                        hp_m = re.search(r'(\d+)\s*(?:cv|hp)\b', desc_clean, re.IGNORECASE)
+                        if hp_m:
+                            result["engine_power_hp"] = int(hp_m.group(1))
 
     return result
 
@@ -259,6 +313,8 @@ _PT_LABEL_PATTERNS = [
     # (compiled regex, field name, parser lambda)
     # Year — multiple label variants
     (re.compile(r'(?:Ano\s+(?:do\s+)?modelo|Ano|Data\s+da\s+Matr[ií]cula)' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    # "Ano 01/2014" or "Ano 12/2019" — MM/YYYY format (CustoJusto description)
+    (re.compile(r'(?:Ano|Data\s+da\s+Matr[ií]cula)' + _SEP + r'\d{1,2}/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
     (re.compile(r'(?:Ano\s+de\s+)?[Rr]egisto' + _SEP + r'(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
     (re.compile(r'(?:Ano\s*/\s*)?M[eê]s' + _SEP + r'(\d{1,2})/(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(2)) if 1990 <= int(m.group(2)) <= 2030 else None),
     # Mileage — "Quilómetros: 185.000 km" OR "Quilómetros 180 000 - 189 999" (range)
@@ -283,8 +339,9 @@ _PT_LABEL_PATTERNS = [
     # Model — short (1-3 words). Negative lookbehind: skip "Ano do modelo"
     (re.compile(r'(?<!do )(?<!do\s)Modelo' + _SEP + _VAL_SHORT, re.IGNORECASE), "model", lambda m: m.group(1).strip()),
     (re.compile(r'Vers[aã]o' + _SEP + _VAL_SHORT, re.IGNORECASE), "trim", lambda m: m.group(1).strip()),
-    # Price label — "Preço: 14 900 €"
+    # Price label — "Preço: 14 900 €" or "EUR 19000"
     (re.compile(r'Pre[çc]o' + _SEP + r'([\d\s.]+)\s*€', re.IGNORECASE), "price", lambda m: _parse_price(m.group(1))),
+    (re.compile(r'EUR\s+([\d\s.]+)', re.IGNORECASE), "price", lambda m: _parse_price(m.group(1))),
 ]
 
 
@@ -409,8 +466,8 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
         if km_m:
             result["km"] = _parse_km(km_m.group(1))
 
-    # Fuel type
-    result["fuel_type"] = _detect_fuel(page_text)
+    # Fuel type — limit to first 5000 chars to avoid false positives on huge pages
+    result["fuel_type"] = _detect_fuel(page_text[:5000])
 
     # Description
     for sel in DESCRIPTION_SELECTORS:
@@ -589,6 +646,44 @@ Extrai o máximo possível. Devolve null para campos que não encontres.
         return {}
 
 
+# ── Extraction layers runner ────────────────────────────────────────────────
+
+def _run_extraction_layers(soup: BeautifulSoup, page_text: str, result: dict) -> None:
+    """
+    Run layers 1-5 of the extraction pipeline on the given HTML/text.
+    Modifies result dict in-place, only filling fields not already set.
+    """
+    # Layer 1: JSON-LD (most reliable)
+    jsonld = _extract_jsonld(soup)
+    for k, v in jsonld.items():
+        if v:
+            result[k] = v
+
+    # Layer 2: Meta tags
+    meta = _extract_meta(soup)
+    for k, v in meta.items():
+        if v and not result.get(k):
+            result[k] = v
+
+    # Layer 3: Microdata
+    micro = _extract_microdata(soup)
+    for k, v in micro.items():
+        if v and not result.get(k):
+            result[k] = v
+
+    # Layer 4: Heuristic HTML
+    heuristic = _extract_heuristic(soup, page_text)
+    for k, v in heuristic.items():
+        if v and not result.get(k):
+            result[k] = v
+
+    # Layer 5a: dt/dd definition lists
+    _extract_dt_dd(soup, result)
+
+    # Layer 5b: Portuguese label-value patterns in page text
+    _extract_pt_labels(page_text, result)
+
+
 # ── Playwright JS rendering fallback ────────────────────────────────────────
 
 async def _fetch_with_playwright(url: str) -> Optional[str]:
@@ -678,8 +773,9 @@ async def fetch_listing_detail(url: str) -> dict:
 
     soup = BeautifulSoup(html, "lxml")
     page_text = soup.get_text(" ", strip=True)
+    _used_playwright = False
 
-    # ── JS SPA detection: if httpx got almost no text, re-render with Playwright ──
+    # ── JS SPA detection (pass 1): httpx got almost no text → Playwright ──
     if len(page_text) < 200:
         print(f"[GENERIC SCRAPER] JS SPA detected ({len(page_text)} chars) — trying Playwright for {url}")
         pw_html = await _fetch_with_playwright(url)
@@ -687,39 +783,33 @@ async def fetch_listing_detail(url: str) -> dict:
             html = pw_html
             soup = BeautifulSoup(html, "lxml")
             page_text = soup.get_text(" ", strip=True)
-            print(f"[GENERIC SCRAPER] Playwright got {len(page_text)} chars of text")
+            _used_playwright = True
+            print(f"[GENERIC SCRAPER] Playwright rendered {len(page_text)} chars of text")
 
-    # ── Layer 1: JSON-LD (most reliable) ──
-    jsonld = _extract_jsonld(soup)
-    for k, v in jsonld.items():
-        if v:
-            result[k] = v
+    # ── Run all extraction layers (1-5) ──
+    _run_extraction_layers(soup, page_text, result)
 
-    # ── Layer 2: Meta tags ──
-    meta = _extract_meta(soup)
-    for k, v in meta.items():
-        if v and not result.get(k):
-            result[k] = v
-
-    # ── Layer 3: Microdata ──
-    micro = _extract_microdata(soup)
-    for k, v in micro.items():
-        if v and not result.get(k):
-            result[k] = v
-
-    # ── Layer 4: Heuristic HTML ──
-    heuristic = _extract_heuristic(soup, page_text)
-    for k, v in heuristic.items():
-        if v and not result.get(k):
-            result[k] = v
-
-    # ── Layer 5a: dt/dd definition lists (CustoJusto, etc.) ──
-    _extract_dt_dd(soup, result)
-
-    # ── Layer 5b: Portuguese label-value patterns in page text ──
-    # Catches "Ano: 2020", "Quilómetros: 150.000 km", "Quilometragem 207.100 Km"
-    # Only fills fields not already populated by earlier layers.
-    _extract_pt_labels(page_text, result)
+    # ── Client-side rendering detection (pass 2): page has text but NO car data ──
+    # Next.js / React SSR sites (CustoJusto, etc.) return boilerplate HTML from httpx
+    # but the actual listing data is injected by client-side JavaScript.
+    # Price is the strongest signal — almost every real listing has a price.
+    # If price AND km are both missing, the page almost certainly needs JS rendering.
+    _needs_js_render = (
+        not result.get("price")
+        and not result.get("km")
+    )
+    if _needs_js_render and not _used_playwright:
+        print(f"[GENERIC SCRAPER] No car data after static extraction — trying Playwright for {url}")
+        pw_html = await _fetch_with_playwright(url)
+        if pw_html and len(pw_html) > len(html):
+            html = pw_html
+            soup = BeautifulSoup(html, "lxml")
+            page_text = soup.get_text(" ", strip=True)
+            _used_playwright = True
+            # Re-run extraction layers on rendered HTML (layers only fill empty fields)
+            _run_extraction_layers(soup, page_text, result)
+            print(f"[GENERIC SCRAPER] Playwright pass 2: {len(page_text)} chars, "
+                  f"price={result.get('price')} year={result.get('year')} km={result.get('km')}")
 
     # ── Layer 6: LLM extraction (universal fallback) ──────────────────────
     # When traditional layers fail to extract key fields, send page text to
@@ -737,18 +827,31 @@ async def fetch_listing_detail(url: str) -> dict:
                     result[k] = v
             print(f"[GENERIC SCRAPER] LLM extraction filled: {[k for k,v in llm_data.items() if v]}")
 
-    # ── Still no content after Playwright? Flag as JS-limited ──
-    if not _has_content and not result.get("price") and not result.get("year"):
+    # ── Still no data? Flag as JS-limited ──
+    _still_empty = not result.get("price") and not result.get("year") and not result.get("km")
+    if _still_empty and _used_playwright:
         result["_js_only"] = True
-        print(f"[GENERIC SCRAPER] No content even after Playwright ({len(page_text)} chars) — {url}")
+        print(f"[GENERIC SCRAPER] No data even after Playwright ({len(page_text)} chars) — {url}")
+    elif _still_empty and not _has_content:
+        result["_js_only"] = True
+        print(f"[GENERIC SCRAPER] Empty page, Playwright unavailable ({len(page_text)} chars) — {url}")
 
-    # ── Post-processing: infer brand/model from title if not found ──
+    # ── Post-processing: validate and infer brand/model ──
+    # Validate brand: if it doesn't match any known car brand, clear it
+    if result.get("brand"):
+        brand_str = result["brand"].lower()
+        is_valid = any(b.lower() in brand_str or brand_str in b.lower() for b in KNOWN_BRANDS)
+        if not is_valid:
+            print(f"[GENERIC SCRAPER] Invalid brand '{result['brand']}' — clearing")
+            result["brand"] = ""
+
+    # Infer brand/model from title if not found
     if not result.get("brand") and result.get("title"):
         brand, model = _infer_brand_model(result["title"])
         if brand:
-            result.setdefault("brand", brand)
-        if model:
-            result.setdefault("model", model)
+            result["brand"] = brand
+        if model and not result.get("model"):
+            result["model"] = model
 
     # Normalise fuel string from schema.org URLs/codes or Portuguese labels
     fuel = (result.get("fuel_type") or "").lower().strip()
