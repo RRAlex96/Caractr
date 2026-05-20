@@ -222,7 +222,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Caractr API",
     description="Assistente inteligente de compra de carro para Portugal",
-    version="4.5.0",
+    version="4.6.0",
     lifespan=lifespan,
 )
 
@@ -300,7 +300,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.5.1",
+        "version": "4.6.0",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
