@@ -12,6 +12,7 @@ from app.routers import recommend
 from app.routers import analytics
 from app.routers import listings
 from app.routers import concierge
+from app.routers import admin_dashboard
 from app.db.database import SessionLocal
 
 # ── Rate limiting ──────────────────────────────────────────────────────────────
@@ -313,3 +314,4 @@ app.include_router(recommend.router)
 app.include_router(analytics.router)
 app.include_router(listings.router)
 app.include_router(concierge.router)
+app.include_router(admin_dashboard.router)
