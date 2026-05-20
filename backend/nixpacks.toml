@@ -16,7 +16,7 @@ aptPkgs = [
 [phases.install]
 cmds = [
   "pip install -r requirements.txt",
-  "playwright install chromium",
+  "playwright install chromium chromium-headless-shell",
 ]
 
 [start]

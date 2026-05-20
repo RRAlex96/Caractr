@@ -20,6 +20,7 @@ Handles Portuguese dealer sites: AutoHub, CarsGuru, AutoClick, CarNext,
 AutoSapo, SeBe, Flexicar, Soauto, and any site using schema.org markup.
 """
 
+import os
 import re
 import json
 import random
@@ -709,16 +710,33 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
             print(f"[GENERIC SCRAPER] Playwright: starting sync_playwright...")
             pw = sync_playwright().start()
             print(f"[GENERIC SCRAPER] Playwright: launching chromium...")
-            browser = pw.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--single-process",
-                ],
-            )
+            launch_args = [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--single-process",
+            ]
+            # Newer Playwright splits headless shell from full chromium.
+            # If headless shell is not installed, point to the full chromium binary.
+            import glob as _glob
+            _hs_dirs = _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium_headless_shell-*"))
+            if _hs_dirs:
+                # Headless shell available — default launch works
+                browser = pw.chromium.launch(headless=True, args=launch_args)
+            else:
+                # Find the full chromium executable
+                _chrome_bins = _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"))
+                if _chrome_bins:
+                    print(f"[GENERIC SCRAPER] Playwright: using full chromium at {_chrome_bins[0]}")
+                    browser = pw.chromium.launch(
+                        headless=True,
+                        executable_path=_chrome_bins[0],
+                        args=launch_args,
+                    )
+                else:
+                    print("[GENERIC SCRAPER] Playwright: no chromium binary found!")
+                    browser = pw.chromium.launch(headless=True, args=launch_args)
             print(f"[GENERIC SCRAPER] Playwright: chromium launched, creating context...")
             context = browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
