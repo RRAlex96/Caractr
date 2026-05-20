@@ -372,63 +372,16 @@ def health_check():
         llm_ok = False
         model = "unknown"
 
-    # Playwright / Chromium diagnostics
-    pw_status = "unknown"
-    try:
-        import playwright
-        pw_status = f"installed (v{playwright.__version__})"
-    except ImportError:
-        pw_status = "not_installed"
-    except Exception as e:
-        pw_status = f"error: {e}"
-
-    chromium_path = "unknown"
-    try:
-        import subprocess
-        result = subprocess.run(["playwright", "install", "--dry-run", "chromium"],
-                                capture_output=True, text=True, timeout=5)
-        chromium_path = result.stdout.strip()[:200] if result.stdout else result.stderr.strip()[:200]
-    except Exception as e:
-        chromium_path = str(e)[:200]
-
-    # Search entire filesystem for the chrome binary
-    chromium_diag = {}
-    try:
-        import subprocess as _sp
-        chromium_diag["HOME"] = os.environ.get("HOME", "?")
-        chromium_diag["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "not_set")
-
-        # Search EVERYWHERE for chrome binaries (limited depth to avoid slowness)
-        try:
-            r = _sp.run(
-                ["find", "/", "-maxdepth", "8", "-type", "f", "-name", "chrome",
-                 "-not", "-path", "*/node_modules/*"],
-                capture_output=True, text=True, timeout=10,
-            )
-            chromium_diag["find_all"] = r.stdout.strip()[:500] if r.stdout.strip() else "NONE_FOUND"
-        except Exception as e2:
-            chromium_diag["find_all"] = str(e2)[:200]
-
-        # Also check common playwright locations
-        for p in ["/app/.pw-browsers", "/root/.cache/ms-playwright", "/app"]:
-            chromium_diag[f"exists:{p}"] = os.path.isdir(p)
-            if os.path.isdir(p):
-                try:
-                    chromium_diag[f"ls:{p}"] = str(os.listdir(p)[:15])
-                except Exception:
-                    pass
-    except Exception as e:
-        chromium_diag["error"] = str(e)[:200]
+    # Playwright status
+    pw_browsers = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "not_set")
 
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.8.3",
+        "version": "4.9.0",
         "llm_available": llm_ok,
         "llm_model": model,
-        "playwright": pw_status,
-        "chromium_check": chromium_path,
-        "chromium_diag": chromium_diag,
+        "playwright_browsers": pw_browsers,
     }
 
 
