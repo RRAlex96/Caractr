@@ -87,33 +87,70 @@ _RELIABILITY_REFRESH_INTERVAL_DAYS = 7
 
 # ── Background loops ───────────────────────────────────────────────────────────
 
+def _run_market_refresh_sync() -> None:
+    """Sync wrapper — runs in thread pool so it never blocks the event loop."""
+    db = SessionLocal()
+    try:
+        print("[SCHEDULER] Starting monthly market data refresh...")
+
+        from app.services.market_scraper_runner import run_market_scraper
+        scrape_result = run_market_scraper(db)
+        print(f"[SCHEDULER] Scraper: {scrape_result}")
+
+        from app.services.market_aggregator import run_aggregation
+        agg_result = run_aggregation(db)
+        print(f"[SCHEDULER] Aggregation: {agg_result}")
+
+    except Exception as e:
+        print(f"[SCHEDULER] Market refresh error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 async def _market_refresh_loop() -> None:
     """
     Monthly background task:
     1. Bulk-scrape Standvirtual + OLX listings per generation
     2. Aggregate into p10/p50/p90 + MAD per (generation, year, seller_type)
     3. Denormalise latest p50 + band to generations table
+
+    All sync work runs in a thread to keep the event loop responsive.
     """
     await asyncio.sleep(_MARKET_REFRESH_INTERVAL_DAYS * 24 * 3600)
     while True:
-        db = SessionLocal()
-        try:
-            print("[SCHEDULER] Starting monthly market data refresh...")
-
-            from app.services.market_scraper_runner import run_market_scraper
-            scrape_result = run_market_scraper(db)
-            print(f"[SCHEDULER] Scraper: {scrape_result}")
-
-            from app.services.market_aggregator import run_aggregation
-            agg_result = run_aggregation(db)
-            print(f"[SCHEDULER] Aggregation: {agg_result}")
-
-        except Exception as e:
-            print(f"[SCHEDULER] Market refresh error: {e}")
-            db.rollback()
-        finally:
-            db.close()
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_market_refresh_sync)
         await asyncio.sleep(_MARKET_REFRESH_INTERVAL_DAYS * 24 * 3600)
+
+
+def _run_reliability_sync() -> None:
+    """Sync wrapper — runs in thread pool so it never blocks the event loop."""
+    db = SessionLocal()
+    try:
+        print("[SCHEDULER] Starting weekly reliability update...")
+
+        from app.scrapers.safety_gate import ingest_safety_gate
+        sg_stats = ingest_safety_gate(db, max_pages=20, sleep_seconds=1.5)
+        print(f"[SCHEDULER] Safety Gate: {sg_stats}")
+
+        from app.scrapers.nhtsa import ingest_nhtsa_all
+        nhtsa_stats = ingest_nhtsa_all(db, sleep_seconds=0.4)
+        print(f"[SCHEDULER] NHTSA: {nhtsa_stats}")
+
+        from app.scrapers.kba_recalls import ingest_kba_incremental
+        kba_stats = ingest_kba_incremental(db, sleep_seconds=2.0)
+        print(f"[SCHEDULER] KBA: {kba_stats}")
+
+        from app.services.reliability_runner import run_reliability_scorer
+        scorer_stats = run_reliability_scorer(db)
+        print(f"[SCHEDULER] Bayesian scorer: {scorer_stats}")
+
+    except Exception as e:
+        print(f"[SCHEDULER] Reliability update error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 async def _reliability_scorer_loop() -> None:
@@ -123,36 +160,58 @@ async def _reliability_scorer_loop() -> None:
     2. Ingest NHTSA recalls + complaints (incremental)
     3. Ingest KBA recalls via car-recalls.eu (incremental)
     4. Run the Bayesian scorer for all generations
+
+    All sync work runs in a thread to keep the event loop responsive.
     """
     await asyncio.sleep(600)  # 10 min cold-start delay
     while True:
-        db = SessionLocal()
-        try:
-            print("[SCHEDULER] Starting weekly reliability update...")
-
-            from app.scrapers.safety_gate import ingest_safety_gate
-            sg_stats = ingest_safety_gate(db, max_pages=20, sleep_seconds=1.5)
-            print(f"[SCHEDULER] Safety Gate: {sg_stats}")
-
-            from app.scrapers.nhtsa import ingest_nhtsa_all
-            nhtsa_stats = ingest_nhtsa_all(db, sleep_seconds=0.4)
-            print(f"[SCHEDULER] NHTSA: {nhtsa_stats}")
-
-            from app.scrapers.kba_recalls import ingest_kba_incremental
-            kba_stats = ingest_kba_incremental(db, sleep_seconds=2.0)
-            print(f"[SCHEDULER] KBA: {kba_stats}")
-
-            from app.services.reliability_runner import run_reliability_scorer
-            scorer_stats = run_reliability_scorer(db)
-            print(f"[SCHEDULER] Bayesian scorer: {scorer_stats}")
-
-        except Exception as e:
-            print(f"[SCHEDULER] Reliability update error: {e}")
-            db.rollback()
-        finally:
-            db.close()
-
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_reliability_sync)
         await asyncio.sleep(_RELIABILITY_REFRESH_INTERVAL_DAYS * 24 * 3600)
+
+
+def _run_data_retention_sync() -> None:
+    """Sync wrapper — runs in thread pool so it never blocks the event loop."""
+    db = SessionLocal()
+    try:
+        from sqlalchemy import text
+        result = db.execute(text("""
+            WITH
+              del_sessions AS (
+                DELETE FROM recommendation_sessions
+                WHERE created_at < NOW() - INTERVAL '90 days'
+                RETURNING id
+              ),
+              del_concierge AS (
+                DELETE FROM concierge_requests
+                WHERE created_at < NOW() - INTERVAL '12 months'
+                RETURNING id
+              ),
+              del_analytics AS (
+                DELETE FROM analytics_events
+                WHERE created_at < NOW() - INTERVAL '24 months'
+                RETURNING id
+              ),
+              del_feedback AS (
+                DELETE FROM user_feedback
+                WHERE created_at < NOW() - INTERVAL '12 months'
+                RETURNING id
+              )
+            SELECT
+              (SELECT COUNT(*) FROM del_sessions)  AS sessions_deleted,
+              (SELECT COUNT(*) FROM del_concierge) AS concierge_deleted,
+              (SELECT COUNT(*) FROM del_analytics) AS analytics_deleted,
+              (SELECT COUNT(*) FROM del_feedback)  AS feedback_deleted
+        """))
+        row = result.fetchone()
+        db.commit()
+        if row and any(row):
+            print(f"[RETENTION] Deleted: sessions={row[0]}, concierge={row[1]}, analytics={row[2]}, feedback={row[3]}")
+    except Exception as e:
+        print(f"[RETENTION] Error during data retention cleanup: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 async def _data_retention_loop() -> None:
@@ -163,50 +222,13 @@ async def _data_retention_loop() -> None:
       - concierge_requests:      12 months
       - analytics_events:        24 months
       - user_feedback:           12 months
+
+    SQL runs in a thread to keep the event loop responsive.
     """
     await asyncio.sleep(3600)  # First run 1h after startup
     while True:
-        db = SessionLocal()
-        try:
-            from sqlalchemy import text
-            result = db.execute(text("""
-                WITH
-                  del_sessions AS (
-                    DELETE FROM recommendation_sessions
-                    WHERE created_at < NOW() - INTERVAL '90 days'
-                    RETURNING id
-                  ),
-                  del_concierge AS (
-                    DELETE FROM concierge_requests
-                    WHERE created_at < NOW() - INTERVAL '12 months'
-                    RETURNING id
-                  ),
-                  del_analytics AS (
-                    DELETE FROM analytics_events
-                    WHERE created_at < NOW() - INTERVAL '24 months'
-                    RETURNING id
-                  ),
-                  del_feedback AS (
-                    DELETE FROM user_feedback
-                    WHERE created_at < NOW() - INTERVAL '12 months'
-                    RETURNING id
-                  )
-                SELECT
-                  (SELECT COUNT(*) FROM del_sessions)  AS sessions_deleted,
-                  (SELECT COUNT(*) FROM del_concierge) AS concierge_deleted,
-                  (SELECT COUNT(*) FROM del_analytics) AS analytics_deleted,
-                  (SELECT COUNT(*) FROM del_feedback)  AS feedback_deleted
-            """))
-            row = result.fetchone()
-            db.commit()
-            if row and any(row):
-                print(f"[RETENTION] Deleted: sessions={row[0]}, concierge={row[1]}, analytics={row[2]}, feedback={row[3]}")
-        except Exception as e:
-            print(f"[RETENTION] Error during data retention cleanup: {e}")
-            db.rollback()
-        finally:
-            db.close()
-
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_data_retention_sync)
         await asyncio.sleep(24 * 3600)  # Run daily
 
 
@@ -301,7 +323,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.6.2",
+        "version": "4.7.0",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
