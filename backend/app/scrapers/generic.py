@@ -717,26 +717,27 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
                 "--disable-gpu",
                 "--single-process",
             ]
-            # Newer Playwright splits headless shell from full chromium.
-            # If headless shell is not installed, point to the full chromium binary.
+            # Newer Playwright (1.49+) uses chromium_headless_shell for headless=True,
+            # but Railway only has the full chromium binary installed.
+            # Always resolve the actual binary path and pass it explicitly.
             import glob as _glob
-            _hs_dirs = _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium_headless_shell-*"))
-            if _hs_dirs:
-                # Headless shell available — default launch works
-                browser = pw.chromium.launch(headless=True, args=launch_args)
+            _chrome_bins = (
+                _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"))
+                or _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-win*/chrome.exe"))
+                or _glob.glob("/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome")
+            )
+            if _chrome_bins:
+                _exe = _chrome_bins[0]
+                print(f"[GENERIC SCRAPER] Playwright: using chromium at {_exe}")
+                browser = pw.chromium.launch(
+                    headless=True,
+                    executable_path=_exe,
+                    args=launch_args,
+                )
             else:
-                # Find the full chromium executable
-                _chrome_bins = _glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"))
-                if _chrome_bins:
-                    print(f"[GENERIC SCRAPER] Playwright: using full chromium at {_chrome_bins[0]}")
-                    browser = pw.chromium.launch(
-                        headless=True,
-                        executable_path=_chrome_bins[0],
-                        args=launch_args,
-                    )
-                else:
-                    print("[GENERIC SCRAPER] Playwright: no chromium binary found!")
-                    browser = pw.chromium.launch(headless=True, args=launch_args)
+                # Fallback: let Playwright resolve (works if headless shell is installed)
+                print("[GENERIC SCRAPER] Playwright: no explicit binary found, using default")
+                browser = pw.chromium.launch(headless=True, args=launch_args)
             print(f"[GENERIC SCRAPER] Playwright: chromium launched, creating context...")
             context = browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
