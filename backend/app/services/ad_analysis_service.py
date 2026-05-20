@@ -213,7 +213,7 @@ async def _call_gemini_analysis(prompt: str) -> dict:
     try:
         from app.services.llm_client import generate_json, LLMError
         result = await asyncio.wait_for(
-            asyncio.to_thread(generate_json, prompt, 900),
+            asyncio.to_thread(generate_json, prompt, 1500),
             timeout=60,
         )
         if not isinstance(result, dict) or not result.get("verdict"):
@@ -947,16 +947,19 @@ async def _analyse_listing_inner(
         fit_result = _compute_profile_fit(user_profile, model_info)
 
     # ── 4b. Enrichment: inspection checklist + negotiation tips + Gemini narrative ──
-    inspection_checklist = _build_inspection_checklist(model_info or {}, normalized)
-    negotiation_tips     = _build_negotiation_tips(normalized, market_stats or {})
-    llm_narrative        = await _generate_llm_narrative(
+    # Rule-based fallbacks (zero-cost, always available)
+    rule_inspection = _build_inspection_checklist(model_info or {}, normalized)
+    rule_negotiation = _build_negotiation_tips(normalized, market_stats or {})
+    # LLM narrative (Gemini) — generates richer, engine-specific versions
+    llm_narrative = await _generate_llm_narrative(
         normalized, model_info or {}, market_stats or {},
-        inspection_checklist, negotiation_tips, analysis=llm_result,
+        rule_inspection, rule_negotiation, analysis=llm_result,
     )
+    # Prefer LLM-generated checklist/tips when available, fall back to rule-based
     enrichment = {
         **llm_narrative,
-        "inspection_checklist": inspection_checklist,
-        "negotiation_tips":     negotiation_tips,
+        "inspection_checklist": llm_narrative.get("inspection_checklist") or rule_inspection,
+        "negotiation_tips":     llm_narrative.get("negotiation_tips") or rule_negotiation,
     }
 
     # ── 5. Cache ──
@@ -1093,7 +1096,7 @@ async def _generate_llm_narrative(
     km          = listing.get("km") or 0
     listing_age = listing.get("listing_age_days") or 0
     seller_type = listing.get("seller_type", "desconhecido")
-    description = (listing.get("description") or "")[:1200]
+    description = (listing.get("description") or "")[:2000]
     known_issues   = model_info.get("known_issues") or "Sem problemas conhecidos registados"
     maintenance    = model_info.get("maintenance_cost_year")
     maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
@@ -1101,41 +1104,50 @@ async def _generate_llm_narrative(
     green_flags = analysis.get("green_flags") or []
     red_flags   = analysis.get("red_flags") or []
     key_extras  = analysis.get("key_extras") or []
+    engine_code = analysis.get("engine_code") or "não identificado"
+    engine_analysis_text = analysis.get("engine_analysis") or ""
+    trim_level = analysis.get("trim_level") or "não identificado"
 
     listing_age_str = f"{listing_age} dias" if listing_age else "desconhecido"
 
-    prompt = f"""És um especialista em carros usados em Portugal. Fala em PT-PT, usa "tu", tom direto como um amigo especialista. Responde APENAS com JSON válido.
+    prompt = f"""És um consultor de carros usados em Portugal com 20 anos de experiência. Fala em PT-PT, usa "tu", tom direto como um amigo que percebe MUITO de carros. Responde APENAS com JSON válido, sem texto extra.
+
+O comprador pagou-te para analisar este anúncio. Ele quer sentir que tem um ESPECIALISTA ao lado dele. Sê concreto, específico, e usa dados reais — nunca generalidades.
 
 ANÚNCIO:
 Carro: {listing.get('brand_name', '')} {listing.get('model_name', '')} {listing.get('year', '')}
+Motor: {engine_code} | Versão: {trim_level}
 Km: {km:,} | Preço: €{price:,} | Vendedor: {seller_type}
 Anúncio há: {listing_age_str}
-Descrição: {description}
+Descrição original: {description}
 
-ANÁLISE JÁ FEITA:
+ANÁLISE JÁ FEITA (pelo nosso motor de análise):
 Veredicto: {verdict}
-Pontos positivos: {', '.join(green_flags) if green_flags else 'nenhum'}
-Pontos de atenção: {', '.join(red_flags) if red_flags else 'nenhum'}
-Extras detetados: {', '.join(key_extras) if key_extras else 'nenhum'}
+Pontos positivos: {', '.join(green_flags[:4]) if green_flags else 'nenhum'}
+Pontos de atenção: {', '.join(red_flags[:4]) if red_flags else 'nenhum'}
+Extras detetados: {', '.join(key_extras[:12]) if key_extras else 'nenhum'}
+Análise do motor: {engine_analysis_text}
 
 DADOS DE MERCADO:
 Preço médio: €{int(avg_price):,} | Este carro está {price_delta_pct}% {price_pos} do mercado
 Problemas conhecidos do modelo: {known_issues}
 Custo manutenção estimado: {maintenance_str}
 
-Gera análise narrativa. Sê específico — referencia dados reais do anúncio, não generalidades.
+GERA as seguintes secções. Sê ESPECÍFICO — menciona nomes de extras, valores concretos, quilómetros, motores. Nada genérico.
 
 {{
-  "extras_analysis": "1-2 frases: o que os extras detetados significam em valor. Menciona os extras pelo nome.",
-  "negotiation_script": "1-3 frases: script concreto de negociação para ESTE anúncio. Inclui valor a propor e argumento específico.",
-  "verdict_narrative": "2-3 frases: síntese final como amigo especialista. Honesta, direta, sem chavões.",
-  "seller_read": "1-2 frases: leitura do vendedor baseada na descrição — o que revela, o que esconde, tom."
+  "extras_analysis": "2-3 frases: que extras tem, o que valem no mercado, e o que FALTA em relação ao que seria esperado para esta versão. Ex: 'O pack Avantgarde com navegação e bancos em pele valorizaria este carro em ~€1500-2000 vs um Comfort. Mas não tem teto panorâmico, que nesta versão seria esperado.'",
+  "negotiation_script": "Script CONCRETO de negociação. Inclui: (1) valor de primeira oferta a propor, (2) argumentos específicos baseados nos dados — km, tempo no mercado, extras em falta, problemas do motor. Ex: 'Começa por oferecer €X. O argumento: o motor {engine_code} com {km:,}km vai precisar de [manutenção específica] que custa €Y. O anúncio está há {listing_age_str} — o vendedor quer despachar.'",
+  "verdict_narrative": "3-4 frases: síntese final como amigo especialista. Sê honesto e direto. Contextualiza: este preço, estes km, este motor, estes extras — vale ou não? Para quem é ideal? Que cuidados ter? Isto é o que o utilizador vai ler primeiro — tem de ser útil e personalizado.",
+  "seller_read": "2-3 frases: psicologia do vendedor baseada na descrição. Profissional ou particular? Descrição detalhada = transparência, vaga = possível ocultação. Fotos em estúdio vs rua. Palavras como 'urgente', 'impecável', 'sem marcas' — o que significam.",
+  "inspection_checklist": ["5-8 pontos de inspeção ESPECÍFICOS para ESTE motor ({engine_code}) e modelo. Ex: 'Verificar corrente de distribuição (N47 — problema conhecido acima de 120k km)', 'Testar DPF — regeneração deve completar em ~20min de condução', 'Verificar consumo de óleo entre vidro mín/máx'. Não ponhas coisas genéricas como 'verificar pneus'."],
+  "negotiation_tips": ["3-5 dicas de negociação específicas para ESTA situação. Ex: 'Anúncio há {listing_age_str} — vendedor possivelmente flexível em preço', 'Pede o histórico de serviço — motor {engine_code} exige revisões a cada 30k km', 'Se não tiver caderneta atualizada, usa como argumento de desconto €500-800'."]
 }}"""
 
     try:
         print(f"[AD_ANALYSIS] Calling Gemini for narrative enrichment ({listing.get('brand_name')} {listing.get('model_name')})")
         result = await asyncio.wait_for(
-            asyncio.to_thread(generate_json, prompt, 1500),
+            asyncio.to_thread(generate_json, prompt, 2500),
             timeout=60,
         )
         print(f"[AD_ANALYSIS] Narrative enrichment OK — fields: {list(result.keys())}")
@@ -1207,6 +1219,8 @@ def _build_response(
             "spec_tier": llm.get("spec_tier", "base"),
             "key_extras": llm.get("key_extras", []),
             "spec_value_assessment": llm.get("spec_value_assessment", "adequado"),
+            "engine_code": llm.get("engine_code"),
+            "engine_analysis": llm.get("engine_analysis"),
             # LLM narrative enrichment (None when Gemini unavailable)
             "extras_analysis":    (enrichment or {}).get("extras_analysis"),
             "negotiation_script": (enrichment or {}).get("negotiation_script"),
