@@ -725,6 +725,7 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
             _exe = None
             _search_bases = [
                 os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
+                "/app/.playwright-browsers",
                 "/ms-playwright",
                 os.path.expanduser("~/.cache/ms-playwright"),
             ]
