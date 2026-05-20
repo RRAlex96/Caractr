@@ -320,28 +320,40 @@ def health_check():
     except Exception as e:
         chromium_path = str(e)[:200]
 
-    # List actual files inside the chromium install directory
-    chromium_tree = "unknown"
+    # Thorough filesystem scan for chromium binary
+    chromium_diag = {}
     try:
-        import glob as _hg
-        base = os.path.expanduser("~/.cache/ms-playwright")
-        # List all dirs/files 2 levels deep under each chromium-* dir
-        entries = _hg.glob(f"{base}/chromium-*/**/*", recursive=False)
-        if not entries:
-            entries = _hg.glob(f"{base}/**/*")
-        chromium_tree = "; ".join(sorted(entries)[:30])
+        import subprocess as _sp
+        chromium_diag["HOME"] = os.environ.get("HOME", "?")
+        chromium_diag["expanduser"] = os.path.expanduser("~")
+        chromium_diag["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "not_set")
+
+        # Check both possible base paths
+        for base in ["/root/.cache/ms-playwright", os.path.expanduser("~/.cache/ms-playwright")]:
+            key = base.replace("/", "_")
+            chromium_diag[f"exists:{base}"] = os.path.isdir(base)
+            if os.path.isdir(base):
+                chromium_diag[f"ls:{base}"] = str(os.listdir(base))
+
+        # Use find to locate ALL chrome binaries anywhere in the cache
+        try:
+            r = _sp.run(["find", "/root/.cache/ms-playwright", "-type", "f", "-name", "chrome*"],
+                        capture_output=True, text=True, timeout=5)
+            chromium_diag["find_chrome"] = r.stdout.strip()[:500] if r.stdout.strip() else r.stderr.strip()[:200]
+        except Exception as e2:
+            chromium_diag["find_chrome"] = str(e2)[:200]
     except Exception as e:
-        chromium_tree = str(e)[:200]
+        chromium_diag["error"] = str(e)[:200]
 
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.7.1",
+        "version": "4.7.2",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
         "chromium_check": chromium_path,
-        "chromium_tree": chromium_tree,
+        "chromium_diag": chromium_diag,
     }
 
 
