@@ -320,14 +320,28 @@ def health_check():
     except Exception as e:
         chromium_path = str(e)[:200]
 
+    # List actual files inside the chromium install directory
+    chromium_tree = "unknown"
+    try:
+        import glob as _hg
+        base = os.path.expanduser("~/.cache/ms-playwright")
+        # List all dirs/files 2 levels deep under each chromium-* dir
+        entries = _hg.glob(f"{base}/chromium-*/**/*", recursive=False)
+        if not entries:
+            entries = _hg.glob(f"{base}/**/*")
+        chromium_tree = "; ".join(sorted(entries)[:30])
+    except Exception as e:
+        chromium_tree = str(e)[:200]
+
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.7.0",
+        "version": "4.7.1",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
         "chromium_check": chromium_path,
+        "chromium_tree": chromium_tree,
     }
 
 
