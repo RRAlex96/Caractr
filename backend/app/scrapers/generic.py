@@ -715,7 +715,9 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
-                "--single-process",
+                "--disable-extensions",
+                "--no-first-run",
+                "--no-zygote",
             ]
             # Newer Playwright (1.49+) uses chromium_headless_shell for headless=True,
             # but Railway only has the full chromium binary installed.
