@@ -217,14 +217,15 @@ async def _call_gemini_analysis(prompt: str) -> dict:
             timeout=60,
         )
         if not isinstance(result, dict) or not result.get("verdict"):
-            print("[AD_ANALYSIS] Gemini returned unexpected structure, falling back")
+            print(f"[AD_ANALYSIS] Gemini returned unexpected structure: {str(result)[:200]}")
             return {}
+        print(f"[AD_ANALYSIS] Gemini analysis OK — verdict={result.get('verdict')}, engine={result.get('engine_code')}")
         return result
     except asyncio.TimeoutError:
-        print("[AD_ANALYSIS] Gemini analysis timed out after 60s — falling back to rule engine")
+        print("[AD_ANALYSIS] Gemini analysis timed out after 60s")
         return {}
     except Exception as e:
-        print(f"[AD_ANALYSIS] Gemini analysis failed: {e}")
+        print(f"[AD_ANALYSIS] Gemini analysis failed: {type(e).__name__}: {e}")
         return {}
 
 
@@ -242,8 +243,11 @@ async def _analyse(
     from app.services.llm_client import llm_available
 
     if USE_RULE_ANALYSIS or not llm_available():
-        print("[AD_ANALYSIS] Using rule engine (Gemini unavailable or disabled)")
-        return _run_rule_engine(listing, model_info, market_stats, user_profile)
+        reason = f"USE_RULE={USE_RULE_ANALYSIS}|llm_avail={llm_available()}"
+        print(f"[AD_ANALYSIS] Using rule engine ({reason})")
+        result = _run_rule_engine(listing, model_info, market_stats, user_profile)
+        result["_analysis_engine"] = f"rule:{reason}"
+        return result
 
     print("[AD_ANALYSIS] Using Gemini 2.5 Flash for analysis")
     prompt = _build_analysis_prompt(listing, model_info, market_stats, user_profile)
@@ -251,8 +255,11 @@ async def _analyse(
 
     if not result:
         print("[AD_ANALYSIS] Gemini returned empty, falling back to rule engine")
-        return _run_rule_engine(listing, model_info, market_stats, user_profile)
+        result = _run_rule_engine(listing, model_info, market_stats, user_profile)
+        result["_analysis_engine"] = "rule:gemini_empty"
+        return result
 
+    result["_analysis_engine"] = "gemini"
     return result
 
 

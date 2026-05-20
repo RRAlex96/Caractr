@@ -307,6 +307,14 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _ensure_playwright_browsers)
 
+    # Quick LLM selftest — verifies API key + model are valid
+    try:
+        from app.services.llm_client import llm_selftest
+        selftest = await loop.run_in_executor(None, llm_selftest)
+        print(f"[STARTUP] LLM selftest: {selftest}")
+    except Exception as e:
+        print(f"[STARTUP] LLM selftest error: {e}")
+
     asyncio.create_task(_market_refresh_loop())
     asyncio.create_task(_reliability_scorer_loop())
     asyncio.create_task(_data_retention_loop())

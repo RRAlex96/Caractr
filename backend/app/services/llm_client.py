@@ -75,6 +75,10 @@ def generate_text(prompt: str, max_tokens: int = 1024) -> str:
                 generation_config=config,
                 request_options={"timeout": _TIMEOUT},
             )
+            # Safety check: response may have no candidates (blocked)
+            if not response.candidates:
+                block_reason = getattr(response.prompt_feedback, 'block_reason', 'unknown')
+                raise LLMError(f"Gemini blocked response: {block_reason}")
             text = response.text.strip()
             if not text:
                 raise LLMError("Empty response from Gemini")
@@ -85,9 +89,9 @@ def generate_text(prompt: str, max_tokens: int = 1024) -> str:
             last_err = e
             if attempt < _RETRIES:
                 time.sleep(1.5 * (attempt + 1))
-            logger.warning(f"Gemini attempt {attempt + 1} failed: {e}")
+            print(f"[LLM] Gemini attempt {attempt + 1}/{_RETRIES + 1} failed: {type(e).__name__}: {e}")
 
-    raise LLMError(f"Gemini failed after {_RETRIES + 1} attempts: {last_err}")
+    raise LLMError(f"Gemini failed after {_RETRIES + 1} attempts: {type(last_err).__name__}: {last_err}")
 
 
 def generate_json(prompt: str, max_tokens: int = 1024) -> dict:
@@ -111,3 +115,19 @@ def generate_json(prompt: str, max_tokens: int = 1024) -> dict:
 def llm_available() -> bool:
     """Quick check — returns True if GEMINI_API_KEY is configured."""
     return bool(_API_KEY)
+
+
+def llm_selftest() -> str:
+    """
+    Run a minimal Gemini call to verify the API key and model work.
+    Returns a short status string. Safe to call at startup.
+    """
+    if not _API_KEY:
+        return "skip:no_api_key"
+    try:
+        result = generate_text("Responde apenas com a palavra OK.", max_tokens=10)
+        return f"ok:model={_MODEL},response={result[:30]}"
+    except LLMError as e:
+        return f"fail:{e}"
+    except Exception as e:
+        return f"error:{type(e).__name__}:{e}"
