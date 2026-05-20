@@ -686,10 +686,10 @@ def _run_extraction_layers(soup: BeautifulSoup, page_text: str, result: dict) ->
 
 # ── Playwright JS rendering fallback ────────────────────────────────────────
 
-async def _fetch_with_playwright(url: str) -> Optional[str]:
+async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]]:
     """
     Render a JS-heavy page using headless Chromium via Playwright.
-    Returns the fully-rendered HTML string, or None on failure.
+    Returns (html_string, error_msg). html is None on failure.
 
     Uses sync Playwright API in a thread to avoid async-within-async issues
     that can occur in FastAPI's event loop on some platforms.
@@ -699,14 +699,16 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
         from playwright.sync_api import sync_playwright
     except ImportError:
         print("[GENERIC SCRAPER] Playwright not installed — cannot render JS SPA")
-        return None
+        return None, "import_failed"
 
-    def _sync_render() -> Optional[str]:
-        """Run Playwright synchronously in a thread."""
+    def _sync_render() -> tuple[Optional[str], Optional[str]]:
+        """Run Playwright synchronously in a thread. Returns (html, error_msg)."""
         pw = None
         browser = None
         try:
+            print(f"[GENERIC SCRAPER] Playwright: starting sync_playwright...")
             pw = sync_playwright().start()
+            print(f"[GENERIC SCRAPER] Playwright: launching chromium...")
             browser = pw.chromium.launch(
                 headless=True,
                 args=[
@@ -717,21 +719,25 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
                     "--single-process",
                 ],
             )
+            print(f"[GENERIC SCRAPER] Playwright: chromium launched, creating context...")
             context = browser.new_context(
                 user_agent=random.choice(USER_AGENTS),
                 locale="pt-PT",
                 viewport={"width": 1280, "height": 900},
             )
             page = context.new_page()
+            print(f"[GENERIC SCRAPER] Playwright: navigating to {url[:80]}...")
             page.goto(url, wait_until="networkidle", timeout=25_000)
             # Extra wait for late-loading JS frameworks (Vue/React hydration)
             page.wait_for_timeout(2000)
             html = page.content()
             print(f"[GENERIC SCRAPER] Playwright rendered {len(html)} chars for {url}")
-            return html
+            return html, None
         except Exception as e:
-            print(f"[GENERIC SCRAPER] Playwright error: {type(e).__name__}: {e}")
-            return None
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[GENERIC SCRAPER] Playwright error: {type(e).__name__}: {e}\n{tb}")
+            return None, f"{type(e).__name__}:{str(e)[:200]}"
         finally:
             if browser:
                 try:
@@ -751,10 +757,10 @@ async def _fetch_with_playwright(url: str) -> Optional[str]:
         )
     except asyncio.TimeoutError:
         print(f"[GENERIC SCRAPER] Playwright hard timeout (35s) for {url}")
-        return None
+        return None, "timeout_35s"
     except Exception as e:
         print(f"[GENERIC SCRAPER] Playwright thread error: {type(e).__name__}: {e}")
-        return None
+        return None, f"thread_{type(e).__name__}:{str(e)[:200]}"
 
 
 # ── Main entry point ─────────────────────────────────────────────────────────
@@ -810,7 +816,7 @@ async def fetch_listing_detail(url: str) -> dict:
     _pw_debug = None  # capture Playwright status for debugging
     if len(page_text) < 200:
         print(f"[GENERIC SCRAPER] JS SPA detected ({len(page_text)} chars) — trying Playwright for {url}")
-        pw_html = await _fetch_with_playwright(url)
+        pw_html, pw_err = await _fetch_with_playwright(url)
         if pw_html and len(pw_html) > len(html):
             html = pw_html
             soup = BeautifulSoup(html, "lxml")
@@ -819,7 +825,7 @@ async def fetch_listing_detail(url: str) -> dict:
             _pw_debug = f"pass1_ok:{len(page_text)}chars"
             print(f"[GENERIC SCRAPER] Playwright rendered {len(page_text)} chars of text")
         else:
-            _pw_debug = f"pass1_fail:pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
+            _pw_debug = f"pass1_fail:err={pw_err}|pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
 
     # ── Run all extraction layers (1-5) ──
     _run_extraction_layers(soup, page_text, result)
@@ -835,7 +841,7 @@ async def fetch_listing_detail(url: str) -> dict:
     )
     if _needs_js_render and not _used_playwright:
         print(f"[GENERIC SCRAPER] No car data after static extraction — trying Playwright for {url}")
-        pw_html = await _fetch_with_playwright(url)
+        pw_html, pw_err = await _fetch_with_playwright(url)
         if pw_html and len(pw_html) > len(html):
             html = pw_html
             soup = BeautifulSoup(html, "lxml")
@@ -847,7 +853,7 @@ async def fetch_listing_detail(url: str) -> dict:
             print(f"[GENERIC SCRAPER] Playwright pass 2: {len(page_text)} chars, "
                   f"price={result.get('price')} year={result.get('year')} km={result.get('km')}")
         else:
-            _pw_debug = (_pw_debug or "") + f"|pass2_fail:pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
+            _pw_debug = (_pw_debug or "") + f"|pass2_fail:err={pw_err}|pw_html={'None' if pw_html is None else f'{len(pw_html)}chars'}"
 
     # ── Layer 6: LLM extraction (universal fallback) ──────────────────────
     # When traditional layers fail to extract key fields, send page text to

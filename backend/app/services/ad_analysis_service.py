@@ -142,9 +142,14 @@ Avalia também se este carro é adequado para ESTE comprador específico."""
 
     known_issues = model_info.get("known_issues", "Sem problemas conhecidos registados.")
 
-    return f"""És um consultor especialista em carros usados em Portugal. Analisas anúncios para compradores reais. Fala em PT-PT. Tom direto, honesto, nunca alarmista sem razão. Responde APENAS com JSON válido, sem texto extra.
+    fuel_type = listing.get('fuel_type', '')
+    engine_hp = listing.get('engine_power_hp', '')
+    colour = listing.get('colour', '')
+    transmission = listing.get('transmission', '')
 
-Analisa este anúncio de carro usado:
+    return f"""És um consultor especialista em carros usados em Portugal com 20 anos de experiência. Conheces TODOS os modelos, gerações, motores, versões e problemas típicos. Fala em PT-PT. Tom direto e honesto como um amigo que percebe muito de carros. Responde APENAS com JSON válido, sem texto extra.
+
+O teu trabalho: analisar este anúncio como se o comprador te estivesse a pagar para o aconselhar. Sê ESPECÍFICO — nunca genérico.
 
 ANÚNCIO:
 Modelo: {listing.get('brand_name', '')} {listing.get('model_name', '')}
@@ -152,7 +157,11 @@ Ano: {listing.get('year', 'desconhecido')}
 Km: {listing.get('km', 'desconhecido')} ({km_note})
 Preço pedido: {listing.get('price', '?')} EUR
 Tipo de vendedor: {listing.get('seller_type', 'desconhecido')}
-Descrição do anúncio: {listing.get('description', 'Sem descrição disponível.')[:1500]}
+Combustível: {fuel_type or 'desconhecido'}
+Potência: {engine_hp or 'desconhecida'} cv
+Transmissão: {transmission or 'desconhecida'}
+Cor: {colour or 'desconhecida'}
+Descrição do anúncio: {listing.get('description', 'Sem descrição disponível.')[:2000]}
 
 CONTEXTO DE MERCADO:
 Preço médio de mercado: {market_stats.get('avg_price', '?')} EUR
@@ -160,18 +169,26 @@ Posição de preço: {listing.get('price_delta_pct', '?')}% {('abaixo' if (listi
 Problemas conhecidos do modelo: {known_issues}
 {profile_note}
 
+INSTRUÇÕES IMPORTANTES:
+1. IDENTIFICA O MOTOR EXATO: com base na cilindrada, potência e combustível, identifica o código do motor (ex: "Motor N47D20 no BMW", "Motor K9K no Renault", "OM651 no Mercedes"). Isto é crítico para os problemas conhecidos.
+2. IDENTIFICA A VERSÃO/TRIM: Avantgarde, Comfort, Sport, R-Line, GT-Line, etc. Cada versão tem equipamento diferente — não os mistures.
+3. ANALISA OS EXTRAS DA DESCRIÇÃO: Lê cuidadosamente a descrição e extrai TODOS os extras mencionados. Cada extra tem impacto no valor.
+4. AVALIA O PREÇO COM BASE NOS EXTRAS: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
+
 Responde APENAS com este JSON (sem texto extra, sem markdown):
 {{
   "verdict": "forte|razoavel|cuidado|evitar",
-  "verdict_reason": "Uma frase em português, máximo 15 palavras",
-  "green_flags": ["sinal positivo 1", "sinal positivo 2"],
-  "red_flags": ["ponto de atenção 1"],
-  "seller_analysis": "Breve análise sobre o que o vendedor afirma vs. o que é verificável",
-  "profile_fit": "Como este anúncio específico se adequa ao perfil do comprador (1 frase)",
-  "trim_level": "Nome da versão/trim detectado ou null",
-  "spec_tier": "base|medio|alto",
-  "key_extras": ["extra relevante 1", "extra relevante 2"],
-  "spec_value_assessment": "acima_do_esperado|adequado|abaixo_do_esperado"
+  "verdict_reason": "Uma frase em português, máximo 20 palavras. Sê ESPECÍFICO — referencia o motor, extras ou km.",
+  "green_flags": ["MÁXIMO 4. Cada flag deve ser específica a ESTE carro. Ex: 'Motor 2.0 TDI CR (150cv) — um dos mais fiáveis do grupo VAG'. NUNCA ponhas flags genéricas como 'Bom preço'."],
+  "red_flags": ["MÁXIMO 4. Cada flag deve ser específica. Ex: 'Motor N47 com >150k km — corrente de distribuição traseira, verificar urgentemente'. NUNCA flags genéricas."],
+  "seller_analysis": "2-3 frases: o que a descrição REVELA sobre o vendedor. Profissional ou particular? O que omite? O tom é confiante ou vago? Há sinais de urgência na venda?",
+  "profile_fit": "Como este anúncio específico se adequa ao perfil do comprador (1-2 frases)",
+  "trim_level": "Nome exato da versão/trim detectado (ex: 'Avantgarde', 'R-Line', 'GT-Line') ou null se não identificável",
+  "spec_tier": "base|medio|alto — baseado nos extras reais detectados na descrição",
+  "key_extras": ["Lista TODOS os extras mencionados na descrição. Ex: 'Bancos em pele', 'Teto panorâmico', 'Navegação', 'Câmara traseira', 'Jantes 19', 'Sensores estacionamento', 'LED'. Máximo 12."],
+  "spec_value_assessment": "acima_do_esperado|adequado|abaixo_do_esperado — considerando os extras para esta versão e preço",
+  "engine_code": "Código do motor se identificável (ex: 'EA888', 'N47D20', 'K9K 636', 'OM651') ou null",
+  "engine_analysis": "1-2 frases sobre ESTE motor específico: fiabilidade conhecida, pontos fracos, o que verificar. Ex: 'O EA888 Gen3 é sólido mas consome óleo — verificar nível entre revisões. Correia aos 210k km.'"
 }}"""
 
 
@@ -569,6 +586,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     # JS SPA flag — site had minimal page text, but may still have meta tags.
     # Continue with whatever data we have; the response will include a caveat.
     _js_limited = detail.pop("_js_only", False)
+    _pw_debug = detail.pop("_pw_debug", None)
 
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
@@ -700,6 +718,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "source_url":    listing_url,
         "source":        source,
         "_js_limited":   _js_limited,
+        "_pw_debug":     _pw_debug,
     }
 
 
@@ -955,6 +974,7 @@ async def _analyse_listing_inner(
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
         fit=fit_result, model_info=model_info, enrichment=enrichment,
         js_limited=normalized.get("_js_limited", False),
+        pw_debug=normalized.get("_pw_debug"),
     )
 
 
@@ -1142,6 +1162,7 @@ def _build_response(
     model_info: Optional[dict] = None,
     enrichment: Optional[dict] = None,
     js_limited: bool = False,
+    pw_debug: Optional[str] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -1202,6 +1223,7 @@ def _build_response(
             "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento."
         ),
         "js_limited": js_limited,
+        "_pw_debug": pw_debug,
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),
