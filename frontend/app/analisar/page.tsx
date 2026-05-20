@@ -484,6 +484,32 @@ function AnalysisResult({ result, listingUrl, onReset }: { result: any; listingU
         </div>
       )}
 
+      {/* ── Engine analysis ── */}
+      {analysis.engine_analysis && (
+        <div style={{
+          padding: "16px 20px", borderRadius: "12px",
+          border: "1px solid var(--border)",
+          marginBottom: "20px",
+          background: "var(--surface)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase" }}>
+              Motor
+            </p>
+            {analysis.engine_code && (
+              <span style={{
+                fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "0.5px",
+                color: "var(--accent)", border: "1px solid var(--accent)",
+                padding: "2px 10px", borderRadius: "100px", opacity: 0.8,
+              }}>{analysis.engine_code}</span>
+            )}
+          </div>
+          <p style={{ fontSize: "13px", color: "var(--fg)", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
+            {analysis.engine_analysis}
+          </p>
+        </div>
+      )}
+
       {/* ── Seller analysis ── */}
       {analysis.seller_analysis && (
         <div style={{
