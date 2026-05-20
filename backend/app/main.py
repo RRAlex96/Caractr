@@ -263,11 +263,25 @@ def _ensure_playwright_browsers() -> None:
                     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = base
                     return
 
-    # No headless shell found — download both browsers
+    # No headless shell found — install system deps + browsers
     print(f"[STARTUP] Playwright: no browsers found, installing to {_PW_RUNTIME_PATH}...")
     os.makedirs(_PW_RUNTIME_PATH, exist_ok=True)
     env = {**os.environ, "PLAYWRIGHT_BROWSERS_PATH": _PW_RUNTIME_PATH}
 
+    # 1. Install system dependencies (needs root — Railway runs as root)
+    try:
+        result = subprocess.run(
+            ["playwright", "install-deps", "chromium"],
+            env=env, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            print("[STARTUP] Playwright: system deps installed OK")
+        else:
+            print(f"[STARTUP] Playwright: install-deps warning: {result.stderr[:200]}")
+    except Exception as e:
+        print(f"[STARTUP] Playwright: install-deps error: {e}")
+
+    # 2. Install browser binaries
     for browser in ["chromium", "chromium-headless-shell"]:
         try:
             result = subprocess.run(
@@ -409,7 +423,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.8.2",
+        "version": "4.8.3",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
