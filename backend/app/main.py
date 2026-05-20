@@ -232,10 +232,62 @@ async def _data_retention_loop() -> None:
         await asyncio.sleep(24 * 3600)  # Run daily
 
 
+# ── Playwright bootstrap ──────────────────────────────────────────────────────
+
+_PW_RUNTIME_PATH = "/tmp/.pw-browsers"
+
+
+def _ensure_playwright_browsers() -> None:
+    """
+    Install Playwright Chromium at runtime if no browser binary exists.
+
+    Nixpacks discards ~/.cache during image build, so browser binaries
+    installed at build time don't survive to the runtime container.
+    This downloads Chromium once at startup (~30s) into /tmp, which is
+    always writable. The download persists until the container restarts.
+    """
+    import subprocess
+
+    # Quick check: is there already a chrome binary anywhere?
+    for base in [
+        os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
+        "/app/.pw-browsers",
+        os.path.expanduser("~/.cache/ms-playwright"),
+        _PW_RUNTIME_PATH,
+    ]:
+        if base and os.path.isdir(base):
+            for root, dirs, files in os.walk(base):
+                if "chrome" in files:
+                    print(f"[STARTUP] Playwright: found chrome at {os.path.join(root, 'chrome')}")
+                    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = base
+                    return
+
+    # No browser found — download now
+    print(f"[STARTUP] Playwright: no browser found, installing to {_PW_RUNTIME_PATH}...")
+    os.makedirs(_PW_RUNTIME_PATH, exist_ok=True)
+    env = {**os.environ, "PLAYWRIGHT_BROWSERS_PATH": _PW_RUNTIME_PATH}
+    try:
+        result = subprocess.run(
+            ["playwright", "install", "chromium"],
+            env=env, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            print(f"[STARTUP] Playwright: chromium installed successfully to {_PW_RUNTIME_PATH}")
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _PW_RUNTIME_PATH
+        else:
+            print(f"[STARTUP] Playwright install failed: {result.stderr[:300]}")
+    except Exception as e:
+        print(f"[STARTUP] Playwright install error: {e}")
+
+
 # ── App setup ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Bootstrap Playwright browsers before starting background tasks
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _ensure_playwright_browsers)
+
     asyncio.create_task(_market_refresh_loop())
     asyncio.create_task(_reliability_scorer_loop())
     asyncio.create_task(_data_retention_loop())
@@ -352,7 +404,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.8.0",
+        "version": "4.8.1",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
