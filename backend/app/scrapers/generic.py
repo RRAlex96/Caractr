@@ -720,18 +720,28 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
             # Newer Playwright (1.49+) uses chromium_headless_shell for headless=True,
             # but Railway only has the full chromium binary installed.
             # Find the actual Chrome binary via recursive search.
+            # Check PLAYWRIGHT_BROWSERS_PATH first (set in nixpacks.toml),
+            # then the default ~/.cache/ms-playwright.
             _exe = None
-            _pw_base = os.path.expanduser("~/.cache/ms-playwright")
-            for _root, _dirs, _files in os.walk(_pw_base):
-                # Skip headless-shell dirs — we want the full chromium
-                if "headless_shell" in _root:
+            _search_bases = [
+                os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
+                "/ms-playwright",
+                os.path.expanduser("~/.cache/ms-playwright"),
+            ]
+            for _pw_base in _search_bases:
+                if not _pw_base or not os.path.isdir(_pw_base):
                     continue
-                for _f in _files:
-                    if _f in ("chrome", "chrome.exe", "chromium"):
-                        _candidate = os.path.join(_root, _f)
-                        if os.access(_candidate, os.X_OK):
-                            _exe = _candidate
-                            break
+                for _root, _dirs, _files in os.walk(_pw_base):
+                    if "headless_shell" in _root:
+                        continue
+                    for _f in _files:
+                        if _f in ("chrome", "chrome.exe", "chromium"):
+                            _candidate = os.path.join(_root, _f)
+                            if os.access(_candidate, os.X_OK):
+                                _exe = _candidate
+                                break
+                    if _exe:
+                        break
                 if _exe:
                     break
 
@@ -743,8 +753,7 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
                     args=launch_args,
                 )
             else:
-                # Fallback: let Playwright resolve (works if headless shell is installed)
-                print(f"[GENERIC SCRAPER] Playwright: no binary found under {_pw_base}, using default")
+                print(f"[GENERIC SCRAPER] Playwright: no binary found in {_search_bases}, using default")
                 browser = pw.chromium.launch(headless=True, args=launch_args)
             print(f"[GENERIC SCRAPER] Playwright: chromium launched, creating context...")
             context = browser.new_context(
