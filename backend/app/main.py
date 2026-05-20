@@ -239,45 +239,50 @@ _PW_RUNTIME_PATH = "/tmp/.pw-browsers"
 
 def _ensure_playwright_browsers() -> None:
     """
-    Install Playwright Chromium at runtime if no browser binary exists.
+    Install Playwright browsers at runtime if not present.
 
-    Nixpacks discards ~/.cache during image build, so browser binaries
+    Nixpacks discards ~/.cache during the Docker build, so browser binaries
     installed at build time don't survive to the runtime container.
-    This downloads Chromium once at startup (~30s) into /tmp, which is
-    always writable. The download persists until the container restarts.
+
+    Installs BOTH chromium (full browser) and chromium-headless-shell
+    (the lightweight binary Playwright uses for headless=True in v1.49+).
+    Downloads once at startup (~30s) into /tmp, persists until container restart.
     """
     import subprocess
 
-    # Quick check: is there already a chrome binary anywhere?
+    # Quick check: does the headless shell already exist?
     for base in [
         os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
-        "/app/.pw-browsers",
-        os.path.expanduser("~/.cache/ms-playwright"),
         _PW_RUNTIME_PATH,
+        os.path.expanduser("~/.cache/ms-playwright"),
     ]:
         if base and os.path.isdir(base):
             for root, dirs, files in os.walk(base):
-                if "chrome" in files:
-                    print(f"[STARTUP] Playwright: found chrome at {os.path.join(root, 'chrome')}")
+                if "headless_shell" in root and ("chrome-headless-shell" in files or "headless_shell" in files):
+                    print(f"[STARTUP] Playwright: found headless shell at {root}")
                     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = base
                     return
 
-    # No browser found — download now
-    print(f"[STARTUP] Playwright: no browser found, installing to {_PW_RUNTIME_PATH}...")
+    # No headless shell found — download both browsers
+    print(f"[STARTUP] Playwright: no browsers found, installing to {_PW_RUNTIME_PATH}...")
     os.makedirs(_PW_RUNTIME_PATH, exist_ok=True)
     env = {**os.environ, "PLAYWRIGHT_BROWSERS_PATH": _PW_RUNTIME_PATH}
-    try:
-        result = subprocess.run(
-            ["playwright", "install", "chromium"],
-            env=env, capture_output=True, text=True, timeout=120,
-        )
-        if result.returncode == 0:
-            print(f"[STARTUP] Playwright: chromium installed successfully to {_PW_RUNTIME_PATH}")
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _PW_RUNTIME_PATH
-        else:
-            print(f"[STARTUP] Playwright install failed: {result.stderr[:300]}")
-    except Exception as e:
-        print(f"[STARTUP] Playwright install error: {e}")
+
+    for browser in ["chromium", "chromium-headless-shell"]:
+        try:
+            result = subprocess.run(
+                ["playwright", "install", browser],
+                env=env, capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode == 0:
+                print(f"[STARTUP] Playwright: {browser} installed OK")
+            else:
+                print(f"[STARTUP] Playwright: {browser} install failed: {result.stderr[:200]}")
+        except Exception as e:
+            print(f"[STARTUP] Playwright: {browser} install error: {e}")
+
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _PW_RUNTIME_PATH
+    print(f"[STARTUP] PLAYWRIGHT_BROWSERS_PATH={_PW_RUNTIME_PATH}")
 
 
 # ── App setup ──────────────────────────────────────────────────────────────────
@@ -404,7 +409,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.8.1",
+        "version": "4.8.2",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
