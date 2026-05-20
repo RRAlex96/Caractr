@@ -339,7 +339,7 @@ def health_check():
             chromium_diag["find_all"] = str(e2)[:200]
 
         # Also check common playwright locations
-        for p in ["/root/.cache/ms-playwright", "/home", "/app", "/nix"]:
+        for p in ["/app/.pw-browsers", "/root/.cache/ms-playwright", "/app"]:
             chromium_diag[f"exists:{p}"] = os.path.isdir(p)
             if os.path.isdir(p):
                 try:
@@ -352,7 +352,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.7.3",
+        "version": "4.8.0",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,

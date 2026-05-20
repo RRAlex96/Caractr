@@ -12,11 +12,13 @@ aptPkgs = [
   "libxss1", "libasound2",
 ]
 
-# Install Python deps, then install Chromium browser binaries
+# Install Python deps, then install Chromium browser binaries.
+# PLAYWRIGHT_BROWSERS_PATH must point inside /app so browsers survive
+# into the final runtime image (default ~/.cache gets discarded).
 [phases.install]
 cmds = [
   "pip install -r requirements.txt",
-  "playwright install chromium",
+  "PLAYWRIGHT_BROWSERS_PATH=/app/.pw-browsers playwright install chromium",
 ]
 
 [start]
