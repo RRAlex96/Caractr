@@ -2,9 +2,6 @@
 # Python version
 [variables]
 NIXPACKS_PYTHON_VERSION = "3.11"
-# Fixed path so build-time `playwright install` and runtime both find the browsers.
-# Using /app subdir to avoid permission issues during build.
-PLAYWRIGHT_BROWSERS_PATH = "/app/.playwright-browsers"
 
 # System packages needed by Playwright Chromium
 [phases.setup]
@@ -19,7 +16,7 @@ aptPkgs = [
 [phases.install]
 cmds = [
   "pip install -r requirements.txt",
-  "mkdir -p /app/.playwright-browsers && PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers playwright install chromium",
+  "playwright install chromium",
 ]
 
 [start]

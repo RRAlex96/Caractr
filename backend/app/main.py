@@ -320,35 +320,39 @@ def health_check():
     except Exception as e:
         chromium_path = str(e)[:200]
 
-    # Thorough filesystem scan for chromium binary
+    # Search entire filesystem for the chrome binary
     chromium_diag = {}
     try:
         import subprocess as _sp
         chromium_diag["HOME"] = os.environ.get("HOME", "?")
-        chromium_diag["expanduser"] = os.path.expanduser("~")
         chromium_diag["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "not_set")
 
-        # Check both possible base paths
-        for base in ["/root/.cache/ms-playwright", os.path.expanduser("~/.cache/ms-playwright")]:
-            key = base.replace("/", "_")
-            chromium_diag[f"exists:{base}"] = os.path.isdir(base)
-            if os.path.isdir(base):
-                chromium_diag[f"ls:{base}"] = str(os.listdir(base))
-
-        # Use find to locate ALL chrome binaries anywhere in the cache
+        # Search EVERYWHERE for chrome binaries (limited depth to avoid slowness)
         try:
-            r = _sp.run(["find", "/root/.cache/ms-playwright", "-type", "f", "-name", "chrome*"],
-                        capture_output=True, text=True, timeout=5)
-            chromium_diag["find_chrome"] = r.stdout.strip()[:500] if r.stdout.strip() else r.stderr.strip()[:200]
+            r = _sp.run(
+                ["find", "/", "-maxdepth", "8", "-type", "f", "-name", "chrome",
+                 "-not", "-path", "*/node_modules/*"],
+                capture_output=True, text=True, timeout=10,
+            )
+            chromium_diag["find_all"] = r.stdout.strip()[:500] if r.stdout.strip() else "NONE_FOUND"
         except Exception as e2:
-            chromium_diag["find_chrome"] = str(e2)[:200]
+            chromium_diag["find_all"] = str(e2)[:200]
+
+        # Also check common playwright locations
+        for p in ["/root/.cache/ms-playwright", "/home", "/app", "/nix"]:
+            chromium_diag[f"exists:{p}"] = os.path.isdir(p)
+            if os.path.isdir(p):
+                try:
+                    chromium_diag[f"ls:{p}"] = str(os.listdir(p)[:15])
+                except Exception:
+                    pass
     except Exception as e:
         chromium_diag["error"] = str(e)[:200]
 
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.7.2",
+        "version": "4.7.3",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright": pw_status,
