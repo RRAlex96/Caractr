@@ -81,10 +81,23 @@ def generate_text(prompt: str, max_tokens: int = 1024) -> str:
     client = _get_client()
 
     import google.generativeai as genai
-    config = genai.types.GenerationConfig(
-        max_output_tokens=max_tokens,
-        temperature=0.7,
-    )
+
+    # Gemini 2.5 Flash uses "thinking" tokens that count against max_output_tokens.
+    # We set a generous limit to leave room for both thinking and the actual response.
+    # Try to set a thinking budget if the SDK supports it (v0.8.3+).
+    config_kwargs = {
+        "max_output_tokens": max_tokens,
+        "temperature": 0.7,
+    }
+    try:
+        thinking_budget = min(max_tokens // 3, 2048)
+        config_kwargs["thinking_config"] = genai.types.ThinkingConfig(
+            thinking_budget=thinking_budget,
+        )
+    except (AttributeError, TypeError):
+        pass  # SDK version doesn't support ThinkingConfig — rely on high max_tokens
+
+    config = genai.types.GenerationConfig(**config_kwargs)
 
     last_err = None
     for attempt in range(_RETRIES + 1):

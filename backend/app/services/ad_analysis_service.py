@@ -233,7 +233,7 @@ async def _call_gemini_analysis(prompt: str) -> dict:
     try:
         from app.services.llm_client import generate_json, LLMError, QuotaExhaustedError
         result = await asyncio.wait_for(
-            asyncio.to_thread(generate_json, prompt, 3000),
+            asyncio.to_thread(generate_json, prompt, 8192),
             timeout=90,
         )
         if not isinstance(result, dict) or not result.get("verdict"):
