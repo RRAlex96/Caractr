@@ -22,7 +22,15 @@ UPDATE brands SET name = 'MINI'  WHERE name = 'Mini';
 UPDATE brands SET name = 'Citroen' WHERE name = 'Citroën';
 
 -- Normalize accented model names to ASCII
+UPDATE vehicle_models SET name = 'Serie 1' WHERE name = 'Série 1';
+UPDATE vehicle_models SET name = 'Serie 2 Active Tourer' WHERE name = 'Série 2 Active Tourer';
+UPDATE vehicle_models SET name = 'Serie 2 Gran Coupe' WHERE name = 'Série 2 Gran Coupé';
 UPDATE vehicle_models SET name = 'Serie 3' WHERE name = 'Série 3';
+UPDATE vehicle_models SET name = 'Serie 4' WHERE name = 'Série 4';
+UPDATE vehicle_models SET name = 'Serie 5' WHERE name = 'Série 5';
+UPDATE vehicle_models SET name = 'E Coupe' WHERE name = 'E Coupé';
+UPDATE vehicle_models SET name = 'Megane' WHERE name = 'Mégane';
+UPDATE vehicle_models SET name = 'Scenic' WHERE name = 'Scénic';
 
 
 -- ═══════════════════════════════════════════════════════════
@@ -189,7 +197,7 @@ SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
   ('1.2 PureTech 130', 'gasolina', 1199, 130, 6.8, 6, 480),
   ('1.5 BlueHDi 130',  'diesel',   1499, 130, 5.2, 7, 500),
-  ('e-C4 136',         'eletrico', NULL, 136, NULL, 8, 280)
+  ('e-C4 136',         'eletrico', NULL::int, 136, NULL::float, 8, 280)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE LOWER(b.name)='citroen' AND LOWER(vm2.name)='c4') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -463,8 +471,8 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp, consumption_mixed, reliability_score, maintenance_cost_year)
 SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
-  ('Pro 58kWh',    'eletrico', NULL, 204, NULL, 7, 280),
-  ('Pro S 77kWh',  'eletrico', NULL, 204, NULL, 7, 280)
+  ('Pro 58kWh',    'eletrico', NULL::int, 204, NULL::float, 7, 280),
+  ('Pro S 77kWh',  'eletrico', NULL::int, 204, NULL::float, 7, 280)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Volkswagen' AND vm2.name='ID.3') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -527,7 +535,7 @@ SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
   ('1.0 T-GDi',       'gasolina', 998,  120, 6.5, 8, 420),
   ('1.6 GDi Hybrid',  'hibrido',  1580, 141, 4.8, 9, 380),
-  ('Kona EV 64kWh',   'eletrico', NULL, 204, NULL, 8, 260)
+  ('Kona EV 64kWh',   'eletrico', NULL::int, 204, NULL::float, 8, 260)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Hyundai' AND vm2.name='Kona') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -536,9 +544,9 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp, consumption_mixed, reliability_score, maintenance_cost_year)
 SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
-  ('Standard RWD 58kWh', 'eletrico', NULL, 170, NULL, 8, 280),
-  ('Long Range RWD 77kWh','eletrico', NULL, 229, NULL, 8, 280),
-  ('Long Range AWD',      'eletrico', NULL, 325, NULL, 8, 300)
+  ('Standard RWD 58kWh', 'eletrico', NULL::int, 170, NULL::float, 8, 280),
+  ('Long Range RWD 77kWh','eletrico', NULL::int, 229, NULL::float, 8, 280),
+  ('Long Range AWD',      'eletrico', NULL::int, 325, NULL::float, 8, 300)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Hyundai' AND vm2.name='Ioniq 5') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -560,7 +568,7 @@ SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
   ('1.6 GDi Hybrid', 'hibrido',  1580, 141, 4.8, 9, 380),
   ('1.6 PHEV',       'hibrido',  1580, 183, 1.5, 9, 400),
-  ('Niro EV 64kWh',  'eletrico', NULL, 204, NULL, 8, 270)
+  ('Niro EV 64kWh',  'eletrico', NULL::int, 204, NULL::float, 8, 270)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Kia' AND vm2.name='Niro') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -569,9 +577,9 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp, consumption_mixed, reliability_score, maintenance_cost_year)
 SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
-  ('Standard RWD',   'eletrico', NULL, 170, NULL, 8, 300),
-  ('Long Range RWD', 'eletrico', NULL, 229, NULL, 8, 300),
-  ('GT AWD',         'eletrico', NULL, 585, NULL, 8, 350)
+  ('Standard RWD',   'eletrico', NULL::int, 170, NULL::float, 8, 300),
+  ('Long Range RWD', 'eletrico', NULL::int, 229, NULL::float, 8, 300),
+  ('GT AWD',         'eletrico', NULL::int, 585, NULL::float, 8, 350)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Kia' AND vm2.name='EV6') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -732,7 +740,7 @@ FROM (VALUES
   ('1.2 Turbo 100', 'gasolina', 1199, 100, 6.5, 6, 440),
   ('1.2 Turbo 130', 'gasolina', 1199, 130, 6.8, 6, 470),
   ('1.5 Diesel 110','diesel',   1499, 110, 5.0, 7, 490),
-  ('Mokka-e 136',   'eletrico', NULL, 136, NULL, 8, 270)
+  ('Mokka-e 136',   'eletrico', NULL::int, 136, NULL::float, 8, 270)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Opel' AND vm2.name='Mokka') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -764,7 +772,7 @@ SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
   ('1.2 69cv',      'gasolina', 1242, 69, 5.8, 7, 340),
   ('0.9 TwinAir',   'gasolina', 875,  85, 5.5, 6, 380),
-  ('500e 118cv',     'eletrico', NULL, 118, NULL, 8, 230)
+  ('500e 118cv',     'eletrico', NULL::int, 118, NULL::float, 8, 230)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Fiat' AND vm2.name='500') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -787,7 +795,7 @@ FROM (VALUES
   ('T2 129cv',        'gasolina', 1477, 129, 7.0, 8, 600),
   ('D3 163cv',        'diesel',   1969, 163, 5.8, 7, 650),
   ('T5 PHEV 262cv',   'hibrido',  1477, 262, 2.2, 7, 550),
-  ('Recharge Pure EV','eletrico', NULL, 231, NULL, 8, 350)
+  ('Recharge Pure EV','eletrico', NULL::int, 231, NULL::float, 8, 350)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Volvo' AND vm2.name='XC40') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -807,9 +815,9 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp, consumption_mixed, reliability_score, maintenance_cost_year)
 SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
-  ('Standard Range Plus', 'eletrico', NULL, 283, NULL, 7, 250),
-  ('Long Range',          'eletrico', NULL, 351, NULL, 7, 250),
-  ('Performance',         'eletrico', NULL, 510, NULL, 7, 280)
+  ('Standard Range Plus', 'eletrico', NULL::int, 283, NULL::float, 7, 250),
+  ('Long Range',          'eletrico', NULL::int, 351, NULL::float, 7, 250),
+  ('Performance',         'eletrico', NULL::int, 510, NULL::float, 7, 280)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Tesla' AND vm2.name='Model 3') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -818,8 +826,8 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp, consumption_mixed, reliability_score, maintenance_cost_year)
 SELECT vm.id, v.code, v.fuel, v.cc, v.hp, v.cons, v.rel, v.maint
 FROM (VALUES
-  ('Long Range',  'eletrico', NULL, 351, NULL, 7, 260),
-  ('Performance', 'eletrico', NULL, 510, NULL, 7, 290)
+  ('Long Range',  'eletrico', NULL::int, 351, NULL::float, 7, 260),
+  ('Performance', 'eletrico', NULL::int, 510, NULL::float, 7, 290)
 ) AS v(code, fuel, cc, hp, cons, rel, maint)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Tesla' AND vm2.name='Model Y') vm
 WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v.code);
@@ -912,122 +920,107 @@ WHERE NOT EXISTS (SELECT 1 FROM engines e2 WHERE e2.model_id=vm.id AND e2.code=v
 
 -- ═══════════════════════════════════════════════════════════
 -- 5. ENGINE ISSUES FOR CRITICAL ENGINES (new models)
+--    Schema: engine_id, severity, description, affected_years, fix_cost_estimate, source
 -- ═══════════════════════════════════════════════════════════
 
 -- Citroen C3 / C4 / C5 Aircross — PureTech wet belt (same issue as Peugeot)
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Correia humida (wet belt)',
-'media', 50000, 120000, 1200,
-'Este motor usa uma correia de distribuicao banhada em oleo (wet belt). A PSA emitiu um recall em 2021 sobre este tema.',
-'atencao',
-'Pergunte se a correia ja foi substituida. Peca comprovativos das trocas de oleo.',
-'Com trocas de oleo rigorosas e correia substituida quando indicado, funciona bem. Versoes 2020+ tem correias melhoradas.',
-TRUE
+'medio',
+'Motor 1.2 PureTech com correia humida (wet belt) banhada em oleo. PSA emitiu recall em 2021. Verificar se correia foi substituida e pedir comprovativos de trocas de oleo. Versoes 2020+ tem correias melhoradas.',
+'2017-2021',
+'600-1200€',
+'PSA/Stellantis recall 2021'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE LOWER(b.name) = 'citroen'
   AND e.code LIKE '1.2 PureTech%'
-  AND CAST(SUBSTRING(e.code FROM '[0-9]+$') AS INTEGER) >= 100
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%wet belt%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%wet belt%');
 
 -- Renault 1.3 TCe (H5H) — Oil consumption in some units
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Consumo de oleo (monitorizar)',
-'baixa', 60000, NULL, 300,
-'O motor 1.3 TCe (H5H, co-desenvolvido com Mercedes M282) pode apresentar consumo de oleo ligeiro em alguns exemplares. Nao e um defeito sistematico.',
-'informativo',
-'Pergunte sobre consumo de oleo entre revisoes. Verifique o nivel de oleo durante a inspecao.',
-'Com trocas de oleo regulares no intervalo correto e oleo de especificacao adequada, a maioria funciona sem problemas.',
-TRUE
+'baixo',
+'Motor 1.3 TCe (H5H, co-desenvolvido com Mercedes M282) pode ter consumo de oleo ligeiro em alguns exemplares. Nao e defeito sistematico. Verificar nivel de oleo e perguntar sobre consumo entre revisoes.',
+'2018-2023',
+'200-400€',
+'Renault forums, ADAC'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE b.name = 'Renault' AND e.code LIKE '1.3 TCe%'
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%oleo%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%1.3 TCe%');
 
 -- Opel Astra / Mokka — PureTech 1.2 turbo (same PSA engine)
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Correia humida (wet belt)',
-'media', 50000, 120000, 1200,
-'Motor PSA 1.2 Turbo com correia de distribuicao banhada em oleo. Atencao identica ao PureTech dos Peugeot/Citroen.',
-'atencao',
-'Pergunte se a correia ja foi substituida. Peca comprovativos das trocas de oleo.',
-'Com manutencao rigorosa e correia substituida, funciona bem. Versoes mais recentes tem correias melhoradas.',
-TRUE
+'medio',
+'Motor PSA 1.2 Turbo com correia de distribuicao banhada em oleo (wet belt). Mesma atencao que PureTech dos Peugeot/Citroen. Verificar se correia foi substituida.',
+'2018-2021',
+'600-1200€',
+'PSA/Stellantis recall 2021'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
-WHERE b.name = 'Opel' AND e.code LIKE '1.2 Turbo%' AND CAST(SUBSTRING(e.code FROM '[0-9]+$') AS INTEGER) >= 110
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%wet belt%');
+WHERE b.name = 'Opel' AND e.code LIKE '1.2 Turbo%'
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%wet belt%');
 
 -- Ford 1.0 EcoBoost (Fiesta/Puma) — Cooling system pre-2017
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Sistema de arrefecimento (versoes pre-2017)',
-'media', 50000, 150000, 1500,
-'As versoes iniciais do 1.0 EcoBoost (2012-2016) tinham um ponto de atencao no sistema de arrefecimento. A Ford melhorou este componente nas versoes 2017+.',
-'atencao',
-'Verifique o ano de fabrico. Se for 2017+, este ponto ja foi corrigido.',
-'Nas versoes a partir de 2017, a Ford resolveu este ponto.',
-TRUE
+'medio',
+'Motor 1.0 EcoBoost pre-2017: problema de arrefecimento. Versoes 2017+ corrigidas pela Ford. Verificar ano de fabrico.',
+'2012-2016',
+'800-1500€',
+'Ford TSB'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE b.name = 'Ford' AND vm.name IN ('Fiesta', 'Puma') AND e.code LIKE '1.0 EcoBoost%'
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%arrefecimento%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%EcoBoost%arrefecimento%');
 
--- Fiat 0.9 TwinAir — Excessive vibration and consumption
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+-- Fiat 0.9 TwinAir — Excessive vibration and oil consumption
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Vibracoes e consumo de oleo (2 cilindros)',
-'baixa', 40000, NULL, 250,
-'O motor TwinAir de 2 cilindros e inerentemente mais vibrante. Alguns exemplares reportam consumo de oleo. E uma caracteristica do design, nao um defeito.',
-'informativo',
-'Verifique o nivel de oleo e pergunte sobre consumo entre revisoes. Teste o motor a frio para avaliar vibracoes.',
-'Com manutencao adequada, o TwinAir funciona sem problemas graves. As vibracoes sao normais para um 2 cilindros.',
-TRUE
+'baixo',
+'Motor TwinAir de 2 cilindros: vibracoes inerentes ao design e possivel consumo de oleo ligeiro. Nao e defeito, e caracteristica do motor. Testar a frio e verificar nivel de oleo.',
+'2010-2020',
+'200-400€',
+'Fiat forums, ADAC'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE b.name = 'Fiat' AND e.code LIKE '0.9 TwinAir%'
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%TwinAir%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%TwinAir%');
 
 -- Tesla Model 3/Y — Panel gaps and suspension noises (early units)
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Qualidade de construcao (unidades iniciais)',
-'baixa', 0, 100000, 500,
-'Unidades dos primeiros anos podem ter folgas nos paineis e ruidos de suspensao. As versoes mais recentes (2021+) melhoraram significativamente.',
-'informativo',
-'Verifique folgas nos paineis, ruidos na suspensao e estado geral da pintura. Peca historico de intervencoes na garantia.',
-'Nao e um problema mecanico grave. Versoes mais recentes tem melhor controlo de qualidade.',
-FALSE
+'baixo',
+'Unidades dos primeiros anos podem ter folgas nos paineis e ruidos na suspensao. Versoes 2021+ melhoraram significativamente a qualidade de construcao. Verificar estado da pintura e folgas.',
+'2019-2021',
+'300-800€',
+'Tesla forums, Consumer Reports'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE b.name = 'Tesla' AND vm.name IN ('Model 3', 'Model Y')
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%construcao%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%folgas%');
 
--- VW/Audi/Skoda/SEAT 1.0 TSI — Timing chain (early versions, already exists for Golf/Octavia/Leon)
--- Add for new models: T-Cross, T-Roc, Fabia, Kamiq, Ibiza, Arona, A1
-INSERT INTO engine_issues (engine_id, issue_name, severity, typical_km_start, typical_km_end, repair_cost_estimate, description, alert_level, what_to_ask, if_maintained, preventable)
+-- VW/Audi/Skoda/SEAT 1.0 TSI — Timing chain (early versions)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
 SELECT e.id,
-'Corrente de distribuicao (versoes iniciais)',
-'baixa', 60000, 150000, 1200,
-'As primeiras versoes deste motor (EA211 EVO, pre-2019) tinham uma corrente mais fragil. As versoes mais recentes ja foram melhoradas.',
-'informativo',
-'Verifique o ano de fabrico. Se for 2019+, este ponto ja foi corrigido.',
-'Versoes a partir de 2019 ja tem a corrente melhorada de fabrica.',
-TRUE
+'baixo',
+'Motor 1.0 TSI (EA211 EVO) pre-2019: corrente de distribuicao mais fragil. Versoes 2019+ ja tem corrente melhorada de fabrica. Verificar ano de fabrico.',
+'2015-2019',
+'800-1200€',
+'VW forums, PistonHeads'
 FROM engines e
 JOIN vehicle_models vm ON vm.id = e.model_id
 JOIN brands b ON b.id = vm.brand_id
 WHERE e.code = '1.0 TSI'
-  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.issue_name LIKE '%Corrente%');
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%corrente%');
 
 
 -- ═══════════════════════════════════════════════════════════
@@ -1200,8 +1193,8 @@ WHERE NOT EXISTS (
 -- ═══════════════════════════════════════════════════════════
 
 -- Renault Captur 1.5 dCi
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2019, 14500, 12000, 17000, 30),
   (2020, 16000, 13500, 18500, 25),
@@ -1212,8 +1205,8 @@ CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.mo
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- Audi A3 2.0 TDI
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2017, 19000, 16000, 22000, 35),
   (2018, 21000, 18000, 24000, 30),
@@ -1224,62 +1217,62 @@ CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.mo
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- Mercedes Classe C C220d
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2018, 26000, 22000, 30000, 30),
   (2019, 29000, 25000, 33000, 25),
   (2020, 32000, 28000, 36000, 20)
 ) AS v(yr, avg, mn, mx, cnt)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE LOWER(b.name)='mercedes-benz' AND LOWER(vm2.name)='classe c') vm
-CROSS JOIN (SELECT e2.id FROM engines e2 WHERE e2.model_id=vm.id AND e2.code='C220d' LIMIT 1) e
+CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.model_id JOIN brands b2 ON b2.id=vm3.brand_id WHERE LOWER(b2.name)='mercedes-benz' AND LOWER(vm3.name)='classe c' AND e2.code='C220d' LIMIT 1) e
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- VW Tiguan 2.0 TDI
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2018, 22000, 19000, 25000, 30),
   (2019, 24000, 21000, 27000, 25),
   (2020, 27000, 23000, 31000, 20)
 ) AS v(yr, avg, mn, mx, cnt)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Volkswagen' AND vm2.name='Tiguan') vm
-CROSS JOIN (SELECT e2.id FROM engines e2 WHERE e2.model_id=vm.id AND e2.code='2.0 TDI' LIMIT 1) e
+CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.model_id JOIN brands b2 ON b2.id=vm3.brand_id WHERE b2.name='Volkswagen' AND vm3.name='Tiguan' AND e2.code='2.0 TDI' LIMIT 1) e
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- Toyota C-HR 1.8 Hybrid
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2019, 20000, 17000, 23000, 25),
   (2020, 22000, 19000, 25000, 20),
   (2021, 24000, 21000, 27000, 15)
 ) AS v(yr, avg, mn, mx, cnt)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Toyota' AND vm2.name='C-HR') vm
-CROSS JOIN (SELECT e2.id FROM engines e2 WHERE e2.model_id=vm.id AND e2.code='1.8 Hybrid' LIMIT 1) e
+CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.model_id JOIN brands b2 ON b2.id=vm3.brand_id WHERE b2.name='Toyota' AND vm3.name='C-HR' AND e2.code='1.8 Hybrid' LIMIT 1) e
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- Peugeot 2008 1.2 PureTech 130
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2020, 18500, 16000, 21000, 30),
   (2021, 20000, 17500, 22500, 25),
   (2022, 22000, 19000, 25000, 20)
 ) AS v(yr, avg, mn, mx, cnt)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Peugeot' AND vm2.name='2008') vm
-CROSS JOIN (SELECT e2.id FROM engines e2 WHERE e2.model_id=vm.id AND e2.code='1.2 PureTech 130' LIMIT 1) e
+CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.model_id JOIN brands b2 ON b2.id=vm3.brand_id WHERE b2.name='Peugeot' AND vm3.name='2008' AND e2.code='1.2 PureTech 130' LIMIT 1) e
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 -- Hyundai Tucson 1.6 T-GDi Hybrid
-INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, confidence)
-SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'alta'
+INSERT INTO market_price_stats (model_id, engine_id, year, price_context, avg_price, min_price, max_price, sample_count, source)
+SELECT vm.id, e.id, v.yr, 'particular', v.avg, v.mn, v.mx, v.cnt, 'seed_v3'
 FROM (VALUES
   (2021, 28000, 24000, 32000, 20),
   (2022, 30000, 26000, 34000, 15)
 ) AS v(yr, avg, mn, mx, cnt)
 CROSS JOIN (SELECT vm2.id FROM vehicle_models vm2 JOIN brands b ON b.id=vm2.brand_id WHERE b.name='Hyundai' AND vm2.name='Tucson') vm
-CROSS JOIN (SELECT e2.id FROM engines e2 WHERE e2.model_id=vm.id AND e2.code='1.6 T-GDi Hybrid' LIMIT 1) e
+CROSS JOIN (SELECT e2.id FROM engines e2 JOIN vehicle_models vm3 ON vm3.id=e2.model_id JOIN brands b2 ON b2.id=vm3.brand_id WHERE b2.name='Hyundai' AND vm3.name='Tucson' AND e2.code='1.6 T-GDi Hybrid' LIMIT 1) e
 WHERE NOT EXISTS (SELECT 1 FROM market_price_stats m WHERE m.model_id=vm.id AND m.engine_id=e.id AND m.year=v.yr);
 
 

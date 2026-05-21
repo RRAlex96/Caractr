@@ -660,8 +660,19 @@ def _resolve_vehicle_model(
     # Strip accents so 'Citroën' matches 'Citroen', 'Série' matches 'Serie'
     brand_norm = _strip_accents(brand_name).lower()
 
-    def _query_model(model_pattern: str):
+    def _query_model(model_pattern: str, exact: bool = False):
         pattern_norm = _strip_accents(model_pattern).lower()
+        if exact:
+            return db.execute(text("""
+                SELECT vm.id, b.name as brand_name, vm.name as model_name
+                FROM vehicle_models vm
+                JOIN brands b ON b.id = vm.brand_id
+                WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) = :model
+                LIMIT 1
+            """), {
+                "brand": f"%{brand_norm}%",
+                "model": pattern_norm
+            }).mappings().fetchone()
         return db.execute(text("""
             SELECT vm.id, b.name as brand_name, vm.name as model_name
             FROM vehicle_models vm
@@ -674,12 +685,15 @@ def _resolve_vehicle_model(
         }).mappings().fetchone()
 
     # ── Strategy 1: direct match ──
-    row = _query_model(model_first_word)
-    if row:
-        return row
+    # Skip for single-letter tokens (too ambiguous for LIKE) and Mercedes
+    # (Mercedes needs specialized class mapping in Strategy 3)
+    if len(model_first_word) > 1 and "mercedes" not in brand_norm:
+        row = _query_model(model_first_word)
+        if row:
+            return row
 
     # ── Strategy 2: BMW variant number → series ──
-    if "bmw" in brand_lower:
+    if "bmw" in brand_norm:
         # Extract the first digit from a 3-digit number: "116" → "1", "320" → "3"
         variant_match = re.match(r"^(\d)\d{2}", model_first_word)
         if variant_match:
@@ -697,7 +711,7 @@ def _resolve_vehicle_model(
                 return row
 
     # ── Strategy 3: Mercedes letter → Classe ──
-    if "mercedes" in brand_lower:
+    if "mercedes" in brand_norm:
         letter = model_first_word.lower()
         classe = _MERC_CLASS_MAP.get(letter)
         if classe:
@@ -705,9 +719,9 @@ def _resolve_vehicle_model(
             if row:
                 print(f"[MODEL] Mercedes variant '{model_name}' → '{classe}'")
                 return row
-        # CLA, GLA, GLC, GLE, GLS — already single-word, try direct
-        if len(letter) == 3:
-            row = _query_model(letter)
+        # CLA, GLA, GLC, GLE, GLS — exact match to avoid 'CLA' matching 'Classe A'
+        if len(letter) >= 2:
+            row = _query_model(letter, exact=True)
             if row:
                 return row
 

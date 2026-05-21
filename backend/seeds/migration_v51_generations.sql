@@ -6,7 +6,7 @@
 -- Idempotent: clears existing rows and repopulates.
 -- Run once after migration_v50_market_upsert.sql.
 
-TRUNCATE TABLE generations RESTART IDENTITY;
+TRUNCATE TABLE generations RESTART IDENTITY CASCADE;
 
 WITH gen_data (brand, model, name, year_start, year_end, platform) AS (VALUES
 
