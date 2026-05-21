@@ -244,14 +244,15 @@ async def _call_gemini_analysis(prompt: str) -> dict:
         return result
     except asyncio.TimeoutError:
         print("[AD_ANALYSIS] Gemini analysis timed out after 90s")
-        return {}
+        return {"_llm_error": "timeout:90s"}
     except Exception as e:
         err_name = type(e).__name__
-        print(f"[AD_ANALYSIS] Gemini analysis failed: {err_name}: {str(e)[:200]}")
+        err_msg = str(e)[:300]
+        print(f"[AD_ANALYSIS] Gemini analysis failed: {err_name}: {err_msg}")
         # Surface quota error so frontend can show appropriate message
-        if "Quota" in err_name or "quota" in str(e).lower() or "429" in str(e):
-            return {"_quota_exhausted": True}
-        return {}
+        if "Quota" in err_name or "quota" in err_msg.lower() or "429" in err_msg:
+            return {"_quota_exhausted": True, "_llm_error": f"quota:{err_msg[:150]}"}
+        return {"_llm_error": f"{err_name}:{err_msg[:150]}"}
 
 
 async def _analyse(
@@ -278,14 +279,15 @@ async def _analyse(
     prompt = _build_analysis_prompt(listing, model_info, market_stats, user_profile)
     result = await _call_gemini_analysis(prompt)
 
-    if not result or result.get("_quota_exhausted"):
+    llm_error = result.get("_llm_error") if result else None
+    if not result or not result.get("verdict"):
         quota = result.get("_quota_exhausted", False) if result else False
-        reason = "quota_exhausted" if quota else "gemini_empty"
-        print(f"[AD_ANALYSIS] Gemini returned empty ({reason}), falling back to rule engine")
+        reason = "quota_exhausted" if quota else ("gemini_error" if llm_error else "gemini_empty")
+        print(f"[AD_ANALYSIS] Gemini failed ({reason}: {llm_error}), falling back to rule engine")
         result = _run_rule_engine(listing, model_info, market_stats, user_profile)
         result["_analysis_engine"] = f"rule:{reason}"
-        if quota:
-            result["_quota_exhausted"] = True
+        if llm_error:
+            result["_llm_error"] = llm_error
         return result
 
     result["_analysis_engine"] = "gemini"
@@ -1363,6 +1365,7 @@ def _build_response(
         ),
         "js_limited": js_limited,
         "_analysis_engine": llm.get("_analysis_engine"),
+        "_llm_error": llm.get("_llm_error"),
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),
