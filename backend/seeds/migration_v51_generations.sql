@@ -800,7 +800,14 @@ JOIN (
     SELECT vm.id, b.name AS brand, vm.name AS model
     FROM vehicle_models vm
     JOIN brands b ON b.id = vm.brand_id
-) ml ON ml.brand = gd.brand AND ml.model = gd.model;
+) ml ON LOWER(translate(ml.brand, 'ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝàáâãäåèéêëìíîïòóôõöùúûüý',
+                                  'AAAAAAEEEEIIIIOOOOOUUUUYaaaaaaeeeeiiiioooooouuuuy'))
+       = LOWER(translate(gd.brand, 'ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝàáâãäåèéêëìíîïòóôõöùúûüý',
+                                   'AAAAAAEEEEIIIIOOOOOUUUUYaaaaaaeeeeiiiioooooouuuuy'))
+   AND LOWER(translate(ml.model, 'ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝàáâãäåèéêëìíîïòóôõöùúûüý',
+                                 'AAAAAAEEEEIIIIOOOOOUUUUYaaaaaaeeeeiiiioooooouuuuy'))
+       = LOWER(translate(gd.model, 'ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝàáâãäåèéêëìíîïòóôõöùúûüý',
+                                   'AAAAAAEEEEIIIIOOOOOUUUUYaaaaaaeeeeiiiioooooouuuuy'));
 
 -- Verify
 SELECT b.name AS brand, vm.name AS model, g.name AS generation, g.year_start, g.year_end, g.platform

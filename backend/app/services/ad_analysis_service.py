@@ -18,10 +18,19 @@ import os
 import re
 import json
 import asyncio
+import unicodedata
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
+
+def _strip_accents(s: str) -> str:
+    """Remove diacritics/accents: 'Citroën' → 'Citroen', 'Série' → 'Serie'."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
 
 from app.scrapers.dispatcher import fetch_detail_for_url, detect_source, extract_slugs_from_url, is_supported_url, source_label
 from app.scrapers.normalizer import (
@@ -324,6 +333,9 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
 
 def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
     """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data."""
+    # Strip accents so 'Citroën' matches 'Citroen' in DB, 'Série 3' matches 'Serie 3'
+    brand_norm = _strip_accents(brand_name).lower()
+    model_norm = _strip_accents(model_name).lower()
     row = db.execute(text("""
         SELECT vm.id,
                AVG(e.reliability_score)::float           AS avg_reliability,
@@ -344,7 +356,7 @@ def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
         WHERE LOWER(b.name) = LOWER(:brand) AND LOWER(vm.name) = LOWER(:model)
         GROUP BY vm.id
         LIMIT 1
-    """), {"brand": brand_name, "model": model_name}).mappings().fetchone()
+    """), {"brand": brand_norm, "model": model_norm}).mappings().fetchone()
 
     if not row:
         return {"reliability_score": None, "known_issues": None}
@@ -613,14 +625,14 @@ def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
 
 # BMW: "116", "116d", "120i" → "Série 1"; "320d" → "Série 3"; "X3" → "X3"
 _BMW_SERIES_MAP = {
-    "1": "Série 1",  # 114, 116, 118, 120, 125, 128, 130, 135, 140
-    "2": "Série 2",  # 216, 218, 220, 225, 228, 230, 235, 240
-    "3": "Série 3",  # 316, 318, 320, 325, 328, 330, 335, 340
-    "4": "Série 4",  # 418, 420, 425, 428, 430, 435, 440
-    "5": "Série 5",  # 518, 520, 525, 528, 530, 535, 540, 545, 550
-    "6": "Série 6",  # 620, 630, 640, 650
-    "7": "Série 7",  # 725, 730, 740, 745, 750, 760
-    "8": "Série 8",  # 840, 850
+    "1": "Serie 1",  # 114, 116, 118, 120, 125, 128, 130, 135, 140
+    "2": "Serie 2",  # 216, 218, 220, 225, 228, 230, 235, 240
+    "3": "Serie 3",  # 316, 318, 320, 325, 328, 330, 335, 340
+    "4": "Serie 4",  # 418, 420, 425, 428, 430, 435, 440
+    "5": "Serie 5",  # 518, 520, 525, 528, 530, 535, 540, 545, 550
+    "6": "Serie 6",  # 620, 630, 640, 650
+    "7": "Serie 7",  # 725, 730, 740, 745, 750, 760
+    "8": "Serie 8",  # 840, 850
 }
 
 # Mercedes: "A 180", "A180" → "Classe A"; "CLA" stays "CLA"
@@ -645,9 +657,11 @@ def _resolve_vehicle_model(
     if not brand_name or not model_first_word:
         return None
 
-    brand_lower = brand_name.lower()
+    # Strip accents so 'Citroën' matches 'Citroen', 'Série' matches 'Serie'
+    brand_norm = _strip_accents(brand_name).lower()
 
     def _query_model(model_pattern: str):
+        pattern_norm = _strip_accents(model_pattern).lower()
         return db.execute(text("""
             SELECT vm.id, b.name as brand_name, vm.name as model_name
             FROM vehicle_models vm
@@ -655,8 +669,8 @@ def _resolve_vehicle_model(
             WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
             LIMIT 1
         """), {
-            "brand": f"%{brand_lower}%",
-            "model": f"%{model_pattern.lower()}%"
+            "brand": f"%{brand_norm}%",
+            "model": f"%{pattern_norm}%"
         }).mappings().fetchone()
 
     # ── Strategy 1: direct match ──
