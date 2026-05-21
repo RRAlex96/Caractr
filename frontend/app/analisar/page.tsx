@@ -365,7 +365,11 @@ function AnalysisResult({ result, listingUrl, onReset }: { result: any; listingU
             listing.year,
             listing.km ? `${listing.km.toLocaleString("pt-PT")} km` : null,
             listing.price ? `${listing.price.toLocaleString("pt-PT")} €` : null,
-            listing.seller_type,
+            listing.seller_type && listing.seller_type !== "desconhecido" ? listing.seller_type : null,
+            listing.listing_age_days != null
+              ? listing.listing_age_days <= 7 ? "publicado esta semana"
+              : `há ${listing.listing_age_days} dias`
+              : null,
           ].filter(Boolean).join("  ·  ")}
         </p>
 
