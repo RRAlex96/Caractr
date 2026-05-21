@@ -418,7 +418,8 @@ async def fetch_listing_detail(url: str) -> dict:
     """
     result: dict = {
         "brand": "", "model": "", "year": None, "km": None, "price": None,
-        "fuel_type": None, "description": "", "photo_count": 0,
+        "fuel_type": None, "engine_power_hp": None, "transmission": None,
+        "colour": None, "description": "", "photo_count": 0,
         "seller_type": "desconhecido",
     }
     headers = {
@@ -475,6 +476,25 @@ async def fetch_listing_detail(url: str) -> dict:
 
     # ── Fuel type ──────────────────────────────────────────────────────────────
     result["fuel_type"] = _param_label(params, "fuel_type") or None
+
+    # ── Engine power (kW from SV, convert to hp) ──────────────────────────────
+    power_raw = _param_val(params, "engine_power")
+    if power_raw:
+        try:
+            kw = int(re.sub(r"[^\d]", "", str(power_raw)))
+            result["engine_power_hp"] = round(kw * 1.36)  # kW → cv/hp
+        except (ValueError, TypeError):
+            pass
+
+    # ── Transmission ──────────────────────────────────────────────────────────
+    gearbox = _param_label(params, "gearbox")
+    if gearbox:
+        result["transmission"] = gearbox
+
+    # ── Colour ────────────────────────────────────────────────────────────────
+    colour = _param_label(params, "colour")
+    if colour:
+        result["colour"] = colour
 
     # ── Seller type ────────────────────────────────────────────────────────────
     seller = advert.get("seller", {}) or {}
