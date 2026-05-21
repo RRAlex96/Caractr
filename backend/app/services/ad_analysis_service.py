@@ -1334,7 +1334,7 @@ def _build_response(
             "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento."
         ),
         "js_limited": js_limited,
-        "_pw_debug": pw_debug,
+        "_analysis_engine": llm.get("_analysis_engine"),
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),

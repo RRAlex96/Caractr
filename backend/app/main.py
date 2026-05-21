@@ -373,7 +373,7 @@ app.add_middleware(
 @app.get("/api/health")
 def health_check():
     try:
-        from app.services.llm_client import llm_available, _MODEL
+        from app.services.llm_client import llm_available, _MODEL, llm_selftest
         llm_ok = llm_available()
         model = _MODEL
     except Exception:
@@ -386,11 +386,22 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.10.0",
+        "version": "4.10.1",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright_browsers": pw_browsers,
     }
+
+
+@app.get("/api/health/llm")
+def health_llm():
+    """Live LLM selftest — calls Gemini with a minimal prompt."""
+    try:
+        from app.services.llm_client import llm_selftest
+        result = llm_selftest()
+        return {"llm_selftest": result}
+    except Exception as e:
+        return {"llm_selftest": f"error:{type(e).__name__}:{e}"}
 
 
 app.include_router(models.router)
