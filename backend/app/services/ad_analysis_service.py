@@ -147,6 +147,15 @@ Avalia também se este carro é adequado para ESTE comprador específico."""
     colour = listing.get('colour', '')
     transmission = listing.get('transmission', '')
 
+    listing_age = listing.get("listing_age_days")
+    listing_age_str = f"{listing_age} dias" if listing_age else "desconhecido"
+    maintenance = model_info.get("maintenance_cost_year")
+    maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
+    avg_price = market_stats.get('avg_price', 0) or 0
+    price = listing.get('price', 0) or 0
+    price_delta_pct = listing.get('price_delta_pct', '?')
+    price_pos = 'abaixo' if (listing.get('price_delta', 0) or 0) > 0 else 'acima'
+
     return f"""És um consultor especialista em carros usados em Portugal com 20 anos de experiência. Conheces TODOS os modelos, gerações, motores, versões e problemas típicos. Fala em PT-PT. Tom direto e honesto como um amigo que percebe muito de carros. Responde APENAS com JSON válido, sem texto extra.
 
 O teu trabalho: analisar este anúncio como se o comprador te estivesse a pagar para o aconselhar. Sê ESPECÍFICO — nunca genérico.
@@ -155,17 +164,18 @@ ANÚNCIO:
 Modelo: {listing.get('brand_name', '')} {listing.get('model_name', '')}
 Ano: {listing.get('year', 'desconhecido')}
 Km: {listing.get('km', 'desconhecido')} ({km_note})
-Preço pedido: {listing.get('price', '?')} EUR
+Preço pedido: {price:,} EUR
 Tipo de vendedor: {listing.get('seller_type', 'desconhecido')}
 Combustível: {fuel_type or 'desconhecido'}
 Potência: {engine_hp or 'desconhecida'} cv
 Transmissão: {transmission or 'desconhecida'}
 Cor: {colour or 'desconhecida'}
+Anúncio há: {listing_age_str}
 Descrição do anúncio: {listing.get('description', 'Sem descrição disponível.')[:2000]}
 
 CONTEXTO DE MERCADO:
-Preço médio de mercado: {market_stats.get('avg_price', '?')} EUR
-Posição de preço: {listing.get('price_delta_pct', '?')}% {('abaixo' if (listing.get('price_delta', 0) or 0) > 0 else 'acima')} do mercado
+Preço médio de mercado: €{int(avg_price):,} | Este carro está {price_delta_pct}% {price_pos} do mercado
+Custo manutenção estimado: {maintenance_str}
 Problemas conhecidos do modelo: {known_issues}
 {profile_note}
 
@@ -188,7 +198,13 @@ Responde APENAS com este JSON (sem texto extra, sem markdown):
   "key_extras": ["Lista TODOS os extras mencionados na descrição. Ex: 'Bancos em pele', 'Teto panorâmico', 'Navegação', 'Câmara traseira', 'Jantes 19', 'Sensores estacionamento', 'LED'. Máximo 12."],
   "spec_value_assessment": "acima_do_esperado|adequado|abaixo_do_esperado — considerando os extras para esta versão e preço",
   "engine_code": "Código do motor se identificável (ex: 'EA888', 'N47D20', 'K9K 636', 'OM651') ou null",
-  "engine_analysis": "1-2 frases sobre ESTE motor específico: fiabilidade conhecida, pontos fracos, o que verificar. Ex: 'O EA888 Gen3 é sólido mas consome óleo — verificar nível entre revisões. Correia aos 210k km.'"
+  "engine_analysis": "1-2 frases sobre ESTE motor específico: fiabilidade conhecida, pontos fracos, o que verificar. Ex: 'O EA888 Gen3 é sólido mas consome óleo — verificar nível entre revisões. Correia aos 210k km.'",
+  "extras_analysis": "2-3 frases: que extras tem, o que valem no mercado, e o que FALTA em relação ao esperado para esta versão.",
+  "negotiation_script": "Script CONCRETO de negociação: valor de primeira oferta, argumentos específicos baseados nos dados (km, tempo no mercado, extras em falta, problemas do motor).",
+  "verdict_narrative": "3-4 frases: síntese final como amigo especialista. Honesto e direto. Contextualiza preço, km, motor, extras — vale ou não? Para quem é ideal?",
+  "seller_read": "2-3 frases: psicologia do vendedor baseada na descrição. Descrição detalhada = transparência, vaga = possível ocultação. Palavras como 'urgente', 'impecável' — o que significam.",
+  "inspection_checklist": ["5-7 pontos de inspeção ESPECÍFICOS para ESTE motor e modelo. Ex: 'Verificar corrente de distribuição — problema conhecido acima de 120k km'. Não ponhas coisas genéricas como 'verificar pneus'."],
+  "negotiation_tips": ["3-5 dicas de negociação específicas para ESTA situação, baseadas no preço, km, tempo no mercado e tipo de vendedor."]
 }}"""
 
 
@@ -209,23 +225,32 @@ def _run_rule_engine(
 
 
 async def _call_gemini_analysis(prompt: str) -> dict:
-    """Call Gemini for structured ad analysis. Returns {} on failure (triggers rule engine fallback)."""
+    """
+    Call Gemini for unified structured ad analysis + enrichment.
+    Returns {} on failure (triggers rule engine fallback).
+    Returns {"_quota_exhausted": True, ...} on quota errors so frontend can show message.
+    """
     try:
-        from app.services.llm_client import generate_json, LLMError
+        from app.services.llm_client import generate_json, LLMError, QuotaExhaustedError
         result = await asyncio.wait_for(
-            asyncio.to_thread(generate_json, prompt, 1500),
-            timeout=60,
+            asyncio.to_thread(generate_json, prompt, 3000),
+            timeout=90,
         )
         if not isinstance(result, dict) or not result.get("verdict"):
             print(f"[AD_ANALYSIS] Gemini returned unexpected structure: {str(result)[:200]}")
             return {}
-        print(f"[AD_ANALYSIS] Gemini analysis OK — verdict={result.get('verdict')}, engine={result.get('engine_code')}")
+        print(f"[AD_ANALYSIS] Gemini OK — verdict={result.get('verdict')}, "
+              f"engine={result.get('engine_code')}, extras={len(result.get('key_extras', []))}")
         return result
     except asyncio.TimeoutError:
-        print("[AD_ANALYSIS] Gemini analysis timed out after 60s")
+        print("[AD_ANALYSIS] Gemini analysis timed out after 90s")
         return {}
     except Exception as e:
-        print(f"[AD_ANALYSIS] Gemini analysis failed: {type(e).__name__}: {e}")
+        err_name = type(e).__name__
+        print(f"[AD_ANALYSIS] Gemini analysis failed: {err_name}: {str(e)[:200]}")
+        # Surface quota error so frontend can show appropriate message
+        if "Quota" in err_name or "quota" in str(e).lower() or "429" in str(e):
+            return {"_quota_exhausted": True}
         return {}
 
 
@@ -253,10 +278,14 @@ async def _analyse(
     prompt = _build_analysis_prompt(listing, model_info, market_stats, user_profile)
     result = await _call_gemini_analysis(prompt)
 
-    if not result:
-        print("[AD_ANALYSIS] Gemini returned empty, falling back to rule engine")
+    if not result or result.get("_quota_exhausted"):
+        quota = result.get("_quota_exhausted", False) if result else False
+        reason = "quota_exhausted" if quota else "gemini_empty"
+        print(f"[AD_ANALYSIS] Gemini returned empty ({reason}), falling back to rule engine")
         result = _run_rule_engine(listing, model_info, market_stats, user_profile)
-        result["_analysis_engine"] = "rule:gemini_empty"
+        result["_analysis_engine"] = f"rule:{reason}"
+        if quota:
+            result["_quota_exhausted"] = True
         return result
 
     result["_analysis_engine"] = "gemini"
@@ -1036,6 +1065,8 @@ async def _analyse_listing_inner(
         normalized["price_delta_pct"] = None
 
     # ── 4. Analysis (Gemini or rule engine fallback) ──
+    # Single unified LLM call returns both analysis + enrichment fields.
+    # This halves Gemini API calls (critical on free tier: 20/day limit).
     llm_result = await _analyse(normalized, model_info, market_stats, user_profile)
 
     # ── 4a. Profile fit (when user_profile provided and model_info available) ──
@@ -1043,20 +1074,17 @@ async def _analyse_listing_inner(
     if user_profile and model_info:
         fit_result = _compute_profile_fit(user_profile, model_info)
 
-    # ── 4b. Enrichment: inspection checklist + negotiation tips + Gemini narrative ──
-    # Rule-based fallbacks (zero-cost, always available)
+    # ── 4b. Enrichment: extract from unified LLM result, fall back to rules ──
     rule_inspection = _build_inspection_checklist(model_info or {}, normalized)
     rule_negotiation = _build_negotiation_tips(normalized, market_stats or {})
-    # LLM narrative (Gemini) — generates richer, engine-specific versions
-    llm_narrative = await _generate_llm_narrative(
-        normalized, model_info or {}, market_stats or {},
-        rule_inspection, rule_negotiation, analysis=llm_result,
-    )
-    # Prefer LLM-generated checklist/tips when available, fall back to rule-based
+
     enrichment = {
-        **llm_narrative,
-        "inspection_checklist": llm_narrative.get("inspection_checklist") or rule_inspection,
-        "negotiation_tips":     llm_narrative.get("negotiation_tips") or rule_negotiation,
+        "extras_analysis":      llm_result.get("extras_analysis"),
+        "negotiation_script":   llm_result.get("negotiation_script"),
+        "verdict_narrative":    llm_result.get("verdict_narrative"),
+        "seller_read":          llm_result.get("seller_read"),
+        "inspection_checklist": llm_result.get("inspection_checklist") or rule_inspection,
+        "negotiation_tips":     llm_result.get("negotiation_tips") or rule_negotiation,
     }
 
     # ── 5. Cache ──
