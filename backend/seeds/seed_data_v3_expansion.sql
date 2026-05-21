@@ -1023,6 +1023,63 @@ WHERE e.code = '1.0 TSI'
   AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%corrente%');
 
 
+-- BMW 320d N47 — Timing chain (rear-mounted, premature wear)
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
+SELECT e.id,
+'medio',
+'Motor N47 (320d 2007-2014): corrente de distribuicao traseira com desgaste prematuro. Ruido de corrente a frio e sinal de alerta. Substituicao preventiva recomendada.',
+'2007-2014',
+'1500-2500EUR',
+'BMW forums, TUV Report'
+FROM engines e
+JOIN vehicle_models vm ON vm.id = e.model_id
+JOIN brands b ON b.id = vm.brand_id
+WHERE b.name = 'BMW' AND vm.name = 'Serie 3' AND e.code LIKE '320d%'
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%N47%');
+
+-- BMW 520d N47 — Same timing chain issue
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
+SELECT e.id,
+'medio',
+'Motor N47 (520d 2010-2014): corrente de distribuicao traseira com desgaste prematuro. Motor B47 (2014+) ja corrigiu este problema.',
+'2010-2014',
+'1500-2500EUR',
+'BMW forums, TUV Report'
+FROM engines e
+JOIN vehicle_models vm ON vm.id = e.model_id
+JOIN brands b ON b.id = vm.brand_id
+WHERE b.name = 'BMW' AND vm.name = 'Serie 5' AND e.code LIKE '520d%'
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%N47%');
+
+-- Peugeot 3008 PureTech wet belt
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
+SELECT e.id,
+'medio',
+'Motor 1.2 PureTech com correia humida (wet belt). PSA emitiu recall em 2021. Versoes 2020+ melhoradas. Pedir comprovativos de manutencao e verificar se recall foi aplicado.',
+'2017-2021',
+'600-1200EUR',
+'PSA/Stellantis recall 2021'
+FROM engines e
+JOIN vehicle_models vm ON vm.id = e.model_id
+JOIN brands b ON b.id = vm.brand_id
+WHERE b.name = 'Peugeot' AND vm.name = '3008' AND e.code LIKE '1.2 PureTech%'
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%wet belt%');
+
+-- Renault 1.5 dCi K9K — Injector wear at high mileage
+INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
+SELECT e.id,
+'baixo',
+'Motor 1.5 dCi K9K: injetores podem necessitar substituicao a partir dos 150.000km. Verificar historico de manutencao e se injetores foram recondicionados.',
+'2012-2020',
+'400-800EUR',
+'Renault forums, ADAC'
+FROM engines e
+JOIN vehicle_models vm ON vm.id = e.model_id
+JOIN brands b ON b.id = vm.brand_id
+WHERE b.name = 'Renault' AND e.code LIKE '1.5 dCi%'
+  AND NOT EXISTS (SELECT 1 FROM engine_issues ei WHERE ei.engine_id = e.id AND ei.description LIKE '%injetor%');
+
+
 -- ═══════════════════════════════════════════════════════════
 -- 6. DRIVING CHARACTER FOR NEW MODELS
 -- ═══════════════════════════════════════════════════════════
