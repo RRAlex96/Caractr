@@ -578,6 +578,107 @@ def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     return dict(row) if row else None
 
 
+# ── Variant → series mapping for brands that use numeric/letter variants ──
+
+# BMW: "116", "116d", "120i" → "Série 1"; "320d" → "Série 3"; "X3" → "X3"
+_BMW_SERIES_MAP = {
+    "1": "Série 1",  # 114, 116, 118, 120, 125, 128, 130, 135, 140
+    "2": "Série 2",  # 216, 218, 220, 225, 228, 230, 235, 240
+    "3": "Série 3",  # 316, 318, 320, 325, 328, 330, 335, 340
+    "4": "Série 4",  # 418, 420, 425, 428, 430, 435, 440
+    "5": "Série 5",  # 518, 520, 525, 528, 530, 535, 540, 545, 550
+    "6": "Série 6",  # 620, 630, 640, 650
+    "7": "Série 7",  # 725, 730, 740, 745, 750, 760
+    "8": "Série 8",  # 840, 850
+}
+
+# Mercedes: "A 180", "A180" → "Classe A"; "CLA" stays "CLA"
+_MERC_CLASS_MAP = {
+    "a": "Classe A", "b": "Classe B", "c": "Classe C",
+    "e": "Classe E", "s": "Classe S", "v": "Classe V",
+}
+
+
+def _resolve_vehicle_model(
+    db: Session, brand_name: str, model_name: str, model_first_word: str
+) -> Optional[dict]:
+    """
+    Resolve a scraped brand/model to a vehicle_models DB row.
+
+    Strategy:
+    1. Direct LIKE match on first word of model name
+    2. BMW variant mapping: "116" → "Série 1", "320" → "Série 3"
+    3. Mercedes variant mapping: "A" → "Classe A", "C" → "Classe C"
+    4. Fuzzy: try each word of the model name individually
+    """
+    if not brand_name or not model_first_word:
+        return None
+
+    brand_lower = brand_name.lower()
+
+    def _query_model(model_pattern: str):
+        return db.execute(text("""
+            SELECT vm.id, b.name as brand_name, vm.name as model_name
+            FROM vehicle_models vm
+            JOIN brands b ON b.id = vm.brand_id
+            WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
+            LIMIT 1
+        """), {
+            "brand": f"%{brand_lower}%",
+            "model": f"%{model_pattern.lower()}%"
+        }).mappings().fetchone()
+
+    # ── Strategy 1: direct match ──
+    row = _query_model(model_first_word)
+    if row:
+        return row
+
+    # ── Strategy 2: BMW variant number → series ──
+    if "bmw" in brand_lower:
+        # Extract the first digit from a 3-digit number: "116" → "1", "320" → "3"
+        variant_match = re.match(r"^(\d)\d{2}", model_first_word)
+        if variant_match:
+            series = _BMW_SERIES_MAP.get(variant_match.group(1))
+            if series:
+                row = _query_model(series)
+                if row:
+                    print(f"[MODEL] BMW variant '{model_name}' → '{series}'")
+                    return row
+        # X-series: "X1", "X3", etc. — first word already works
+        # iX, i3, i4, i7 — try as-is
+        if model_first_word.startswith("i") and len(model_first_word) <= 3:
+            row = _query_model(model_first_word)
+            if row:
+                return row
+
+    # ── Strategy 3: Mercedes letter → Classe ──
+    if "mercedes" in brand_lower:
+        letter = model_first_word.lower()
+        classe = _MERC_CLASS_MAP.get(letter)
+        if classe:
+            row = _query_model(classe)
+            if row:
+                print(f"[MODEL] Mercedes variant '{model_name}' → '{classe}'")
+                return row
+        # CLA, GLA, GLC, GLE, GLS — already single-word, try direct
+        if len(letter) == 3:
+            row = _query_model(letter)
+            if row:
+                return row
+
+    # ── Strategy 4: try each word of model_name ──
+    words = model_name.lower().split()
+    for word in words[1:]:  # skip first word (already tried)
+        if len(word) >= 2:
+            row = _query_model(word)
+            if row:
+                print(f"[MODEL] Fuzzy match: '{model_name}' → word '{word}'")
+                return row
+
+    print(f"[MODEL] No DB match for {brand_name} '{model_name}' (first_word='{model_first_word}')")
+    return None
+
+
 async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[dict]:
     """
     Fetch the listing detail page via the appropriate scraper (SV or OLX),
@@ -649,18 +750,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     # Lookup model — guard against empty brand/model (generic scraper may not resolve them)
     model_first_word = (model_name.lower().split() or [""])[0]
-    model_row = None
-    if brand_name and model_first_word:
-        model_row = db.execute(text("""
-            SELECT vm.id, b.name as brand_name, vm.name as model_name
-            FROM vehicle_models vm
-            JOIN brands b ON b.id = vm.brand_id
-            WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
-            LIMIT 1
-        """), {
-            "brand": f"%{brand_name.lower()}%",
-            "model": f"%{model_first_word}%"
-        }).mappings().fetchone()
+    model_row = _resolve_vehicle_model(db, brand_name, model_name, model_first_word)
 
     model_id = model_row["id"] if model_row else None
     resolved_brand = model_row["brand_name"] if model_row else brand_name

@@ -386,7 +386,7 @@ def health_check():
     return {
         "status": "ok",
         "app": "Caractr",
-        "version": "4.9.0",
+        "version": "4.10.0",
         "llm_available": llm_ok,
         "llm_model": model,
         "playwright_browsers": pw_browsers,
