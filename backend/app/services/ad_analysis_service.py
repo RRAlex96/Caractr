@@ -409,23 +409,52 @@ def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tu
 
 
 def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) -> dict:
-    """Fetch market price statistics for a model/year combination."""
+    """
+    Fetch market price statistics for a model/year combination.
+    Includes freshness info: source and days since last update.
+    Stale data (>14 days) is flagged so the live scraper knows to refresh.
+    """
     if year:
         row = db.execute(text("""
-            SELECT AVG(avg_price) as avg_price, MIN(min_price) as min_price, MAX(max_price) as max_price
+            SELECT AVG(avg_price) as avg_price,
+                   MIN(min_price) as min_price,
+                   MAX(max_price) as max_price,
+                   MAX(updated_at) as last_updated,
+                   MAX(source) as source
             FROM market_price_stats
             WHERE model_id = :model_id
               AND ABS(year - :year) <= 2
         """), {"model_id": model_id, "year": year}).mappings().fetchone()
     else:
         row = db.execute(text("""
-            SELECT AVG(avg_price) as avg_price, MIN(min_price) as min_price, MAX(max_price) as max_price
+            SELECT AVG(avg_price) as avg_price,
+                   MIN(min_price) as min_price,
+                   MAX(max_price) as max_price,
+                   MAX(updated_at) as last_updated,
+                   MAX(source) as source
             FROM market_price_stats
             WHERE model_id = :model_id
         """), {"model_id": model_id}).mappings().fetchone()
 
     if row and row["avg_price"]:
-        return {"avg_price": float(row["avg_price"]), "min_price": row["min_price"], "max_price": row["max_price"]}
+        result = {
+            "avg_price": float(row["avg_price"]),
+            "min_price": row["min_price"],
+            "max_price": row["max_price"],
+            "source": row["source"] or "seed",
+        }
+        if row["last_updated"]:
+            from datetime import datetime, timezone
+            try:
+                updated = row["last_updated"]
+                if hasattr(updated, 'tzinfo') and updated.tzinfo is None:
+                    updated = updated.replace(tzinfo=timezone.utc)
+                age_days = (datetime.now(timezone.utc) - updated).days
+                result["age_days"] = age_days
+                result["stale"] = age_days > 14
+            except Exception:
+                result["stale"] = True
+        return result
     return {}
 
 
@@ -1278,6 +1307,8 @@ def _build_response(
             "market_median_price": (market_stats or {}).get("median_price"),
             "market_sample_count": (market_stats or {}).get("sample_count"),
             "market_data_source": (market_stats or {}).get("source", "none"),
+            "market_data_age_days": (market_stats or {}).get("age_days"),
+            "market_data_stale": (market_stats or {}).get("stale", False),
             "generation_year_start": gen_year_start,
             "generation_year_end": gen_year_end,
         },

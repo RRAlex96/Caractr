@@ -81,17 +81,40 @@ def _is_rate_limited(ip: str, path: str) -> bool:
 
 # ── Scheduler intervals ────────────────────────────────────────────────────────
 
-_MARKET_REFRESH_INTERVAL_DAYS      = 30
+_MARKET_REFRESH_INTERVAL_DAYS      = 7   # Weekly — non-negotiable for accurate pricing
 _RELIABILITY_REFRESH_INTERVAL_DAYS = 7
 
 
 # ── Background loops ───────────────────────────────────────────────────────────
 
+def _check_market_freshness() -> int:
+    """
+    Check how many days since last market refresh.
+    Returns days since last refresh, or 999 if never refreshed.
+    Used to skip redundant refreshes on Railway redeploys.
+    """
+    db = SessionLocal()
+    try:
+        from sqlalchemy import text
+        row = db.execute(text("""
+            SELECT EXTRACT(EPOCH FROM (NOW() - MAX(updated_at))) / 86400 AS days_ago
+            FROM market_price_stats
+            WHERE source = 'live_scraped'
+        """)).fetchone()
+        if row and row[0] is not None:
+            return int(row[0])
+        return 999
+    except Exception:
+        return 999
+    finally:
+        db.close()
+
+
 def _run_market_refresh_sync() -> None:
     """Sync wrapper — runs in thread pool so it never blocks the event loop."""
     db = SessionLocal()
     try:
-        print("[SCHEDULER] Starting monthly market data refresh...")
+        print("[SCHEDULER] Starting weekly market data refresh...")
 
         from app.services.market_scraper_runner import run_market_scraper
         scrape_result = run_market_scraper(db)
@@ -110,14 +133,28 @@ def _run_market_refresh_sync() -> None:
 
 async def _market_refresh_loop() -> None:
     """
-    Monthly background task:
+    Weekly background task:
     1. Bulk-scrape Standvirtual + OLX listings per generation
     2. Aggregate into p10/p50/p90 + MAD per (generation, year, seller_type)
     3. Denormalise latest p50 + band to generations table
 
-    All sync work runs in a thread to keep the event loop responsive.
+    Smart startup: checks if data was refreshed recently. If < 6 days old,
+    skips to the next weekly window. Avoids redundant work on Railway redeploys.
     """
-    await asyncio.sleep(_MARKET_REFRESH_INTERVAL_DAYS * 24 * 3600)
+    await asyncio.sleep(120)  # 2 min cold-start delay
+
+    # Check freshness — skip if recently refreshed
+    days_since = await asyncio.get_event_loop().run_in_executor(
+        None, _check_market_freshness
+    )
+    if days_since < 6:
+        next_run = (7 - days_since) * 24 * 3600
+        print(f"[SCHEDULER] Market data is {days_since}d old — "
+              f"skipping, next refresh in {7 - days_since}d")
+        await asyncio.sleep(next_run)
+    else:
+        print(f"[SCHEDULER] Market data is {days_since}d old — refreshing now")
+
     while True:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _run_market_refresh_sync)

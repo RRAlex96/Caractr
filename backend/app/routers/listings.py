@@ -179,3 +179,98 @@ def trigger_reliability_refresh(
         "safety_gate": sg_stats, "nhtsa": nhtsa_stats,
         "kba": kba_stats, "scorer": scorer_stats,
     }
+
+
+@router.get("/admin/scraper-health")
+def scraper_health(
+    x_admin_token: str = Header(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Scraper health dashboard — extraction method distribution, quality grades,
+    and market data freshness. Use to detect when __NEXT_DATA__ degrades.
+    """
+    admin_token = os.getenv("ADMIN_TOKEN", "")
+    if not admin_token or not hmac.compare_digest(x_admin_token, admin_token):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Market data freshness
+    market_freshness = db.execute(text("""
+        SELECT
+            source,
+            COUNT(*) as count,
+            MAX(updated_at) as last_updated,
+            EXTRACT(EPOCH FROM (NOW() - MAX(updated_at))) / 86400 AS days_ago
+        FROM market_price_stats
+        WHERE updated_at IS NOT NULL
+        GROUP BY source
+        ORDER BY last_updated DESC
+    """)).mappings().fetchall()
+
+    # Market coverage: how many models have price data
+    coverage = db.execute(text("""
+        SELECT
+            (SELECT COUNT(DISTINCT model_id) FROM market_price_stats
+             WHERE avg_price IS NOT NULL) AS models_with_prices,
+            (SELECT COUNT(*) FROM vehicle_models) AS total_models,
+            (SELECT COUNT(*) FROM market_price_stats
+             WHERE source = 'live_scraped'
+               AND updated_at > NOW() - INTERVAL '7 days') AS live_updated_7d,
+            (SELECT COUNT(*) FROM market_price_stats
+             WHERE source = 'live_scraped'
+               AND updated_at > NOW() - INTERVAL '14 days') AS live_updated_14d
+    """)).mappings().fetchone()
+
+    # Generation price data coverage
+    gen_coverage = db.execute(text("""
+        SELECT
+            (SELECT COUNT(*) FROM generations) AS total_generations,
+            (SELECT COUNT(*) FROM generations
+             WHERE market_value_p50 IS NOT NULL) AS generations_with_p50,
+            (SELECT COUNT(*) FROM generations
+             WHERE market_value_as_of IS NOT NULL
+               AND market_value_as_of >= (CURRENT_DATE - INTERVAL '30 days')) AS generations_fresh
+    """)).mappings().fetchone()
+
+    # Normalized listings stats (recent analyses)
+    analysis_stats = db.execute(text("""
+        SELECT
+            COUNT(*) AS total_analyses_7d,
+            COUNT(*) FILTER (WHERE price IS NOT NULL) AS with_price,
+            COUNT(*) FILTER (WHERE km IS NOT NULL) AS with_km,
+            COUNT(*) FILTER (WHERE year IS NOT NULL) AS with_year,
+            COUNT(*) FILTER (WHERE model_id IS NOT NULL) AS with_model_id
+        FROM normalized_listings
+        WHERE created_at > NOW() - INTERVAL '7 days'
+    """)).mappings().fetchone()
+
+    return {
+        "market_freshness": [
+            {
+                "source": r["source"],
+                "count": r["count"],
+                "last_updated": str(r["last_updated"]) if r["last_updated"] else None,
+                "days_ago": round(r["days_ago"], 1) if r["days_ago"] else None,
+            }
+            for r in market_freshness
+        ],
+        "coverage": {
+            "models_with_prices": coverage["models_with_prices"],
+            "total_models": coverage["total_models"],
+            "pct": round(coverage["models_with_prices"] / max(1, coverage["total_models"]) * 100, 1),
+            "live_updated_7d": coverage["live_updated_7d"],
+            "live_updated_14d": coverage["live_updated_14d"],
+        },
+        "generations": {
+            "total": gen_coverage["total_generations"],
+            "with_p50": gen_coverage["generations_with_p50"],
+            "fresh_30d": gen_coverage["generations_fresh"],
+        },
+        "recent_analyses_7d": {
+            "total": analysis_stats["total_analyses_7d"],
+            "with_price": analysis_stats["with_price"],
+            "with_km": analysis_stats["with_km"],
+            "with_year": analysis_stats["with_year"],
+            "with_model_id": analysis_stats["with_model_id"],
+        },
+    }
