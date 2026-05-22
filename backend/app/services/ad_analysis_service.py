@@ -755,6 +755,13 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     _js_limited = detail.pop("_js_only", False)
     _pw_debug = detail.pop("_pw_debug", None)
 
+    # Extraction metadata — track scraper health and data quality
+    _extraction_method = detail.pop("_extraction_method", None)
+    _extraction_layers = detail.pop("_extraction_layers", None)
+    _data_quality = detail.pop("_data_quality", None)
+    # Pop title used internally by extraction layers
+    detail.pop("title", None)
+
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
     brand_name = detail.get("brand", "")
@@ -1305,6 +1312,8 @@ def _build_response(
         "js_limited": js_limited,
         "_analysis_engine": llm.get("_analysis_engine"),
         "_llm_error": llm.get("_llm_error"),
+        "_extraction_method": _extraction_method,
+        "_data_quality": _data_quality,
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),

@@ -925,4 +925,22 @@ async def fetch_listing_detail(url: str) -> dict:
     if _pw_debug:
         result["_pw_debug"] = _pw_debug
 
+    # ── Data quality scoring (unified with standvirtual scraper) ──
+    _CRITICAL = ["brand", "model", "price", "year", "km"]
+    _IMPORTANT = ["fuel_type", "engine_power_hp", "seller_type"]
+    _NICE = ["colour", "transmission", "description", "photo_count"]
+    crit = sum(1 for f in _CRITICAL if result.get(f))
+    imp = sum(1 for f in _IMPORTANT
+              if result.get(f) and result[f] != "desconhecido")
+    nice = sum(1 for f in _NICE if result.get(f) not in (None, "", 0))
+    score = (crit / len(_CRITICAL)) * 0.60 + (imp / len(_IMPORTANT)) * 0.25 + (nice / len(_NICE)) * 0.15
+    grade = "A" if score >= 0.85 else "B" if score >= 0.70 else "C" if score >= 0.50 else "D" if score >= 0.30 else "F"
+    result["_extraction_method"] = "generic"
+    result["_data_quality"] = {
+        "score": round(score, 2),
+        "grade": grade,
+        "critical_filled": f"{crit}/{len(_CRITICAL)}",
+        "missing_critical": [f for f in _CRITICAL if not result.get(f)],
+    }
+
     return result

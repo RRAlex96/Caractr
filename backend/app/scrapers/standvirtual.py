@@ -379,7 +379,6 @@ def _extract_next_data_advert(html: str) -> Optional[dict]:
     <script id="__NEXT_DATA__"> as server-side props — no JS execution needed.
     Returns the 'advert' dict, or None if not a detail page / parse error.
     """
-    from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "lxml")
     tag = soup.find("script", id="__NEXT_DATA__")
     if not tag or not tag.string:
@@ -405,16 +404,188 @@ def _param_label(params_dict: dict, key: str) -> str:
     return values[0].get("label", "") if values else ""
 
 
+# ── Data quality scoring ────────────────────────────────────────────────────
+# Tracks extraction health so we can detect when __NEXT_DATA__ degrades.
+
+_CRITICAL_FIELDS = ["brand", "model", "price", "year", "km"]
+_IMPORTANT_FIELDS = ["fuel_type", "engine_power_hp", "seller_type"]
+_NICE_FIELDS = ["colour", "transmission", "description", "photo_count"]
+
+
+def _compute_data_quality(result: dict) -> dict:
+    """
+    Score data completeness. Weighted: critical=60%, important=25%, nice=15%.
+    Returns dict with score (0.0-1.0), grade (A-F), and missing fields.
+
+    If grade drops below B across multiple scrapes, it signals that the
+    primary extraction layer (__NEXT_DATA__) has degraded — time to investigate.
+    """
+    critical_filled = sum(1 for f in _CRITICAL_FIELDS if result.get(f))
+    important_filled = sum(1 for f in _IMPORTANT_FIELDS
+                          if result.get(f) and result[f] != "desconhecido")
+    nice_filled = sum(1 for f in _NICE_FIELDS
+                      if result.get(f) not in (None, "", 0))
+
+    score = (
+        (critical_filled / len(_CRITICAL_FIELDS)) * 0.60
+        + (important_filled / len(_IMPORTANT_FIELDS)) * 0.25
+        + (nice_filled / len(_NICE_FIELDS)) * 0.15
+    )
+
+    grade = (
+        "A" if score >= 0.85 else
+        "B" if score >= 0.70 else
+        "C" if score >= 0.50 else
+        "D" if score >= 0.30 else
+        "F"
+    )
+
+    return {
+        "score": round(score, 2),
+        "grade": grade,
+        "critical_filled": f"{critical_filled}/{len(_CRITICAL_FIELDS)}",
+        "missing_critical": [f for f in _CRITICAL_FIELDS if not result.get(f)],
+    }
+
+
+# ── Layer 1 helper: parse __NEXT_DATA__ advert ─────────────────────────────
+
+def _parse_advert_data(advert: dict, result: dict) -> None:
+    """
+    Extract structured fields from SV's __NEXT_DATA__ advert object.
+    Only fills fields not already populated (supports layered extraction).
+    """
+    params = advert.get("parametersDict", {})
+
+    # Brand / Model
+    if not result.get("brand"):
+        brand = _param_label(params, "make").strip()
+        if brand:
+            result["brand"] = brand
+    if not result.get("model"):
+        model = _param_label(params, "model").strip()
+        if model:
+            result["model"] = model
+
+    # Fallback: infer from title
+    if not result.get("brand") and advert.get("title"):
+        try:
+            from app.scrapers.generic import _infer_brand_model
+            b, m = _infer_brand_model(advert["title"])
+            if b:
+                result["brand"] = b
+            if m and not result.get("model"):
+                result["model"] = m
+        except Exception:
+            pass
+
+    # Year
+    if not result.get("year"):
+        year_raw = _param_val(params, "first_registration_year")
+        if year_raw:
+            result["year"] = _parse_year(year_raw)
+
+    # Km
+    if not result.get("km"):
+        km_raw = _param_val(params, "mileage")
+        if km_raw:
+            result["km"] = _parse_km(km_raw)
+
+    # Price
+    if not result.get("price"):
+        price_obj = advert.get("price", {}) or {}
+        result["price"] = _parse_price(str(price_obj.get("value", "")))
+
+    # Fuel type
+    if not result.get("fuel_type"):
+        fuel = _param_label(params, "fuel_type")
+        if fuel:
+            result["fuel_type"] = fuel
+
+    # Engine power (kW from SV → cv/hp)
+    if not result.get("engine_power_hp"):
+        power_raw = _param_val(params, "engine_power")
+        if power_raw:
+            try:
+                kw = int(re.sub(r"[^\d]", "", str(power_raw)))
+                result["engine_power_hp"] = round(kw * 1.36)
+            except (ValueError, TypeError):
+                pass
+
+    # Transmission
+    if not result.get("transmission"):
+        gearbox = _param_label(params, "gearbox")
+        if gearbox:
+            result["transmission"] = gearbox
+
+    # Colour
+    if not result.get("colour"):
+        colour = _param_label(params, "colour")
+        if colour:
+            result["colour"] = colour
+
+    # Seller type
+    if result.get("seller_type") in (None, "desconhecido"):
+        seller = advert.get("seller", {}) or {}
+        seller_type_raw = seller.get("type", "").upper()
+        if seller_type_raw == "PRIVATE":
+            result["seller_type"] = "privado"
+        elif seller_type_raw == "PROFESSIONAL":
+            result["seller_type"] = "stand"
+
+    # Photos
+    if not result.get("photo_count"):
+        photos = (advert.get("images") or {}).get("photos", [])
+        result["photo_count"] = len(photos)
+
+    # Description
+    if not result.get("description"):
+        desc_raw = advert.get("description", "") or ""
+        try:
+            result["description"] = BeautifulSoup(
+                desc_raw, "lxml"
+            ).get_text("\n", strip=True)[:3000]
+        except Exception:
+            result["description"] = re.sub(
+                r"<[^>]+>", " ", desc_raw
+            ).strip()[:3000]
+
+    # Title (used for brand/model inference in later layers)
+    if not result.get("title"):
+        result["title"] = advert.get("title", "")
+
+    # Listing age
+    if not result.get("listing_age_days"):
+        created_at = advert.get("createdAt") or advert.get("originalCreatedAt")
+        if created_at:
+            try:
+                created = datetime.fromisoformat(
+                    created_at.replace("Z", "+00:00")
+                )
+                age_days = (datetime.now(timezone.utc) - created).days
+                result["listing_age_days"] = age_days
+            except Exception:
+                pass
+
+
+# ── Main detail extractor: 5-layer resilient pipeline ──────────────────────
+
 async def fetch_listing_detail(url: str) -> dict:
     """
-    Fetch a Standvirtual listing detail page and extract structured data.
+    Multi-layer resilient extraction for Standvirtual detail pages.
 
-    SV uses Next.js SSR — the full advert object is embedded in
-    <script id="__NEXT_DATA__"> without any JS execution needed.
-    Static httpx is sufficient; Playwright is not required.
+    If __NEXT_DATA__ breaks tomorrow, data still flows through 4 fallback layers.
+    Each layer only fills fields not already populated by a higher-priority layer.
 
-    Returns dict with: brand, model, year, km, price, fuel_type,
-                       description, photo_count, seller_type, listing_age_days.
+    Layer 1: __NEXT_DATA__ SSR JSON (SV-specific, fastest, most complete)
+    Layer 2: JSON-LD structured data + OpenGraph meta tags
+    Layer 3: HTML semantic extraction (microdata, price/year/km patterns)
+    Layer 4: Portuguese label-value text patterns (dt/dd, regex)
+    Layer 5: Playwright render + re-extract all layers (nuclear option)
+
+    Tracks extraction provenance and computes data quality score so we can
+    detect degradation — if __NEXT_DATA__ starts failing, the dashboard
+    will show quality dropping from A to B/C across scrapes.
     """
     result: dict = {
         "brand": "", "model": "", "year": None, "km": None, "price": None,
@@ -422,113 +593,183 @@ async def fetch_listing_detail(url: str) -> dict:
         "colour": None, "description": "", "photo_count": 0,
         "seller_type": "desconhecido",
     }
+    _layers_used: list[str] = []
+
+    # ── Fetch HTML ─────────────────────────────────────────────────────────────
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
         "Referer": f"{BASE_URL}/carros",
     }
-
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=15.0, headers=headers
+        ) as client:
             await asyncio.sleep(random.uniform(1.0, 2.5))
             resp = await client.get(url)
             resp.raise_for_status()
             html = resp.text
     except Exception as e:
-        print(f"[SV SCRAPER] Detail fetch error for {url}: {e}")
+        print(f"[SV] FETCH FAILED for {url}: {e}")
+        result["_extraction_method"] = "fetch_failed"
+        result["_extraction_layers"] = ["fetch:FAILED"]
+        result["_data_quality"] = _compute_data_quality(result)
         return result
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # LAYER 1: __NEXT_DATA__ (SV-specific SSR JSON — the gold standard)
+    # ══════════════════════════════════════════════════════════════════════════
     advert = _extract_next_data_advert(html)
-    if not advert:
-        print(f"[SV SCRAPER] No __NEXT_DATA__ advert found for {url}")
+    if advert:
+        _parse_advert_data(advert, result)
+        filled = [f for f in _CRITICAL_FIELDS if result.get(f)]
+        _layers_used.append(f"L1:next_data({len(filled)}/5)")
+        print(f"[SV] L1 __NEXT_DATA__ OK: {len(filled)}/5 critical fields "
+              f"({result.get('brand')} {result.get('model')})")
+    else:
+        _layers_used.append("L1:next_data:FAILED")
+        print(f"[SV] L1 __NEXT_DATA__ FAILED for {url}")
+
+    # ── Check: are critical fields complete? ──
+    _missing = [f for f in _CRITICAL_FIELDS if not result.get(f)]
+    if not _missing:
+        # All critical fields filled by Layer 1 — skip fallbacks
+        result["_extraction_method"] = "next_data"
+        result["_extraction_layers"] = _layers_used
+        result["_data_quality"] = _compute_data_quality(result)
+        quality = result["_data_quality"]
+        print(f"[SV] DONE (L1 only): {result['brand']} {result['model']} "
+              f"{result['year']} {result['km']}km EUR{result['price']} "
+              f"| quality={quality['grade']}({quality['score']})")
         return result
 
-    params = advert.get("parametersDict", {})
+    # ══════════════════════════════════════════════════════════════════════════
+    # LAYERS 2-4: Generic extraction pipeline (fallback when __NEXT_DATA__
+    # is missing or incomplete). Reuses battle-tested code from generic.py.
+    # ══════════════════════════════════════════════════════════════════════════
+    print(f"[SV] Missing critical: {_missing} — activating fallback layers")
 
-    # ── Brand / Model ──────────────────────────────────────────────────────────
-    result["brand"] = _param_label(params, "make").strip() or ""
-    result["model"] = _param_label(params, "model").strip() or ""
+    soup = BeautifulSoup(html, "lxml")
+    page_text = soup.get_text(" ", strip=True)
 
-    # Fallback: infer from title
-    if not result["brand"] and advert.get("title"):
-        try:
-            from app.scrapers.generic import _infer_brand_model
-            b, m = _infer_brand_model(advert["title"])
-            if b:
-                result["brand"] = b
-            if m and not result["model"]:
-                result["model"] = m
-        except Exception:
-            pass
-
-    # ── Year ───────────────────────────────────────────────────────────────────
-    year_raw = _param_val(params, "first_registration_year")
-    result["year"] = _parse_year(year_raw) if year_raw else None
-
-    # ── Km ─────────────────────────────────────────────────────────────────────
-    km_raw = _param_val(params, "mileage")
-    result["km"] = _parse_km(km_raw) if km_raw else None
-
-    # ── Price ──────────────────────────────────────────────────────────────────
-    price_obj = advert.get("price", {}) or {}
-    result["price"] = _parse_price(str(price_obj.get("value", "")))
-
-    # ── Fuel type ──────────────────────────────────────────────────────────────
-    result["fuel_type"] = _param_label(params, "fuel_type") or None
-
-    # ── Engine power (kW from SV, convert to hp) ──────────────────────────────
-    power_raw = _param_val(params, "engine_power")
-    if power_raw:
-        try:
-            kw = int(re.sub(r"[^\d]", "", str(power_raw)))
-            result["engine_power_hp"] = round(kw * 1.36)  # kW → cv/hp
-        except (ValueError, TypeError):
-            pass
-
-    # ── Transmission ──────────────────────────────────────────────────────────
-    gearbox = _param_label(params, "gearbox")
-    if gearbox:
-        result["transmission"] = gearbox
-
-    # ── Colour ────────────────────────────────────────────────────────────────
-    colour = _param_label(params, "colour")
-    if colour:
-        result["colour"] = colour
-
-    # ── Seller type ────────────────────────────────────────────────────────────
-    seller = advert.get("seller", {}) or {}
-    seller_type_raw = seller.get("type", "").upper()
-    result["seller_type"] = (
-        "privado" if seller_type_raw == "PRIVATE"
-        else "stand" if seller_type_raw == "PROFESSIONAL"
-        else "desconhecido"
+    # Lazy import — only when fallbacks are needed
+    from app.scrapers.generic import (
+        _extract_jsonld, _extract_meta, _extract_microdata,
+        _extract_heuristic, _extract_dt_dd, _extract_pt_labels,
+        _infer_brand_model,
     )
 
-    # ── Photos ─────────────────────────────────────────────────────────────────
-    photos = (advert.get("images") or {}).get("photos", [])
-    result["photo_count"] = len(photos)
+    # ── Layer 2: JSON-LD + OpenGraph meta ──────────────────────────────────
+    layer2_fills: list[str] = []
+    jsonld = _extract_jsonld(soup)
+    for k, v in jsonld.items():
+        if v and not result.get(k):
+            result[k] = v
+            layer2_fills.append(k)
+    meta = _extract_meta(soup)
+    for k, v in meta.items():
+        if v and not result.get(k):
+            result[k] = v
+            layer2_fills.append(k)
+    if layer2_fills:
+        _layers_used.append(f"L2:jsonld_meta({layer2_fills})")
+        print(f"[SV] L2 JSON-LD+meta filled: {layer2_fills}")
 
-    # ── Description ────────────────────────────────────────────────────────────
-    desc_raw = advert.get("description", "") or ""
-    # Strip HTML tags from description
-    try:
-        from bs4 import BeautifulSoup as _BS
-        result["description"] = _BS(desc_raw, "lxml").get_text("\n", strip=True)[:3000]
-    except Exception:
-        result["description"] = re.sub(r"<[^>]+>", " ", desc_raw).strip()[:3000]
+    # ── Layer 3: HTML heuristic + Microdata ────────────────────────────────
+    _missing = [f for f in _CRITICAL_FIELDS if not result.get(f)]
+    if _missing:
+        layer3_fills: list[str] = []
+        micro = _extract_microdata(soup)
+        for k, v in micro.items():
+            if v and not result.get(k):
+                result[k] = v
+                layer3_fills.append(k)
+        heuristic = _extract_heuristic(soup, page_text)
+        for k, v in heuristic.items():
+            if v and not result.get(k):
+                result[k] = v
+                layer3_fills.append(k)
+        if layer3_fills:
+            _layers_used.append(f"L3:heuristic({layer3_fills})")
+            print(f"[SV] L3 heuristic filled: {layer3_fills}")
 
-    # ── Listing age ────────────────────────────────────────────────────────────
-    created_at = advert.get("createdAt") or advert.get("originalCreatedAt")
-    if created_at:
+    # ── Layer 4: Portuguese label-value patterns + dt/dd ───────────────────
+    _missing = [f for f in _CRITICAL_FIELDS if not result.get(f)]
+    if _missing:
+        before_keys = {k for k, v in result.items() if v}
+        _extract_dt_dd(soup, result)
+        _extract_pt_labels(page_text, result)
+        layer4_fills = [k for k, v in result.items()
+                        if v and k not in before_keys]
+        if layer4_fills:
+            _layers_used.append(f"L4:pt_labels({layer4_fills})")
+            print(f"[SV] L4 PT patterns filled: {layer4_fills}")
+
+    # Infer brand/model from title if still missing
+    if not result.get("brand"):
+        title = result.get("title") or ""
+        if title:
+            b, m = _infer_brand_model(title)
+            if b:
+                result["brand"] = b
+            if m and not result.get("model"):
+                result["model"] = m
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LAYER 5: Playwright render + re-extract (nuclear option)
+    # Only fires if 3+ critical fields still missing — rendering is expensive.
+    # ══════════════════════════════════════════════════════════════════════════
+    _missing = [f for f in _CRITICAL_FIELDS if not result.get(f)]
+    if len(_missing) >= 3 and _check_playwright():
+        print(f"[SV] L5 Playwright: {len(_missing)} critical still missing, "
+              f"rendering {url}")
         try:
-            from datetime import datetime, timezone
-            created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            age_days = (datetime.now(timezone.utc) - created).days
-            result["listing_age_days"] = age_days
-        except Exception:
-            pass
+            pw_html = await _render_page(
+                url, wait_selector="[data-testid='ad-price']"
+            )
+            if pw_html and len(pw_html) > len(html):
+                html = pw_html
+                soup = BeautifulSoup(html, "lxml")
+                page_text = soup.get_text(" ", strip=True)
 
-    print(f"[SV SCRAPER] __NEXT_DATA__ OK — {result['brand']} {result['model']} "
-          f"{result['year']} {result['km']}km €{result['price']}")
+                # Re-try __NEXT_DATA__ on rendered HTML (sometimes appears
+                # after client-side hydration)
+                advert = _extract_next_data_advert(html)
+                if advert:
+                    _parse_advert_data(advert, result)
+                    _layers_used.append("L5:playwright+next_data")
+                else:
+                    # Run generic layers on rendered HTML
+                    from app.scrapers.generic import _run_extraction_layers
+                    _run_extraction_layers(soup, page_text, result)
+                    _layers_used.append("L5:playwright+generic")
+
+                print(f"[SV] L5 Playwright rendered: "
+                      f"price={result.get('price')} "
+                      f"year={result.get('year')} "
+                      f"km={result.get('km')}")
+        except Exception as e:
+            _layers_used.append(f"L5:playwright:FAILED({e})")
+            print(f"[SV] L5 Playwright FAILED: {e}")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Extraction metadata + data quality score
+    # ══════════════════════════════════════════════════════════════════════════
+    primary = (
+        "next_data" if any("L1:next_data(" in l for l in _layers_used)
+        else "fallback" if len(_layers_used) > 1
+        else "failed"
+    )
+    result["_extraction_method"] = primary
+    result["_extraction_layers"] = _layers_used
+    result["_data_quality"] = _compute_data_quality(result)
+
+    quality = result["_data_quality"]
+    print(f"[SV] DONE: {result.get('brand')} {result.get('model')} "
+          f"{result.get('year')} {result.get('km')}km "
+          f"EUR{result.get('price')} "
+          f"| quality={quality['grade']}({quality['score']}) "
+          f"| layers={[l.split('(')[0] for l in _layers_used]}"
+          f"| missing={quality['missing_critical']}")
     return result
