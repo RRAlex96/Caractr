@@ -824,6 +824,46 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     price = detail.get("price")
     fuel_type = detail.get("fuel_type")
 
+    # ── Data validation: catch suspicious/impossible values ──────────────
+    _data_warnings: list[str] = []
+
+    # Range checks — clamp or clear impossible values
+    if price is not None:
+        if price < 500 or price > 500_000:
+            _data_warnings.append(f"price_out_of_range:{price}")
+            price = None
+    if km is not None:
+        if km < 0 or km > 999_000:
+            _data_warnings.append(f"km_out_of_range:{km}")
+            km = None
+    if year is not None:
+        if year < 1990 or year > datetime.now(timezone.utc).year + 1:
+            _data_warnings.append(f"year_out_of_range:{year}")
+            year = None
+
+    # Cross-field consistency checks
+    if year and km:
+        age = max(1, datetime.now(timezone.utc).year - year)
+        km_per_year = km / age
+        if km_per_year > 80_000:  # >80k km/year is almost certainly wrong
+            _data_warnings.append(f"km_vs_year_mismatch:km={km},year={year},kpy={km_per_year:.0f}")
+        elif year >= 2023 and km > 100_000:
+            _data_warnings.append(f"new_car_high_km:{year},{km}")
+
+    if year and price:
+        age = max(1, datetime.now(timezone.utc).year - year)
+        if age <= 3 and price < 2000:
+            _data_warnings.append(f"new_car_too_cheap:{year},EUR{price}")
+        if age >= 20 and price > 100_000 and "porsche" not in brand_name.lower():
+            _data_warnings.append(f"old_car_too_expensive:{year},EUR{price}")
+
+    # Suspicious price patterns (test/placeholder values)
+    if price and str(price) in ("1234", "9999", "1111", "99999", "12345", "11111"):
+        _data_warnings.append(f"suspicious_price_pattern:{price}")
+
+    if _data_warnings:
+        print(f"[VALIDATION] {listing_url}: {_data_warnings}")
+
     # Insert raw_listing (source-tagged correctly)
     raw_id = db.execute(text("""
         INSERT INTO raw_listings (source, source_url, description, seller_type, photo_count, scraped_at)
@@ -915,6 +955,9 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "source":        source,
         "_js_limited":   _js_limited,
         "_pw_debug":     _pw_debug,
+        "_extraction_method": _extraction_method,
+        "_data_quality":      _data_quality,
+        "_data_warnings":     _data_warnings,
     }
 
 
@@ -1343,8 +1386,9 @@ def _build_response(
         "js_limited": js_limited,
         "_analysis_engine": llm.get("_analysis_engine"),
         "_llm_error": llm.get("_llm_error"),
-        "_extraction_method": _extraction_method,
-        "_data_quality": _data_quality,
+        "_extraction_method": listing.get("_extraction_method"),
+        "_data_quality": listing.get("_data_quality"),
+        "_data_warnings": listing.get("_data_warnings") or [],
         "fit": fit,
         "reliability": {
             "score":        (model_info or {}).get("bayesian_reliability_score"),
