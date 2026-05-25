@@ -260,6 +260,106 @@ def _extract_microdata(soup: BeautifulSoup) -> dict:
     return {k: v for k, v in result.items() if v}
 
 
+# ── Portuguese Dealer CMS Pattern Library ──────────────────────────────────
+# Common CMS platforms used by Portuguese used car dealers.
+# Each entry has fingerprint selectors and platform-specific extraction hints.
+
+DEALER_CMS_PATTERNS = {
+    "autosapo": {
+        "fingerprint": ["meta[content*='sapo.pt']", "[class*='Sapo']", "link[href*='sapo.pt']"],
+        "price": [".preco-destaque", ".price-value", "[class*='Preco']"],
+        "year_km": [".ficha-tecnica li", ".tech-specs td", "[class*='FichaTecnica']"],
+        "description": [".descricao-anuncio", "[class*='Descricao']"],
+        "gallery": [".fotos-anuncio", ".gallery-container"],
+        "seller": [".info-vendedor", ".stand-info"],
+    },
+    "wordpress_car": {
+        # WordPress + WP Car Manager / Auto Starter themes
+        "fingerprint": ["meta[name='generator'][content*='WordPress']", ".wp-car-manager"],
+        "price": [".wpcm-price", ".car-price-value", ".listing-price-value"],
+        "year_km": [".wpcm-features li", ".car-features li", ".listing-meta li"],
+        "description": [".wpcm-description", ".car-description", ".listing-content"],
+        "gallery": [".wpcm-gallery", ".car-gallery", ".listing-gallery"],
+        "seller": [".wpcm-dealer", ".dealer-info"],
+    },
+    "omeustand": {
+        # omeustand.pt — popular PT dealer SPA platform (needs Playwright)
+        "fingerprint": ["[class*='omeustand']", "script[src*='omeustand']", "link[href*='omeustand']"],
+        "price": [".car-price", ".vehicle-price", ".price-main"],
+        "year_km": [".vehicle-specs li", ".car-specs li", ".car-details li"],
+        "description": [".vehicle-description", ".car-obs"],
+        "gallery": [".vehicle-gallery", ".car-gallery"],
+        "seller": [".stand-name", ".dealer-name"],
+    },
+    "easygest": {
+        # EasyGest — Portuguese auto dealer management system with web widget
+        "fingerprint": ["[class*='easygest']", "script[src*='easygest']", "[id*='easygest']"],
+        "price": [".eg-price", ".vehicle-price"],
+        "year_km": [".eg-specs", ".eg-details"],
+        "description": [".eg-description"],
+        "gallery": [".eg-gallery", ".eg-photos"],
+        "seller": [".eg-dealer"],
+    },
+    "mediamotor": {
+        # MediaMotor — group dealership CMS
+        "fingerprint": ["[class*='mediamotor']", "meta[content*='mediamotor']"],
+        "price": [".mm-price", ".price-box"],
+        "year_km": [".mm-specs li", ".mm-details"],
+        "description": [".mm-description"],
+        "gallery": [".mm-gallery"],
+        "seller": [".mm-dealer"],
+    },
+    "generic_stand": {
+        # Catch-all for common Portuguese stand site patterns
+        "fingerprint": [],  # no fingerprint — used as fallback selectors
+        "price": [
+            ".preco", ".preco-veiculo", ".car-valor",
+            "[class*='PVP']", "[class*='pvp']",
+            "span[data-price]", "div[data-price]",
+        ],
+        "year_km": [
+            ".ficha-tecnica li", ".ficha-tecnica td",
+            ".dados-veiculo li", ".veiculo-dados li",
+            ".caracteristicas li", "table.specs td",
+            ".car-info li", ".info-carro li",
+        ],
+        "description": [
+            ".observacoes", ".obs-veiculo", ".notas",
+            ".extras-list", ".equipamento",
+        ],
+        "gallery": [
+            ".fotos-veiculo", ".imagens-carro",
+            ".galeria", ".foto-gallery",
+        ],
+        "seller": [
+            ".info-stand", ".dados-stand",
+            ".vendedor-info", ".contactos",
+        ],
+    },
+}
+
+
+def _detect_dealer_cms(soup: BeautifulSoup) -> Optional[str]:
+    """Detect which dealer CMS platform a page uses. Returns platform key or None."""
+    for platform, config in DEALER_CMS_PATTERNS.items():
+        fingerprints = config.get("fingerprint", [])
+        if not fingerprints:
+            continue  # skip catch-all
+        for selector in fingerprints:
+            if soup.select_one(selector):
+                return platform
+    return None
+
+
+def _get_platform_selectors(platform: Optional[str], category: str) -> list[str]:
+    """Get platform-specific CSS selectors for a category, plus generic_stand fallback."""
+    selectors = []
+    if platform and platform in DEALER_CMS_PATTERNS:
+        selectors.extend(DEALER_CMS_PATTERNS[platform].get(category, []))
+    selectors.extend(DEALER_CMS_PATTERNS["generic_stand"].get(category, []))
+    return selectors
+
+
 # ── Heuristic HTML extraction ────────────────────────────────────────────────
 
 # Selectors tried in order — first match wins
@@ -430,11 +530,18 @@ def _extract_pt_labels(page_text: str, result: dict) -> None:
             result["km"] = _parse_km(m.group(1))
 
 
-def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
+def _extract_heuristic(soup: BeautifulSoup, page_text: str, cms_platform: Optional[str] = None) -> dict:
     result: dict = {}
 
-    # Price
-    for sel in PRICE_SELECTORS:
+    # Platform-specific selectors tried first, then generic fallback
+    platform_price_sels = _get_platform_selectors(cms_platform, "price") if cms_platform else []
+    platform_yk_sels = _get_platform_selectors(cms_platform, "year_km") if cms_platform else []
+    platform_desc_sels = _get_platform_selectors(cms_platform, "description") if cms_platform else []
+    platform_gallery_sels = _get_platform_selectors(cms_platform, "gallery") if cms_platform else []
+    platform_seller_sels = _get_platform_selectors(cms_platform, "seller") if cms_platform else []
+
+    # Price — platform-specific first, then generic
+    for sel in platform_price_sels + PRICE_SELECTORS:
         el = soup.select_one(sel)
         if el:
             price = _parse_price(el.get_text(strip=True))
@@ -443,7 +550,7 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
                 break
 
     # Year and km — scan param/spec areas and full page text
-    for sel in YEAR_KM_SELECTORS:
+    for sel in platform_yk_sels + YEAR_KM_SELECTORS:
         for el in soup.select(sel):
             text = el.get_text(" ", strip=True)
             if not result.get("year"):
@@ -471,7 +578,7 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
     result["fuel_type"] = _detect_fuel(page_text[:5000])
 
     # Description
-    for sel in DESCRIPTION_SELECTORS:
+    for sel in platform_desc_sels + DESCRIPTION_SELECTORS:
         el = soup.select_one(sel)
         if el:
             text = el.get_text("\n", strip=True)
@@ -481,7 +588,7 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
 
     # Photo count — count images in gallery areas
     photo_count = 0
-    for sel in GALLERY_SELECTORS:
+    for sel in platform_gallery_sels + GALLERY_SELECTORS:
         gallery = soup.select_one(sel)
         if gallery:
             imgs = gallery.select("img")
@@ -497,7 +604,7 @@ def _extract_heuristic(soup: BeautifulSoup, page_text: str) -> dict:
     result["photo_count"] = max(1, photo_count)
 
     # Seller type
-    for sel in SELLER_SELECTORS:
+    for sel in platform_seller_sels + SELLER_SELECTORS:
         el = soup.select_one(sel)
         if el:
             st = _detect_seller_type(el.get_text(" ", strip=True))
@@ -654,6 +761,12 @@ def _run_extraction_layers(soup: BeautifulSoup, page_text: str, result: dict) ->
     Run layers 1-5 of the extraction pipeline on the given HTML/text.
     Modifies result dict in-place, only filling fields not already set.
     """
+    # Layer 0: CMS fingerprinting — detect dealer platform for targeted selectors
+    cms_platform = _detect_dealer_cms(soup)
+    if cms_platform:
+        print(f"[GENERIC SCRAPER] Dealer CMS detected: {cms_platform}")
+        result["_dealer_cms"] = cms_platform
+
     # Layer 1: JSON-LD (most reliable)
     jsonld = _extract_jsonld(soup)
     for k, v in jsonld.items():
@@ -672,8 +785,8 @@ def _run_extraction_layers(soup: BeautifulSoup, page_text: str, result: dict) ->
         if v and not result.get(k):
             result[k] = v
 
-    # Layer 4: Heuristic HTML
-    heuristic = _extract_heuristic(soup, page_text)
+    # Layer 4: Heuristic HTML (with CMS-specific selectors)
+    heuristic = _extract_heuristic(soup, page_text, cms_platform)
     for k, v in heuristic.items():
         if v and not result.get(k):
             result[k] = v
