@@ -423,7 +423,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
                    MAX(source) as source
             FROM market_price_stats
             WHERE model_id = :model_id
-              AND ABS(year - :year) <= 2
+              AND ABS(year - :year) <= 1
         """), {"model_id": model_id, "year": year}).mappings().fetchone()
     else:
         row = db.execute(text("""
@@ -638,7 +638,7 @@ async def _fetch_live_market_data(
 
 def _classify_source_type(source: str, domain: str) -> str:
     """Classify a source into marketplace | dealer | private | unknown."""
-    if source in ("standvirtual", "olx"):
+    if source in ("standvirtual", "olx", "custojusto"):
         return "marketplace"
     if source and source.startswith("dealer:"):
         return "dealer"
