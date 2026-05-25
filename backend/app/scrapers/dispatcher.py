@@ -5,6 +5,7 @@ Routes fetch calls to the correct scraper based on URL domain.
 Native scrapers (optimised, structured-data extraction):
   - standvirtual.com  → scrapers/standvirtual.py
   - olx.pt            → scrapers/olx.py
+  - custojusto.pt     → scrapers/custojusto.py
 
 Generic fallback (works on any website):
   - Any other URL     → scrapers/generic.py
@@ -24,6 +25,7 @@ from typing import Optional
 NATIVE_SOURCES = {
     "standvirtual.com": "standvirtual",
     "olx.pt":           "olx",
+    "custojusto.pt":    "custojusto",
 }
 
 # Known Portuguese dealer/aggregator domains → labelled as "dealer"
@@ -34,7 +36,6 @@ KNOWN_DEALER_DOMAINS = {
     "sebe.pt", "autohub.pt", "gruposalvador.pt", "centroauto.pt",
     "caetanoretail.pt", "caetanomoveo.pt", "autogarante.pt",
     "grupojmr.pt", "automotor.pt", "automaster.pt",
-    "custojusto.pt",
 }
 
 
@@ -86,6 +87,8 @@ def source_label(source: str) -> str:
         return "Standvirtual"
     if source == "olx":
         return "OLX"
+    if source == "custojusto":
+        return "CustoJusto"
     if source and source.startswith("dealer:"):
         domain = source.split(":", 1)[1]
         return domain.replace(".pt", "").replace(".", " ").title()
@@ -112,6 +115,12 @@ async def fetch_detail_for_url(url: str) -> dict:
     elif source == "olx":
         from app.scrapers.olx import fetch_listing_detail as olx_fetch_detail
         return await olx_fetch_detail(url)
+
+    elif source == "custojusto":
+        # CJ detail pages work with static httpx (JSON-LD available).
+        # Route through generic scraper which handles JSON-LD extraction well.
+        from app.scrapers.generic import fetch_listing_detail as generic_fetch
+        return await generic_fetch(url)
 
     elif source is not None:
         # Generic: dealer sites, autosapo, autoscout24, any other URL
@@ -146,8 +155,12 @@ async def fetch_listings_for_source(
         from app.scrapers.olx import fetch_listings as olx_fetch
         return await olx_fetch(brand, model, budget_max, max_results, year_from, year_to)
 
+    elif source == "custojusto":
+        from app.scrapers.custojusto import fetch_listings as cj_fetch
+        return await cj_fetch(brand, model, budget_max, max_results, year_from, year_to)
+
     else:
-        raise ValueError(f"Fonte desconhecida: {source}. Opções: standvirtual, olx")
+        raise ValueError(f"Fonte desconhecida: {source}. Opções: standvirtual, olx, custojusto")
 
 
 async def fetch_listings_all_sources(
@@ -168,6 +181,7 @@ async def fetch_listings_all_sources(
     tasks = [
         fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to),
         fetch_listings_for_source("olx", brand, model, budget_max, max_per_source, year_from, year_to),
+        fetch_listings_for_source("custojusto", brand, model, budget_max, max_per_source, year_from, year_to),
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -226,6 +240,12 @@ def extract_slugs_from_url(url: str) -> tuple[str, str]:
             _SLUG_STOP = {"anuncio", "vendo", "venda", "usado", "carro"}
             candidates = [p for p in parts if p.lower() not in _SLUG_STOP]
             return candidates[0] if candidates else "", candidates[1] if len(candidates) > 1 else ""
+
+    elif source == "custojusto":
+        # CustoJusto URL: /portugal/carros/{brand}/{model}/...
+        m = re.search(r"/carros/([^/]+)/([^/]+)", path)
+        if m:
+            return m.group(1), m.group(2)
 
     # ── Generic / dealer URL: best-effort brand/model from path slugs ──
     # Common patterns:

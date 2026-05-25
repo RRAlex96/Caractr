@@ -35,6 +35,7 @@ def supported_sources():
         "sources": [
             {"id": "standvirtual", "name": "Standvirtual",    "domain": "standvirtual.com", "url": "https://www.standvirtual.com",                       "native": True},
             {"id": "olx",          "name": "OLX Auto",        "domain": "olx.pt",           "url": "https://www.olx.pt/carros-motos-e-barcos/carros/",   "native": True},
+            {"id": "custojusto",   "name": "CustoJusto",      "domain": "custojusto.pt",    "url": "https://www.custojusto.pt",                          "native": True},
             {"id": "generic",      "name": "Qualquer dealer", "domain": "*",                "url": None,                                                  "native": False},
         ],
         "note": "Qualquer URL de anúncio válido (http/https) é aceite via extractor genérico.",

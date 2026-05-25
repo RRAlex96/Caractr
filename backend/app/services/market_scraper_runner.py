@@ -45,6 +45,7 @@ def _extract_external_id(url: str) -> Optional[str]:
     Extract platform listing ID from URL for deduplication.
     Standvirtual: /carros/brand/model/ID123456789.html
     OLX:          /d/anuncio/title-IDabcdef12345.html
+    CustoJusto:   /.../{numeric-id}.htm  or  /ad/{slug}/{id}
     """
     if not url:
         return None
@@ -56,6 +57,11 @@ def _extract_external_id(url: str) -> Optional[str]:
     m = re.search(r"-ID([A-Za-z0-9]{6,})(?:\.html)?$", url)
     if m:
         return f"olx_{m.group(1)}"
+    # CustoJusto: URLs end with /12345678.htm or similar numeric ID
+    if "custojusto" in url:
+        m = re.search(r"/(\d{5,})\.htm", url)
+        if m:
+            return f"cj_{m.group(1)}"
     # Fallback: hash of URL
     return f"url_{abs(hash(url)) % 10**10}"
 
@@ -67,6 +73,8 @@ def _detect_source(url: str) -> str:
         return "standvirtual"
     if "olx.pt" in url:
         return "olx"
+    if "custojusto" in url:
+        return "custojusto"
     return "other"
 
 
