@@ -206,6 +206,56 @@ def _insert_normalized(
     })
 
 
+def _record_batch_observation(
+    db: Session,
+    model_id: int,
+    generation_id: int,
+    listing: dict,
+    source: str,
+    url: str,
+) -> None:
+    """Record a batch-scraped listing as a price observation."""
+    price = listing.get("price")
+    if not price or price < 500 or price > 500_000:
+        return
+
+    domain = ""
+    if "standvirtual" in url:
+        domain = "standvirtual.com"
+    elif "olx.pt" in url:
+        domain = "olx.pt"
+    elif "custojusto" in url:
+        domain = "custojusto.pt"
+
+    try:
+        db.execute(text("""
+            INSERT INTO price_observations
+                (model_id, generation_id, vehicle_year, km, price, fuel_type,
+                 seller_type, source_type, source_domain, source_url,
+                 extraction_method, data_quality, observation_type, observed_at)
+            VALUES
+                (:model_id, :gen_id, :year, :km, :price, :fuel,
+                 :seller, 'marketplace', :domain, :url,
+                 'batch_scraper', NULL, 'batch', now())
+            ON CONFLICT (source_url) DO UPDATE SET
+                price       = EXCLUDED.price,
+                km          = COALESCE(EXCLUDED.km, price_observations.km),
+                observed_at = now()
+        """), {
+            "model_id": model_id,
+            "gen_id":   generation_id,
+            "year":     listing.get("year"),
+            "km":       listing.get("km"),
+            "price":    price,
+            "fuel":     _normalise_fuel(listing.get("fuel_type")),
+            "seller":   listing.get("seller_type", "desconhecido"),
+            "domain":   domain,
+            "url":      url,
+        })
+    except Exception as e:
+        logger.warning(f"Price observation insert error: {e}")
+
+
 async def _scrape_generation(
     brand: str,
     model: str,
@@ -320,6 +370,11 @@ def run_market_scraper(db: Session) -> dict:
 
                     _insert_normalized(
                         db, raw_id, model_id, gen_id, listing, avg_price
+                    )
+
+                    # Feed the price intelligence flywheel
+                    _record_batch_observation(
+                        db, model_id, gen_id, listing, lsource, url
                     )
                     stats["listings_new"] += 1
 

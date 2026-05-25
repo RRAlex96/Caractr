@@ -636,6 +636,100 @@ async def _fetch_live_market_data(
         return {}
 
 
+def _classify_source_type(source: str, domain: str) -> str:
+    """Classify a source into marketplace | dealer | private | unknown."""
+    if source in ("standvirtual", "olx"):
+        return "marketplace"
+    if source and source.startswith("dealer:"):
+        return "dealer"
+    # Known marketplace domains
+    _MARKETPLACES = {"custojusto.pt", "autoscout24.pt", "carsnow.pt"}
+    if domain in _MARKETPLACES:
+        return "marketplace"
+    # Known dealer aggregators
+    _DEALER_AGGS = {"autosapo.pt", "auto.sapo.pt", "carnext.pt", "flexicar.pt"}
+    if domain in _DEALER_AGGS:
+        return "dealer"
+    if domain:
+        return "dealer"  # any other website is likely a dealer
+    return "unknown"
+
+
+def _extract_domain(url: str) -> str:
+    """Extract clean domain from URL: 'https://www.soauto.pt/...' → 'soauto.pt'"""
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower().lstrip("www.")
+        return host
+    except Exception:
+        return ""
+
+
+def _record_price_observation(
+    db: Session,
+    model_id: Optional[int],
+    generation_id: Optional[int],
+    year: Optional[int],
+    km: Optional[int],
+    price: Optional[int],
+    fuel_type: Optional[str],
+    seller_type: str,
+    source_url: str,
+    source: str,
+    extraction_method: Optional[str],
+    data_quality_score: Optional[float],
+    observation_type: str = "user_analysis",
+) -> None:
+    """
+    Record a price observation from any source into the market intelligence table.
+    Every analysis — SV, OLX, dealer site, private — feeds the collective data.
+    Silently skips if price is missing or out of range.
+    """
+    if not price or price < 500 or price > 500_000:
+        return
+    if not source_url:
+        return
+
+    domain = _extract_domain(source_url)
+    source_type = _classify_source_type(source, domain)
+
+    try:
+        db.execute(text("""
+            INSERT INTO price_observations
+                (model_id, generation_id, vehicle_year, km, price, fuel_type,
+                 seller_type, source_type, source_domain, source_url,
+                 extraction_method, data_quality, observation_type, observed_at)
+            VALUES
+                (:model_id, :gen_id, :year, :km, :price, :fuel,
+                 :seller, :src_type, :domain, :url,
+                 :method, :quality, :obs_type, now())
+            ON CONFLICT (source_url) DO UPDATE SET
+                price           = EXCLUDED.price,
+                km              = COALESCE(EXCLUDED.km, price_observations.km),
+                data_quality    = EXCLUDED.data_quality,
+                extraction_method = EXCLUDED.extraction_method,
+                observed_at     = now()
+        """), {
+            "model_id": model_id,
+            "gen_id":   generation_id,
+            "year":     year,
+            "km":       km,
+            "price":    price,
+            "fuel":     fuel_type,
+            "seller":   seller_type or "desconhecido",
+            "src_type": source_type,
+            "domain":   domain,
+            "url":      source_url,
+            "method":   extraction_method,
+            "quality":  data_quality_score,
+            "obs_type": observation_type,
+        })
+        db.commit()
+    except Exception as e:
+        print(f"[PRICE_OBS] Insert error: {e}")
+        db.rollback()
+
+
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     """Try to resolve model_id from a listing URL already in the DB."""
     row = db.execute(text("""
@@ -929,6 +1023,25 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     from app.scrapers.normalizer import _compute_km_per_year
     km_per_year = _compute_km_per_year(km, year)
+
+    # ── Record price observation (market intelligence flywheel) ──
+    # Every analysis from any source feeds the collective pricing data.
+    _quality_score = (_data_quality or {}).get("score") if _data_quality else None
+    _record_price_observation(
+        db,
+        model_id=model_id,
+        generation_id=None,  # resolved later during aggregation
+        year=year,
+        km=km,
+        price=price,
+        fuel_type=fuel_type,
+        seller_type=detail.get("seller_type", "desconhecido"),
+        source_url=listing_url,
+        source=source,
+        extraction_method=_extraction_method,
+        data_quality_score=_quality_score,
+        observation_type="user_analysis",
+    )
 
     return {
         "id":            norm_id,

@@ -273,4 +273,59 @@ def scraper_health(
             "with_year": analysis_stats["with_year"],
             "with_model_id": analysis_stats["with_model_id"],
         },
+        "price_observations": _get_price_obs_stats(db),
     }
+
+
+def _get_price_obs_stats(db: Session) -> dict:
+    """Price observation diversity and volume stats. Fails gracefully if table doesn't exist yet."""
+    try:
+        source_dist = db.execute(text("""
+            SELECT
+                source_domain,
+                source_type,
+                observation_type,
+                COUNT(*) AS count,
+                AVG(data_quality) AS avg_quality,
+                MAX(observed_at) AS latest
+            FROM price_observations
+            GROUP BY source_domain, source_type, observation_type
+            ORDER BY count DESC
+            LIMIT 20
+        """)).mappings().fetchall()
+
+        totals = db.execute(text("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(DISTINCT source_domain) AS unique_domains,
+                COUNT(DISTINCT model_id) AS unique_models,
+                COUNT(*) FILTER (WHERE observation_type = 'batch') AS batch_count,
+                COUNT(*) FILTER (WHERE observation_type = 'user_analysis') AS user_count,
+                COUNT(*) FILTER (WHERE observed_at > NOW() - INTERVAL '7 days') AS last_7d,
+                COUNT(*) FILTER (WHERE observed_at > NOW() - INTERVAL '30 days') AS last_30d
+            FROM price_observations
+        """)).mappings().fetchone()
+
+        return {
+            "total": totals["total"],
+            "unique_domains": totals["unique_domains"],
+            "unique_models": totals["unique_models"],
+            "batch_count": totals["batch_count"],
+            "user_analysis_count": totals["user_count"],
+            "last_7d": totals["last_7d"],
+            "last_30d": totals["last_30d"],
+            "by_source": [
+                {
+                    "domain": r["source_domain"],
+                    "type": r["source_type"],
+                    "obs_type": r["observation_type"],
+                    "count": r["count"],
+                    "avg_quality": round(float(r["avg_quality"]), 2) if r["avg_quality"] else None,
+                    "latest": str(r["latest"]) if r["latest"] else None,
+                }
+                for r in source_dist
+            ],
+        }
+    except Exception:
+        # Table doesn't exist yet — migration not run
+        return {"status": "migration_pending"}
