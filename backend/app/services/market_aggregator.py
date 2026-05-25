@@ -1,9 +1,12 @@
 """
-Market Aggregator — computes p10/p50/p90 + MAD from normalized_listings.
+Market Aggregator — computes p10/p50/p90 + MAD from price observations.
 
-Run after market_scraper_runner to turn raw listings into price statistics.
+Primary source: price_observations table (multi-source, richer data).
+Fallback: normalized_listings for generations not covered by observations.
 
-For each (generation_id, seller_type, vehicle_year) group with >= 3 listings:
+Run after market_scraper_runner to turn raw data into price statistics.
+
+For each (generation_id, price_context, vehicle_year) group with >= 3 data points:
   - Computes p10, p50, p90, mean, MAD (Median Absolute Deviation)
   - Writes snapshot to market_price_stats_history
   - Denormalises latest p50 + band to generations table
@@ -13,6 +16,7 @@ MAD-based anomaly detection:
   |z_mad| > 3.5 → flag as outlier (excluded from statistics but kept in DB)
 """
 
+import json
 import logging
 from datetime import date
 from typing import Optional
@@ -30,6 +34,20 @@ logger = logging.getLogger(__name__)
 
 MIN_SAMPLE_SIZE = 3    # minimum listings for a statistics row
 MAD_OUTLIER_Z   = 3.5  # z-score threshold for MAD outlier removal
+
+# Map seller_type → price_context (the CHECK constraint on market_price_stats_history)
+_SELLER_TO_CONTEXT = {
+    "particular": "particular",
+    "privado":    "particular",
+    "stand":      "stand",
+    "profissional": "stand",
+    "importacao": "importacao",
+}
+
+
+def _map_price_context(seller_type: str) -> str:
+    """Map a raw seller_type to a valid price_context enum value."""
+    return _SELLER_TO_CONTEXT.get((seller_type or "").lower(), "todos")
 
 
 def _percentile(values: list[float], p: float) -> int:
@@ -105,15 +123,47 @@ def _compute_stats(prices: list[float]) -> Optional[dict]:
 
 def run_aggregation(db: Session) -> dict:
     """
-    Aggregate normalized_listings into market_price_stats_history.
+    Aggregate price data into market_price_stats_history.
+
+    Data sources (merged, deduplicated by source_url):
+      1. price_observations — primary, multi-source (SV + OLX + CJ + dealer + user analyses)
+      2. normalized_listings — fallback for generations not covered by observations
+
     Denormalises latest p50 + band to generations table.
     Returns stats dict.
     """
-    stats = {"groups_processed": 0, "groups_skipped": 0, "generations_updated": 0, "errors": 0}
+    stats = {
+        "groups_processed": 0, "groups_skipped": 0,
+        "generations_updated": 0, "errors": 0,
+        "observations_used": 0, "normalized_fallback_used": 0,
+        "source_domains": [],
+    }
     observed_month = date.today().replace(day=1)
 
-    # Load all normalized listings that have price + generation_id
-    rows = db.execute(text("""
+    # ── 1. Load price observations (primary, multi-source) ─────────────────
+    # Structure: (generation_id, vehicle_year, seller_type, price, source_domain)
+    po_rows = []
+    try:
+        po_rows = db.execute(text("""
+            SELECT
+                generation_id,
+                vehicle_year,
+                seller_type,
+                price,
+                source_domain
+            FROM price_observations
+            WHERE price IS NOT NULL
+              AND price BETWEEN 500 AND 500000
+              AND generation_id IS NOT NULL
+            ORDER BY generation_id, vehicle_year
+        """)).fetchall()
+        stats["observations_used"] = len(po_rows)
+    except Exception as e:
+        logger.warning(f"price_observations query failed (table may not exist): {e}")
+        db.rollback()
+
+    # ── 2. Load normalized_listings as fallback ────────────────────────────
+    nl_rows = db.execute(text("""
         SELECT
             nl.generation_id,
             nl.year,
@@ -123,22 +173,63 @@ def run_aggregation(db: Session) -> dict:
         WHERE nl.price IS NOT NULL
           AND nl.price BETWEEN 500 AND 500000
           AND nl.generation_id IS NOT NULL
-        ORDER BY nl.generation_id, nl.seller_type, nl.year
+        ORDER BY nl.generation_id, nl.year
     """)).fetchall()
 
-    # Group by (generation_id, seller_type, year)
+    # ── 3. Group by (generation_id, price_context, year) ──────────────────
+    # Track sources per group for provenance
     groups: dict[tuple, list[float]] = {}
-    for r in rows:
-        key = (r[0], r[2] or "desconhecido", r[1] or 0)
-        groups.setdefault(key, []).append(float(r[3]))
+    group_sources: dict[tuple, set[str]] = {}
+    covered_generations: set[int] = set()
 
-    # Also group by (generation_id, seller_type) ignoring year — for sparse data
-    gen_seller_groups: dict[tuple, list[float]] = {}
-    for (gen_id, seller, year), prices in groups.items():
-        gkey = (gen_id, seller)
-        gen_seller_groups.setdefault(gkey, []).extend(prices)
+    # Primary: price_observations
+    for r in po_rows:
+        gen_id = r[0]
+        year = r[1] or 0
+        ctx = _map_price_context(r[2])
+        price = float(r[3])
+        domain = r[4] or "unknown"
 
-    # Clear existing rows for this month before re-inserting (NULL engine_id prevents ON CONFLICT)
+        key = (gen_id, ctx, year)
+        groups.setdefault(key, []).append(price)
+        group_sources.setdefault(key, set()).add(domain)
+        covered_generations.add(gen_id)
+
+        # Also add to the "todos" context for combined stats
+        if ctx != "todos":
+            todos_key = (gen_id, "todos", year)
+            groups.setdefault(todos_key, []).append(price)
+            group_sources.setdefault(todos_key, set()).add(domain)
+
+    # Fallback: normalized_listings for generations NOT in price_observations
+    fallback_count = 0
+    for r in nl_rows:
+        gen_id = r[0]
+        if gen_id in covered_generations:
+            continue  # already have richer data from observations
+        year = r[1] or 0
+        ctx = _map_price_context(r[2])
+        price = float(r[3])
+
+        key = (gen_id, ctx, year)
+        groups.setdefault(key, []).append(price)
+        group_sources.setdefault(key, set()).add("normalized_listings")
+        fallback_count += 1
+
+        if ctx != "todos":
+            todos_key = (gen_id, "todos", year)
+            groups.setdefault(todos_key, []).append(price)
+            group_sources.setdefault(todos_key, set()).add("normalized_listings")
+
+    stats["normalized_fallback_used"] = fallback_count
+
+    # Track all unique source domains across the aggregation
+    all_domains: set[str] = set()
+    for sources in group_sources.values():
+        all_domains.update(sources)
+    stats["source_domains"] = sorted(all_domains)
+
+    # ── 4. Clear existing rows for this month before re-inserting ──────────
     try:
         db.execute(text("""
             DELETE FROM market_price_stats_history
@@ -149,8 +240,8 @@ def run_aggregation(db: Session) -> dict:
         logger.error(f"Pre-delete error: {e}")
         db.rollback()
 
-    # Write per-year rows
-    for (gen_id, seller_type, year), prices in groups.items():
+    # ── 5. Write per-(generation, context, year) stats ────────────────────
+    for (gen_id, price_context, year), prices in groups.items():
         if year == 0:
             continue
         result = _compute_stats(prices)
@@ -158,6 +249,7 @@ def run_aggregation(db: Session) -> dict:
             stats["groups_skipped"] += 1
             continue
         try:
+            sources_list = sorted(group_sources.get((gen_id, price_context, year), set()))
             db.execute(text("""
                 INSERT INTO market_price_stats_history
                     (generation_id, price_context, vehicle_year, observed_month,
@@ -166,27 +258,28 @@ def run_aggregation(db: Session) -> dict:
                 VALUES
                     (:gen_id, :ctx, :year, :month,
                      :p10, :p50, :p90, :mean, :n,
-                     :mad, '["standvirtual"]'::jsonb)
+                     :mad, :sources::jsonb)
             """), {
-                "gen_id": gen_id,
-                "ctx":    seller_type,
-                "year":   year,
-                "month":  observed_month,
-                "p10":    result["p10"],
-                "p50":    result["p50"],
-                "p90":    result["p90"],
-                "mean":   result["mean"],
-                "n":      result["n"],
-                "mad":    result["mad"],
+                "gen_id":  gen_id,
+                "ctx":     price_context,
+                "year":    year,
+                "month":   observed_month,
+                "p10":     result["p10"],
+                "p50":     result["p50"],
+                "p90":     result["p90"],
+                "mean":    result["mean"],
+                "n":       result["n"],
+                "mad":     result["mad"],
+                "sources": json.dumps(sources_list),
             })
             stats["groups_processed"] += 1
         except Exception as e:
-            logger.error(f"History insert error gen={gen_id} {seller_type} {year}: {e}")
+            logger.error(f"History insert error gen={gen_id} {price_context} {year}: {e}")
             stats["errors"] += 1
 
     db.commit()
 
-    # Denormalise: update generations table with median p50 + band across all contexts
+    # ── 6. Denormalise: update generations with median p50 + band ─────────
     try:
         db.execute(text("""
             UPDATE generations g
@@ -224,8 +317,76 @@ def run_aggregation(db: Session) -> dict:
         db.rollback()
         stats["errors"] += 1
 
+    # ── 7. Refresh market_price_stats from price_observations ───────────────
+    # The ad_analysis_service reads market_price_stats for price deltas.
+    # This keeps it in sync with the multi-source price_observations flywheel.
+    try:
+        mps_result = _refresh_market_price_stats(db)
+        stats["market_price_stats_refreshed"] = mps_result
+    except Exception as e:
+        logger.error(f"market_price_stats refresh error: {e}")
+        stats["market_price_stats_refreshed"] = {"error": str(e)}
+
     logger.info(f"Market aggregation complete: {stats}")
     return stats
+
+
+def _refresh_market_price_stats(db: Session) -> dict:
+    """
+    Upsert market_price_stats from price_observations aggregated by (model_id, year).
+    Only updates rows where we have >= MIN_SAMPLE_SIZE observations.
+    This keeps the analysis pipeline's price reference fresh.
+    """
+    upserted = 0
+    try:
+        rows = db.execute(text("""
+            SELECT
+                model_id,
+                vehicle_year,
+                COUNT(*) AS cnt,
+                AVG(price)::INTEGER AS avg_price,
+                MIN(price) AS min_price,
+                MAX(price) AS max_price
+            FROM price_observations
+            WHERE model_id IS NOT NULL
+              AND price BETWEEN 500 AND 500000
+            GROUP BY model_id, vehicle_year
+            HAVING COUNT(*) >= :min_n
+        """), {"min_n": MIN_SAMPLE_SIZE}).fetchall()
+
+        for r in rows:
+            model_id, year, cnt, avg_p, min_p, max_p = r
+            db.execute(text("""
+                INSERT INTO market_price_stats
+                    (model_id, year, avg_price, min_price, max_price,
+                     sample_count, source, updated_at)
+                VALUES
+                    (:model_id, :year, :avg, :mn, :mx,
+                     :cnt, 'aggregated', NOW())
+                ON CONFLICT (model_id, year) DO UPDATE SET
+                    avg_price    = EXCLUDED.avg_price,
+                    min_price    = EXCLUDED.min_price,
+                    max_price    = EXCLUDED.max_price,
+                    sample_count = EXCLUDED.sample_count,
+                    source       = 'aggregated',
+                    updated_at   = NOW()
+            """), {
+                "model_id": model_id,
+                "year":     year,
+                "avg":      avg_p,
+                "mn":       min_p,
+                "mx":       max_p,
+                "cnt":      cnt,
+            })
+            upserted += 1
+
+        db.commit()
+    except Exception as e:
+        logger.warning(f"market_price_stats refresh failed: {e}")
+        db.rollback()
+        return {"error": str(e)}
+
+    return {"upserted": upserted}
 
 
 def get_price_band_for_listing(
