@@ -124,6 +124,10 @@ def _run_market_refresh_sync() -> None:
         agg_result = run_aggregation(db)
         print(f"[SCHEDULER] Aggregation: {agg_result}")
 
+        from app.services.depreciation import run_depreciation_curves
+        dep_result = run_depreciation_curves(db)
+        print(f"[SCHEDULER] Depreciation: {dep_result}")
+
     except Exception as e:
         print(f"[SCHEDULER] Market refresh error: {e}")
         db.rollback()
@@ -375,8 +379,15 @@ def _run_startup_migrations() -> None:
             CREATE INDEX IF NOT EXISTS idx_po_source_domain
                 ON price_observations(source_domain, observed_at DESC)
         """))
+        # v54: depreciation columns on generations
+        db.execute(text("""
+            ALTER TABLE generations
+                ADD COLUMN IF NOT EXISTS depreciation_pct_year  NUMERIC(5,4),
+                ADD COLUMN IF NOT EXISTS depreciation_curve     JSONB NOT NULL DEFAULT '[]'::jsonb,
+                ADD COLUMN IF NOT EXISTS depreciation_as_of     DATE
+        """))
         db.commit()
-        print("[STARTUP] Migrations OK (price_observations)")
+        print("[STARTUP] Migrations OK (price_observations + depreciation)")
     except Exception as e:
         print(f"[STARTUP] Migration error: {e}")
         db.rollback()

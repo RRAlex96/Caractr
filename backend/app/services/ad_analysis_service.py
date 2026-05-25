@@ -389,12 +389,12 @@ def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
 
 def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tuple]:
     """
-    Return (year_start, year_end) for the generation that contains `year`.
+    Return (year_start, year_end, generation_id) for the generation that contains `year`.
     year_end may be NULL (current gen) — treated as present year.
     Returns None if no generation record found.
     """
     row = db.execute(text("""
-        SELECT year_start, year_end
+        SELECT id, year_start, year_end
         FROM generations
         WHERE model_id = :model_id
           AND year_start <= :year
@@ -404,7 +404,7 @@ def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tu
     """), {"model_id": model_id, "year": year}).mappings().fetchone()
 
     if row:
-        return (row["year_start"], row["year_end"])
+        return (row["year_start"], row["year_end"], row["id"])
     return None
 
 
@@ -1205,12 +1205,13 @@ async def _analyse_listing_inner(
     # Resolve generation boundaries for like-for-like comparison
     gen_year_start: Optional[int] = None
     gen_year_end:   Optional[int] = None
+    generation_id:  Optional[int] = None
     if model_id and year:
         gen_window = _get_generation_window(db, model_id, year)
         if gen_window:
-            gen_year_start, gen_year_end = gen_window
+            gen_year_start, gen_year_end, generation_id = gen_window
             print(f"[ANALYSIS] Generation window: {gen_year_start}–{gen_year_end or 'now'} "
-                  f"for {brand_name} {model_name} ({year})")
+                  f"(gen_id={generation_id}) for {brand_name} {model_name} ({year})")
         else:
             print(f"[ANALYSIS] No generation record for {brand_name} {model_name} {year} — using ±3 fallback")
 
@@ -1323,12 +1324,26 @@ async def _analyse_listing_inner(
         except Exception as e:
             print(f"[AD_ANALYSIS] Cache store error: {e}")
 
+    # ── 6. Depreciation data ──
+    depreciation_data = None
+    if generation_id:
+        try:
+            from app.services.depreciation import get_depreciation_for_generation, estimate_future_value
+            depreciation_data = get_depreciation_for_generation(db, generation_id)
+            if depreciation_data and price:
+                depreciation_data["future_value"] = estimate_future_value(
+                    price, depreciation_data["annual_pct"], years=3
+                )
+        except Exception as e:
+            print(f"[AD_ANALYSIS] Depreciation lookup error: {e}")
+
     return _build_response(
         normalized, llm_result, from_cache=False, market_stats=market_stats,
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
         fit=fit_result, model_info=model_info, enrichment=enrichment,
         js_limited=normalized.get("_js_limited", False),
         pw_debug=normalized.get("_pw_debug"),
+        depreciation=depreciation_data,
     )
 
 
@@ -1433,6 +1448,7 @@ def _build_response(
     enrichment: Optional[dict] = None,
     js_limited: bool = False,
     pw_debug: Optional[str] = None,
+    depreciation: Optional[dict] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -1509,6 +1525,7 @@ def _build_response(
             "ci_high":      (model_info or {}).get("bayesian_reliability_ci_high"),
             "data_quality": (model_info or {}).get("bayesian_reliability_quality"),
         } if model_info and model_info.get("bayesian_reliability_score") else None,
+        "depreciation": depreciation,
     }
 
 

@@ -146,12 +146,14 @@ async def trigger_market_refresh(
     import asyncio
     from app.services.market_scraper_runner import run_market_scraper
     from app.services.market_aggregator import run_aggregation
+    from app.services.depreciation import run_depreciation_curves
 
     scrape_result = await asyncio.get_event_loop().run_in_executor(
         None, run_market_scraper, db
     )
     agg_result = run_aggregation(db)
-    return {"scrape": scrape_result, "aggregation": agg_result}
+    dep_result = run_depreciation_curves(db)
+    return {"scrape": scrape_result, "aggregation": agg_result, "depreciation": dep_result}
 
 
 @router.post("/admin/refresh-reliability")
