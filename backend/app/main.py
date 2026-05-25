@@ -338,10 +338,59 @@ def _ensure_playwright_browsers() -> None:
 
 # ── App setup ──────────────────────────────────────────────────────────────────
 
+def _run_startup_migrations() -> None:
+    """Idempotent schema migrations that run on every deploy."""
+    db = SessionLocal()
+    try:
+        from sqlalchemy import text
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS price_observations (
+                id                SERIAL PRIMARY KEY,
+                model_id          INTEGER REFERENCES vehicle_models(id),
+                generation_id     INTEGER REFERENCES generations(id),
+                vehicle_year      INTEGER,
+                km                INTEGER,
+                price             INTEGER NOT NULL CHECK (price BETWEEN 500 AND 500000),
+                fuel_type         VARCHAR(30),
+                seller_type       VARCHAR(20) DEFAULT 'desconhecido',
+                source_type       VARCHAR(20) NOT NULL,
+                source_domain     VARCHAR(100),
+                source_url        TEXT,
+                extraction_method VARCHAR(30),
+                data_quality      REAL CHECK (data_quality BETWEEN 0 AND 1),
+                observation_type  VARCHAR(20) NOT NULL DEFAULT 'user_analysis',
+                observed_at       TIMESTAMPTZ DEFAULT now(),
+                UNIQUE (source_url)
+            )
+        """))
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_po_model_year
+                ON price_observations(model_id, vehicle_year)
+        """))
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_po_observed
+                ON price_observations(observed_at DESC)
+        """))
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_po_source_domain
+                ON price_observations(source_domain, observed_at DESC)
+        """))
+        db.commit()
+        print("[STARTUP] Migrations OK (price_observations)")
+    except Exception as e:
+        print(f"[STARTUP] Migration error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Bootstrap Playwright browsers before starting background tasks
+    # Run idempotent schema migrations
     loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _run_startup_migrations)
+
+    # Bootstrap Playwright browsers before starting background tasks
     await loop.run_in_executor(None, _ensure_playwright_browsers)
 
     # LLM selftest removed from startup to conserve API quota.
