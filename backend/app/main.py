@@ -386,8 +386,13 @@ def _run_startup_migrations() -> None:
                 ADD COLUMN IF NOT EXISTS depreciation_curve     JSONB NOT NULL DEFAULT '[]'::jsonb,
                 ADD COLUMN IF NOT EXISTS depreciation_as_of     DATE
         """))
+        # v55: admin_notes for concierge pipeline (internal operator field)
+        db.execute(text("""
+            ALTER TABLE concierge_requests
+                ADD COLUMN IF NOT EXISTS admin_notes TEXT
+        """))
         db.commit()
-        print("[STARTUP] Migrations OK (price_observations + depreciation)")
+        print("[STARTUP] Migrations OK (price_observations + depreciation + admin_notes)")
     except Exception as e:
         print(f"[STARTUP] Migration error: {e}")
         db.rollback()
