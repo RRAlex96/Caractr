@@ -1,97 +1,192 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-@theme {
-  --color-bg: #F7F4EF;
-  --color-bg-dark: #0D0C0A;
-  --color-surface: #EDEBE6;
-  --color-border: #DEDAD3;
-  --color-fg: #141210;
-  --color-fg-inv: #F2EFE9;
-  --color-muted: #9A9590;
-  --color-accent: #C8A882;
-  --color-accent-dark: #8C6A40;
-}
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════
+   CARACTR — Bold Automotive Dark Theme
+   Dark-first palette with gold accent (#C8A882)
+   ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #F7F4EF;
-  --bg-dark: #0D0C0A;
-  --surface: #EDEBE6;
-  --border: #DEDAD3;
-  --fg: #141210;
-  --fg-inv: #F2EFE9;
-  --muted: #9A9590;
-  --accent: #C8A882;
-  --accent-dark: #8C6A40;
+  /* ── Caractr brand tokens ── */
   --font-display: 'Syne', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'Space Mono', monospace;
+
+  /* ── shadcn/ui semantic tokens (dark-first) ── */
+  --background: #09090B;
+  --foreground: #FAFAF9;
+  --card: #131316;
+  --card-foreground: #FAFAF9;
+  --popover: #131316;
+  --popover-foreground: #FAFAF9;
+  --primary: #C8A882;
+  --primary-foreground: #09090B;
+  --secondary: #1A1A1F;
+  --secondary-foreground: #FAFAF9;
+  --muted: #1A1A1F;
+  --muted-foreground: #A1A1AA;
+  --accent: #1A1A1F;
+  --accent-foreground: #FAFAF9;
+  --destructive: #EF4444;
+  --border: #27272A;
+  --input: #27272A;
+  --ring: #C8A882;
+
+  /* ── Chart colors ── */
+  --chart-1: #C8A882;
+  --chart-2: #22C55E;
+  --chart-3: #3B82F6;
+  --chart-4: #F59E0B;
+  --chart-5: #EF4444;
+
+  --radius: 0.75rem;
+
+  /* ── Caractr extended palette ── */
+  --caractr-gold: #C8A882;
+  --caractr-gold-dark: #A68B5B;
+  --caractr-gold-glow: rgba(200, 168, 130, 0.15);
+  --caractr-gold-muted: rgba(200, 168, 130, 0.4);
+  --caractr-surface: #131316;
+  --caractr-surface-alt: #1A1A1F;
+  --caractr-border-light: #3F3F46;
+  --caractr-success: #22C55E;
+  --caractr-warning: #F59E0B;
+  --caractr-danger: #EF4444;
+  --caractr-info: #3B82F6;
+
+  /* ── Sidebar (not used yet but required by shadcn) ── */
+  --sidebar: #131316;
+  --sidebar-foreground: #FAFAF9;
+  --sidebar-primary: #C8A882;
+  --sidebar-primary-foreground: #09090B;
+  --sidebar-accent: #1A1A1F;
+  --sidebar-accent-foreground: #FAFAF9;
+  --sidebar-border: #27272A;
+  --sidebar-ring: #C8A882;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+@theme inline {
+  --font-heading: var(--font-display);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 
-html { scroll-behavior: smooth; }
-
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-body);
-  font-weight: 400;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  /* ── Caractr custom colors for Tailwind ── */
+  --color-gold: var(--caractr-gold);
+  --color-gold-dark: var(--caractr-gold-dark);
+  --color-gold-glow: var(--caractr-gold-glow);
+  --color-gold-muted: var(--caractr-gold-muted);
+  --color-surface: var(--caractr-surface);
+  --color-surface-alt: var(--caractr-surface-alt);
+  --color-success: var(--caractr-success);
+  --color-warning: var(--caractr-warning);
+  --color-danger: var(--caractr-danger);
+  --color-info: var(--caractr-info);
 }
 
-a { color: inherit; text-decoration: none; }
+/* ═══════════════════════════════════════════════════════════
+   BASE STYLES
+   ═══════════════════════════════════════════════════════════ */
 
-::selection {
-  background: rgba(200, 168, 130, 0.3);
-  color: var(--fg);
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth font-sans antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground overflow-x-hidden;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  ::selection {
+    background: var(--caractr-gold-glow);
+    color: var(--foreground);
+  }
 }
 
-::-webkit-scrollbar { width: 2px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════ */
 
-/* Range slider */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 2px;
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 1px;
-  outline: none;
-  width: 100%;
+  border-radius: 2px;
 }
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--fg);
-  cursor: pointer;
-  border: 3px solid var(--bg);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--fg);
-  cursor: pointer;
-  border: 3px solid var(--bg);
+::-webkit-scrollbar-thumb:hover {
+  background: var(--caractr-gold-muted);
 }
 
-/* ── Animations ── */
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-@keyframes revealClip {
-  from { clip-path: inset(0 100% 0 0); }
-  to   { clip-path: inset(0 0% 0 0); }
+
+@keyframes pulse-gold {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-fadeUp    { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
@@ -99,168 +194,34 @@ input[type="range"]::-moz-range-thumb {
 .animate-fadeUp-d2 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.30s forwards; opacity: 0; }
 .animate-fadeUp-d3 { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.50s forwards; opacity: 0; }
 .animate-fadeIn    { animation: fadeIn 0.6s ease 0.1s forwards; opacity: 0; }
-.animate-revealClip { animation: revealClip 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; clip-path: inset(0 100% 0 0); }
+.animate-pulse-gold { animation: pulse-gold 2s ease-in-out infinite; }
 
-/* ── Pill buttons (light bg) ── */
-.pill-btn {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--fg);
-  background: transparent;
-  border: 1px solid var(--fg);
-  border-radius: 100px;
-  padding: 12px 32px;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
-  display: inline-block;
-  text-decoration: none;
-  text-align: center;
-}
-.pill-btn:hover {
-  background: var(--fg);
-  color: var(--bg);
+/* ═══════════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
+
+/* ═══════════════════════════════════════════════════════════
+   GOLD GLOW EFFECTS
+   ═══════════════════════════════════════════════════════════ */
+
+.gold-glow {
+  box-shadow: 0 0 20px var(--caractr-gold-glow),
+              0 0 60px rgba(200, 168, 130, 0.05);
 }
 
-/* Pill button on dark bg */
-.pill-btn-inv {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--fg-inv);
-  background: transparent;
-  border: 1px solid rgba(242, 239, 233, 0.4);
-  border-radius: 100px;
-  padding: 12px 32px;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  display: inline-block;
-  text-decoration: none;
-  text-align: center;
-}
-.pill-btn-inv:hover {
-  background: var(--fg-inv);
-  color: var(--bg-dark);
-  border-color: var(--fg-inv);
+.gold-border-glow {
+  border-color: var(--caractr-gold);
+  box-shadow: 0 0 12px var(--caractr-gold-glow);
 }
 
-/* Filled pill (accent) */
-.pill-btn-solid {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--bg);
-  background: var(--fg);
-  border: 1px solid var(--fg);
-  border-radius: 100px;
-  padding: 14px 40px;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  display: inline-block;
-  text-decoration: none;
-  text-align: center;
-}
-.pill-btn-solid:hover {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
-  color: #fff;
-}
+/* ═══════════════════════════════════════════════════════════
+   TIER COLORS (deal verdicts)
+   ═══════════════════════════════════════════════════════════ */
 
-/* Accent-filled pill — same size as pill-btn, gold fill */
-.pill-btn-accent {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--bg-dark);
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 100px;
-  padding: 12px 32px;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  display: inline-block;
-  text-decoration: none;
-  text-align: center;
-}
-.pill-btn-accent:hover {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
-  color: var(--fg-inv);
-}
-
-/* Ghost pill (muted border) */
-.pill-btn-ghost {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  padding: 12px 32px;
-  cursor: pointer;
-  transition: border-color 0.25s ease, color 0.25s ease;
-  display: inline-block;
-  text-decoration: none;
-  text-align: center;
-}
-.pill-btn-ghost:hover {
-  border-color: var(--fg);
-  color: var(--fg);
-}
-
-/* ── Sticky nav ── */
-.sticky-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 90;
-  padding: 16px clamp(32px, 5vw, 80px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(247, 244, 239, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
-  transform: translateY(-100%);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease,
-              background-color 0.25s ease, border-color 0.25s ease;
-  opacity: 0;
-}
-.sticky-nav.is-visible {
-  transform: translateY(0);
-  opacity: 1;
-}
-.sticky-nav.nav-dark {
-  background: rgba(13, 12, 10, 0.88);
-  border-bottom-color: rgba(242, 239, 233, 0.07);
-}
-
-/* ── Mobile responsive ── */
-@media (max-width: 768px) {
-  .hero-grid {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 35vh 1fr !important;
-  }
-  .hero-image-col {
-    order: -1 !important;
-    grid-column: 1 !important;
-  }
-  .hero-text-col {
-    grid-column: 1 !important;
-    padding-bottom: 40px !important;
-  }
-  .process-cols {
-    grid-template-columns: 1fr !important;
-    gap: 32px !important;
-  }
-  .pill-btn, .pill-btn-inv, .pill-btn-solid {
-    padding: 14px 28px;
-  }
-}
+.tier-forte    { --tier-color: #22C55E; --tier-bg: rgba(34, 197, 94, 0.10);  border-color: rgba(34, 197, 94, 0.25);  background: var(--tier-bg); }
+.tier-razoavel { --tier-color: #C8A882; --tier-bg: rgba(200, 168, 130, 0.10); border-color: rgba(200, 168, 130, 0.25); background: var(--tier-bg); }
+.tier-cuidado  { --tier-color: #F59E0B; --tier-bg: rgba(245, 158, 11, 0.10);  border-color: rgba(245, 158, 11, 0.25);  background: var(--tier-bg); }
+.tier-evitar   { --tier-color: #EF4444; --tier-bg: rgba(239, 68, 68, 0.10);   border-color: rgba(239, 68, 68, 0.25);   background: var(--tier-bg); }

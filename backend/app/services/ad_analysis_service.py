@@ -1176,6 +1176,7 @@ async def _analyse_listing_inner(
             enrichment=cached_enrichment or None,
             model_info=cached_model_info or None,
             market_stats=cached_market or None,
+            analysis_id=cached.get("id"),
         )
 
     # ── 2. Resolve or scrape listing ──
@@ -1344,6 +1345,7 @@ async def _analyse_listing_inner(
         js_limited=normalized.get("_js_limited", False),
         pw_debug=normalized.get("_pw_debug"),
         depreciation=depreciation_data,
+        analysis_id=normalized.get("id"),
     )
 
 
@@ -1449,16 +1451,19 @@ def _build_response(
     js_limited: bool = False,
     pw_debug: Optional[str] = None,
     depreciation: Optional[dict] = None,
+    analysis_id: Optional[int] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
     price_delta = listing.get("price_delta", 0.0) or 0.0
 
     return {
+        "analysis_id": analysis_id,
         "from_cache": from_cache,
         "source": listing.get("source") or detect_source(listing.get("source_url", "")) or "generic",
         "source_label": source_label(listing.get("source") or detect_source(listing.get("source_url", "")) or "generic"),
         "source_domain": listing.get("source_domain", ""),
+        "source_url": listing.get("source_url", ""),
         "listing": {
             "brand_name": listing.get("brand_name"),
             "model_name": listing.get("model_name"),

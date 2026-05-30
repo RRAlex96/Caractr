@@ -1,267 +1,219 @@
-"use client";
+"use client"
 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { submitConcierge } from "@/lib/api"
+import type { ProfileNarrative } from "@/lib/types"
 
 const FEEDBACK_TAGS = [
-  { id: "wrong_brand",      label: "Não me identifico com a marca" },
-  { id: "want_sportier",    label: "Quero algo mais desportivo" },
-  { id: "want_comfort",     label: "Quero mais conforto" },
-  { id: "want_practical",   label: "Quero algo mais prático" },
-  { id: "budget_off",       label: "Orçamento não está certo" },
-  { id: "want_premium",     label: "Quero algo mais premium" },
-  { id: "want_discreet",    label: "Quero algo mais discreto" },
-  { id: "want_bigger",      label: "Preciso de mais espaço" },
-];
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "14px 18px",
-  borderRadius: "10px",
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--fg)",
-  fontSize: "14px",
-  fontWeight: 300,
-  fontFamily: "var(--font-body)",
-  outline: "none",
-  transition: "border-color 0.2s ease",
-  boxSizing: "border-box",
-};
+  { id: "wrong_brand", label: "Nao me identifico com a marca" },
+  { id: "want_sportier", label: "Quero algo mais desportivo" },
+  { id: "want_comfort", label: "Quero mais conforto" },
+  { id: "want_practical", label: "Quero algo mais pratico" },
+  { id: "budget_off", label: "Orcamento nao esta certo" },
+  { id: "want_premium", label: "Quero algo mais premium" },
+  { id: "want_discreet", label: "Quero algo mais discreto" },
+  { id: "want_bigger", label: "Preciso de mais espaco" },
+]
 
 function ConciergeContent() {
-  const searchParams   = useSearchParams();
-  const sessionId      = searchParams.get("session")         || "";
-  const modelFromUrl   = searchParams.get("model")           || "";
-  const modelsFromUrl  = searchParams.get("models")          || ""; // comma-separated
-  const modelIdParam   = searchParams.get("model_id")        || "";
-  const modelIdsParam  = searchParams.get("model_ids")       || ""; // comma-separated
-  const listingUrl     = searchParams.get("listing_url")     || "";
-  const listingVerdict = searchParams.get("listing_verdict") || "";
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get("session") || ""
+  const modelFromUrl = searchParams.get("model") || ""
+  const modelsFromUrl = searchParams.get("models") || ""
+  const modelIdsParam = searchParams.get("model_ids") || ""
+  const listingUrl = searchParams.get("listing_url") || ""
+  const listingVerdict = searchParams.get("listing_verdict") || ""
 
-  const [name,              setName]              = useState("");
-  const [email,             setEmail]             = useState("");
-  const [modelInterest,     setModelInterest]     = useState("");
-  const [budgetMax,         setBudgetMax]         = useState("");
-  const [selectedTags,      setSelectedTags]      = useState<string[]>([]);
-  const [consentCaractr,    setConsentCaractr]    = useState(false);
-  const [consentDealer,     setConsentDealer]     = useState(false);
-  const [sending,           setSending]           = useState(false);
-  const [submitted,         setSubmitted]         = useState(false);
-  const [error,             setError]             = useState("");
-  const [profileNarrative,  setProfileNarrative]  = useState<any>(null);
-  const [listingModel,      setListingModel]      = useState("");
-  const [interestedModels,  setInterestedModels]  = useState<string[]>([]);
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [modelInterest, setModelInterest] = useState("")
+  const [budgetMax, setBudgetMax] = useState("")
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [consentCaractr, setConsentCaractr] = useState(false)
+  const [consentDealer, setConsentDealer] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState("")
+  const [profileNarrative, setProfileNarrative] = useState<ProfileNarrative | null>(null)
+  const [listingModel, setListingModel] = useState("")
+  const [interestedModels, setInterestedModels] = useState<string[]>([])
 
   useEffect(() => {
-    // Build model interest string from URL params (single or multi-model)
     if (modelsFromUrl) {
-      const models = decodeURIComponent(modelsFromUrl).split(",").map(s => s.trim()).filter(Boolean);
-      setInterestedModels(models);
-      setModelInterest(models.join(", "));
+      const models = decodeURIComponent(modelsFromUrl)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      setInterestedModels(models)
+      setModelInterest(models.join(", "))
     } else if (modelFromUrl) {
-      setModelInterest(decodeURIComponent(modelFromUrl));
-      setInterestedModels([decodeURIComponent(modelFromUrl)]);
+      setModelInterest(decodeURIComponent(modelFromUrl))
+      setInterestedModels([decodeURIComponent(modelFromUrl)])
     }
 
-    const stored = localStorage.getItem("caractr_results");
+    const stored = localStorage.getItem("caractr_results")
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        // Only pre-fill model from session if URL didn't provide one
+        const parsed = JSON.parse(stored)
         if (!modelFromUrl && !modelsFromUrl && parsed.recommendations?.[0]) {
-          setModelInterest(parsed.recommendations[0].full_name);
+          setModelInterest(parsed.recommendations[0].full_name)
         }
         if (parsed.answers?.p8_budget_max) {
-          setBudgetMax(String(parsed.answers.p8_budget_max));
+          setBudgetMax(String(parsed.answers.p8_budget_max))
         }
         if (parsed.profile_narrative) {
-          setProfileNarrative(parsed.profile_narrative);
+          setProfileNarrative(parsed.profile_narrative)
         }
       } catch {}
     }
-    // Extract model name from listing URL for context display
     if (listingUrl) {
-      const slug = listingUrl.split("/").filter(Boolean).pop() || "";
-      setListingModel(slug.replace(/-/g, " ").slice(0, 60));
+      const slug = listingUrl.split("/").filter(Boolean).pop() || ""
+      setListingModel(slug.replace(/-/g, " ").slice(0, 60))
     }
-  }, [modelFromUrl, modelsFromUrl, listingUrl]);
+  }, [modelFromUrl, modelsFromUrl, listingUrl])
 
   const toggleTag = (id: string) => {
     setSelectedTags((prev) =>
       prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
-    );
-  };
+    )
+  }
 
   const submit = async () => {
     if (!name.trim() || !email.trim()) {
-      setError("Nome e email são obrigatórios.");
-      return;
+      setError("Nome e email sao obrigatorios.")
+      return
     }
     if (!consentCaractr) {
-      setError("É necessário aceitar o contacto pela Caractr para continuar.");
-      return;
+      setError("E necessario aceitar o contacto pela Caractr para continuar.")
+      return
     }
-    setSending(true);
-    setError("");
+    setSending(true)
+    setError("")
     try {
-      const res = await fetch(`${API}/api/concierge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id:       sessionId || null,
-          name:             name.trim(),
-          email:            email.trim(),
-          model_interest:   modelInterest.trim() || null,
-          model_ids:        modelIdsParam ? modelIdsParam.split(",").map(Number).filter(Boolean) : [],
-          budget_max:       budgetMax ? parseInt(budgetMax) : null,
-          feedback_tags:    selectedTags,
-          consent_caractr:  consentCaractr,
-          consent_dealer:   consentDealer,
-          listing_url:      listingUrl || null,
-          listing_verdict:  listingVerdict || null,
-        }),
-      });
-      const result = await res.json();
+      const result = await submitConcierge({
+        session_id: sessionId || null,
+        name: name.trim(),
+        email: email.trim(),
+        model_interest: modelInterest.trim() || null,
+        model_ids: modelIdsParam
+          ? modelIdsParam.split(",").map(Number).filter(Boolean)
+          : [],
+        budget_max: budgetMax ? parseInt(budgetMax) : null,
+        feedback_tags: selectedTags,
+        consent_caractr: consentCaractr,
+        consent_dealer: consentDealer,
+        listing_url: listingUrl || null,
+        listing_verdict: listingVerdict || null,
+      })
       if (result.status === "ok") {
-        setSubmitted(true);
+        setSubmitted(true)
       } else {
-        setError(result.error || "Erro ao enviar. Tenta novamente.");
+        setError(result.error || "Erro ao enviar. Tenta novamente.")
       }
     } catch {
-      setError("Erro de ligação. Verifica a internet e tenta novamente.");
+      setError("Erro de ligacao. Verifica a internet e tenta novamente.")
     } finally {
-      setSending(false);
+      setSending(false)
     }
-  };
+  }
+
+  // ── Success screen ─────────────────────────────────────────────────────────
 
   if (submitted) {
-    const firstName = name.split(" ")[0] || name;
+    const firstName = name.split(" ")[0] || name
     return (
-      <main style={{
-        minHeight: "100vh",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: "0 clamp(24px, 5vw, 64px)",
-        background: "var(--bg)", color: "var(--fg)",
-        textAlign: "center",
-      }}>
-        <div style={{ maxWidth: "480px", width: "100%" }}>
-          <div style={{ width: "48px", height: "2px", background: "var(--accent)", borderRadius: "1px", marginBottom: "24px" }} />
-          <h1 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(36px, 7vw, 64px)",
-            fontWeight: 800, letterSpacing: "-0.02em",
-            lineHeight: 0.9, marginBottom: "20px",
-          }}>
-            RECEBIDO,<br />{firstName.toUpperCase()}.
+      <main className="flex min-h-screen flex-col items-center justify-center px-[clamp(24px,5vw,64px)] pt-16 text-center">
+        <div className="w-full max-w-[480px]">
+          <div className="mb-6 h-0.5 w-12 rounded-full bg-gold" />
+          <h1 className="mb-5 font-display text-[clamp(36px,7vw,64px)] font-extrabold leading-[0.9] tracking-tight">
+            RECEBIDO,
+            <br />
+            {firstName.toUpperCase()}.
           </h1>
 
           {/* What happens next */}
-          <div style={{
-            padding: "24px 28px", borderRadius: "16px",
-            border: "1px solid var(--border)", background: "var(--surface)",
-            marginBottom: "32px", textAlign: "left",
-          }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "18px" }}>
+          <div className="mb-8 rounded-2xl border border-border bg-card p-6 text-left md:px-7">
+            <p className="mb-4.5 font-mono text-[9px] uppercase tracking-[1.5px] text-gold">
               O que acontece agora
             </p>
             {[
               "Vemos o teu perfil e os modelos que te interessam.",
-              "Pesquisamos anúncios reais que se encaixam nas tuas prioridades.",
+              "Pesquisamos anuncios reais que se encaixam nas tuas prioridades.",
               "Entramos em contacto via email com uma shortlist curada.",
             ].map((step, i) => (
-              <div key={i} style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: i < 2 ? "14px" : 0 }}>
-                <span style={{
-                  fontFamily: "var(--font-mono)", fontSize: "11px",
-                  color: "var(--accent)", flexShrink: 0, marginTop: "1px",
-                }}>
+              <div
+                key={i}
+                className={cn("flex items-start gap-4", i < 2 && "mb-3.5")}
+              >
+                <span className="mt-0.5 shrink-0 font-mono text-[11px] text-gold">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <p style={{ fontSize: "14px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.6, fontWeight: 300 }}>
+                <p className="text-sm font-light leading-relaxed text-muted-foreground">
                   {step}
                 </p>
               </div>
             ))}
           </div>
 
-          <p style={{
-            fontSize: "13px", color: "var(--muted)", opacity: 0.55,
-            fontFamily: "var(--font-body)", marginBottom: "32px", lineHeight: 1.6,
-          }}>
-            Enviámos uma confirmação para <strong style={{ color: "var(--fg)", fontWeight: 400 }}>{email}</strong>.
+          <p className="mb-8 text-[13px] leading-relaxed text-muted-foreground/55">
+            Enviamos uma confirmacao para{" "}
+            <strong className="font-normal text-foreground">{email}</strong>.
           </p>
 
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/resultados" className="pill-btn-ghost">
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/resultados"
+              className="rounded-full border border-border px-5 py-2 text-[13px] text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
+            >
               ← shortlist
             </Link>
-            <Link href="/analisar" className="pill-btn">
-              analisar anúncio
+            <Link
+              href="/analisar"
+              className="rounded-full border border-border px-5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
+            >
+              analisar anuncio
             </Link>
           </div>
         </div>
       </main>
-    );
+    )
   }
 
+  // ── Form ────────────────────────────────────────────────────────────────────
+
   return (
-    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)" }}>
-
-      {/* ── Header ── */}
-      <div style={{
-        padding: "32px clamp(24px, 5vw, 64px) 24px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderBottom: "1px solid var(--border)",
-      }}>
-        <Link href="/" style={{
-          fontFamily: "var(--font-display)", fontSize: "14px",
-          fontWeight: 700, letterSpacing: "0.12em",
-          color: "var(--fg)", textDecoration: "none",
-        }}>
-          CARACTR
-        </Link>
-        <Link href="/resultados" className="pill-btn-ghost" style={{ padding: "8px 20px", fontSize: "13px" }}>
-          ← shortlist
-        </Link>
-      </div>
-
-      <div style={{ maxWidth: "560px", margin: "0 auto", padding: "clamp(48px, 6vw, 64px) clamp(24px, 5vw, 32px)" }}>
-
+    <main className="min-h-screen">
+      <div className="mx-auto max-w-[560px] px-[clamp(24px,5vw,32px)] pb-[clamp(48px,6vw,64px)] pt-24 md:pt-32">
         {/* Title */}
-        <div style={{ width: "48px", height: "2px", background: "var(--accent)", borderRadius: "1px", marginBottom: "20px" }} />
-        <h1 style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "clamp(32px, 5vw, 48px)",
-          fontWeight: 800, letterSpacing: "-0.02em",
-          lineHeight: 0.95, marginBottom: "14px",
-        }}>
+        <div className="mb-5 h-0.5 w-12 rounded-full bg-gold" />
+        <h1 className="mb-3.5 font-display text-[clamp(32px,5vw,48px)] font-extrabold leading-[0.95] tracking-tight">
           QUERO AJUDA
         </h1>
-        <p style={{
-          fontSize: "15px", color: "var(--muted)",
-          marginBottom: interestedModels.length > 0 ? "24px" : "48px",
-          lineHeight: 1.7, fontWeight: 300, fontFamily: "var(--font-body)",
-        }}>
-          Pesquisamos anúncios reais que se adequam ao teu perfil e enviamos-te uma shortlist curada. Gratuito durante o lançamento.
+        <p
+          className={cn(
+            "text-[15px] font-light leading-relaxed text-muted-foreground",
+            interestedModels.length > 0 ? "mb-6" : "mb-12"
+          )}
+        >
+          Pesquisamos anuncios reais que se adequam ao teu perfil e enviamos-te
+          uma shortlist curada. Gratuito durante o lancamento.
         </p>
 
         {/* Interested models chips */}
         {interestedModels.length > 1 && (
-          <div style={{ marginBottom: "32px" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px", opacity: 0.6 }}>
+          <div className="mb-8">
+            <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground/60">
               Modelos com interesse
             </p>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="flex flex-wrap gap-2">
               {interestedModels.map((m, i) => (
-                <span key={i} style={{
-                  fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--accent)",
-                  border: "1px solid var(--accent)", borderRadius: "100px",
-                  padding: "5px 14px", opacity: 0.8,
-                }}>
+                <span
+                  key={i}
+                  className="rounded-full border border-gold px-3.5 py-1 font-mono text-[11px] text-gold/80"
+                >
                   {m}
                 </span>
               ))}
@@ -269,55 +221,47 @@ function ConciergeContent() {
           </div>
         )}
 
-        {/* ── Profile card (Phase 4d) ── */}
+        {/* Profile card */}
         {profileNarrative && (
-          <div style={{
-            padding: "16px 20px",
-            borderRadius: "12px",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            marginBottom: "32px",
-          }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "10px" }}>
+          <div className="mb-8 rounded-xl border border-border bg-card p-4 px-5">
+            <p className="mb-2.5 font-mono text-[9px] uppercase tracking-[1.5px] text-gold">
               Conhecemos o teu perfil
             </p>
             {profileNarrative.priorities && (
-              <p style={{ fontSize: "13px", color: "var(--fg)", fontFamily: "var(--font-body)", lineHeight: 1.6, marginBottom: "4px" }}>
+              <p className="mb-1 text-[13px] leading-relaxed">
                 {profileNarrative.priorities}
               </p>
             )}
             {profileNarrative.aversion && (
-              <p style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", lineHeight: 1.5 }}>
+              <p className="text-xs leading-snug text-muted-foreground">
                 {profileNarrative.aversion}
               </p>
             )}
           </div>
         )}
 
-        {/* ── Listing context banner (Phase 4e) ── */}
+        {/* Listing context banner */}
         {listingUrl && (
-          <div style={{
-            padding: "12px 16px",
-            borderRadius: "10px",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            marginBottom: "32px",
-            display: "flex", alignItems: "center", gap: "12px",
-          }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1.5px", color: "var(--muted)", textTransform: "uppercase" }}>
-              Anúncio analisado
+          <div className="mb-8 flex items-center gap-3 rounded-[10px] border border-border bg-card p-3 px-4">
+            <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
+              Anuncio analisado
             </span>
             {listingVerdict && (
-              <span style={{
-                fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "1px",
-                color: listingVerdict === "forte" ? "#4aa35a" : listingVerdict === "evitar" ? "#d23c3c" : "var(--accent)",
-                fontWeight: 700, textTransform: "uppercase",
-              }}>
+              <span
+                className={cn(
+                  "font-mono text-[10px] font-bold uppercase tracking-[1px]",
+                  listingVerdict === "forte"
+                    ? "text-success"
+                    : listingVerdict === "evitar"
+                      ? "text-danger"
+                      : "text-gold"
+                )}
+              >
                 {listingVerdict.toUpperCase()}
               </span>
             )}
             {listingModel && (
-              <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--font-body)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span className="flex-1 truncate text-xs text-muted-foreground">
                 {listingModel}
               </span>
             )}
@@ -325,13 +269,13 @@ function ConciergeContent() {
         )}
 
         {/* ── Contact ── */}
-        <div style={{ marginBottom: "40px" }}>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "2px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "16px" }}>
+        <div className="mb-10">
+          <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
             Os teus dados
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", marginBottom: "10px" }}>
+          <div className="mb-2.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
             <div>
-              <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px", opacity: 0.6 }}>
+              <label className="mb-2 block font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/60">
                 Nome *
               </label>
               <input
@@ -339,13 +283,11 @@ function ConciergeContent() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="O teu nome"
-                style={inputStyle}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--border)")}
+                className="w-full rounded-[10px] border border-border bg-card px-4.5 py-3.5 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
               />
             </div>
             <div>
-              <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px", opacity: 0.6 }}>
+              <label className="mb-2 block font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/60">
                 Email *
               </label>
               <input
@@ -353,86 +295,75 @@ function ConciergeContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="o-teu@email.pt"
-                style={inputStyle}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--border)")}
+                className="w-full rounded-[10px] border border-border bg-card px-4.5 py-3.5 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
               />
             </div>
           </div>
         </div>
 
         {/* ── Model & budget ── */}
-        <div style={{ marginBottom: "40px" }}>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "2px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "16px" }}>
+        <div className="mb-10">
+          <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
             O que procuras
           </p>
-          <div style={{ marginBottom: "10px" }}>
-            <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px", opacity: 0.6 }}>
+          <div className="mb-2.5">
+            <label className="mb-2 block font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/60">
               Modelo de interesse
             </label>
             <input
               type="text"
               value={modelInterest}
               onChange={(e) => setModelInterest(e.target.value)}
-              placeholder="ex: BMW Série 3, Mazda CX-5..."
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--border)")}
+              placeholder="ex: BMW Serie 3, Mazda CX-5..."
+              className="w-full rounded-[10px] border border-border bg-card px-4.5 py-3.5 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
             />
           </div>
           <div>
-            <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "1px", color: "var(--muted)", textTransform: "uppercase", marginBottom: "8px", opacity: 0.6 }}>
-              Orçamento máximo (EUR)
+            <label className="mb-2 block font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/60">
+              Orcamento maximo (EUR)
             </label>
             <input
               type="number"
               value={budgetMax}
               onChange={(e) => setBudgetMax(e.target.value)}
               placeholder="ex: 25000"
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--border)")}
+              className="w-full rounded-[10px] border border-border bg-card px-4.5 py-3.5 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
             />
           </div>
         </div>
 
         {/* ── Feedback chips ── */}
-        <div style={{ marginBottom: "40px" }}>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "2px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "6px" }}>
-            A recomendação não está certa? (opcional)
+        <div className="mb-10">
+          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[2px] text-gold">
+            A recomendacao nao esta certa? (opcional)
           </p>
-          <p style={{ fontSize: "13px", color: "var(--muted)", fontFamily: "var(--font-body)", marginBottom: "16px", opacity: 0.7 }}>
-            Seleciona o que não se adequa — ajuda-nos a afinar.
+          <p className="mb-4 text-[13px] text-muted-foreground/70">
+            Seleciona o que nao se adequa — ajuda-nos a afinar.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          <div className="flex flex-wrap gap-2">
             {FEEDBACK_TAGS.map((tag) => {
-              const active = selectedTags.includes(tag.id);
+              const active = selectedTags.includes(tag.id)
               return (
                 <button
                   key={tag.id}
                   onClick={() => toggleTag(tag.id)}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: "100px",
-                    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                    background: active ? "rgba(200,168,130,0.08)" : "transparent",
-                    color: active ? "var(--accent)" : "var(--muted)",
-                    fontSize: "12px",
-                    fontFamily: "var(--font-body)",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs transition-colors",
+                    active
+                      ? "border-gold bg-gold/[0.08] text-gold"
+                      : "border-border text-muted-foreground hover:border-gold/40 hover:text-foreground"
+                  )}
                 >
                   {tag.label}
                 </button>
-              );
+              )
             })}
           </div>
         </div>
 
         {/* ── Consent ── */}
-        <div style={{ marginBottom: "40px", display: "flex", flexDirection: "column", gap: "16px" }}>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "2px", color: "var(--accent)", textTransform: "uppercase", marginBottom: "4px" }}>
+        <div className="mb-10 flex flex-col gap-4">
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[2px] text-gold">
             Consentimento (RGPD)
           </p>
 
@@ -442,49 +373,71 @@ function ConciergeContent() {
               checked: consentCaractr,
               onChange: setConsentCaractr,
               required: true,
-              label: "Aceito ser contactado pela equipa Caractr relativamente ao meu pedido.",
+              label:
+                "Aceito ser contactado pela equipa Caractr relativamente ao meu pedido.",
+              showPrivacy: true,
             },
             {
               key: "dealer",
               checked: consentDealer,
               onChange: setConsentDealer,
               required: false,
-              label: "Aceito receber propostas de dealers parceiros da Caractr com base no meu perfil de comprador.",
+              label:
+                "Aceito receber propostas de dealers parceiros da Caractr com base no meu perfil de comprador.",
+              showPrivacy: false,
             },
           ].map((c) => (
             <label
               key={c.key}
-              style={{
-                display: "flex", gap: "12px", alignItems: "flex-start",
-                cursor: "pointer",
-              }}
+              className="flex cursor-pointer items-start gap-3"
+              onClick={() => c.onChange(!c.checked)}
             >
               <div
-                onClick={() => c.onChange(!c.checked)}
-                style={{
-                  marginTop: "2px",
-                  flexShrink: 0,
-                  width: "18px", height: "18px",
-                  borderRadius: "4px",
-                  border: `1px solid ${c.checked ? "var(--accent)" : "var(--border)"}`,
-                  background: c.checked ? "var(--accent)" : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.15s ease",
-                  cursor: "pointer",
-                }}
+                className={cn(
+                  "mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded transition-colors",
+                  c.checked
+                    ? "border border-gold bg-gold"
+                    : "border border-border bg-transparent"
+                )}
               >
                 {c.checked && (
-                  <span style={{ color: "var(--bg)", fontSize: "11px", lineHeight: 1 }}>✓</span>
+                  <svg
+                    width="10"
+                    height="8"
+                    viewBox="0 0 10 8"
+                    fill="none"
+                  >
+                    <path
+                      d="M1 4L3.5 6.5L9 1"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-background"
+                    />
+                  </svg>
                 )}
               </div>
-              <span style={{
-                fontSize: "13px", color: "var(--muted)",
-                fontFamily: "var(--font-body)", lineHeight: 1.6,
-              }}>
+              <span className="text-[13px] leading-relaxed text-muted-foreground">
                 {c.label}
-                {c.required && <span style={{ color: "var(--accent)", marginLeft: "4px" }}>*</span>}
-                {c.key === "caractr" && (
-                  <> (<a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-dark)", textDecoration: "underline", fontSize: "12px" }}>Política de Privacidade</a>)</>
+                {c.required && (
+                  <span className="ml-1 text-gold">*</span>
+                )}
+                {c.showPrivacy && (
+                  <>
+                    {" "}
+                    (
+                    <a
+                      href="/privacidade"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gold-dark underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Politica de Privacidade
+                    </a>
+                    )
+                  </>
                 )}
               </span>
             </label>
@@ -492,44 +445,45 @@ function ConciergeContent() {
         </div>
 
         {error && (
-          <p style={{ marginBottom: "16px", fontSize: "13px", color: "#d23c3c", fontFamily: "var(--font-body)" }}>
-            {error}
-          </p>
+          <p className="mb-4 text-[13px] text-danger">{error}</p>
         )}
 
         <button
           onClick={submit}
           disabled={sending || !consentCaractr}
-          className="pill-btn-solid"
-          style={{
-            opacity: (sending || !consentCaractr) ? 0.4 : 1,
-            cursor: (sending || !consentCaractr) ? "not-allowed" : "pointer",
-          }}
+          className={cn(
+            "rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark",
+            (sending || !consentCaractr) && "cursor-not-allowed opacity-40"
+          )}
         >
           {sending ? "A enviar..." : "Enviar pedido"}
         </button>
 
-        <p style={{
-          marginTop: "20px", fontSize: "11px",
-          color: "var(--muted)", fontFamily: "var(--font-body)",
-          lineHeight: 1.6, opacity: 0.4,
-        }}>
-          Os teus dados são usados exclusivamente para os fins indicados acima.
-          Nunca são partilhados sem consentimento explícito.
+        <p className="mt-3 text-xs font-light text-muted-foreground/50">
+          Estas entre os primeiros a experimentar o Caractr — este servico e nosso presente de lancamento.
+        </p>
+
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/40">
+          Os teus dados sao usados exclusivamente para os fins indicados acima.
+          Nunca sao partilhados sem consentimento explicito.
         </p>
       </div>
     </main>
-  );
+  )
 }
 
 export default function ConciergePage() {
   return (
-    <Suspense fallback={
-      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--muted)", letterSpacing: "1px" }}>A CARREGAR...</p>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center">
+          <p className="font-mono text-[11px] uppercase tracking-[1px] text-muted-foreground">
+            A CARREGAR...
+          </p>
+        </main>
+      }
+    >
       <ConciergeContent />
     </Suspense>
-  );
+  )
 }

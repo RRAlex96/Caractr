@@ -65,6 +65,87 @@ async def analyse_ad(req: AnalyseRequest, db: Session = Depends(get_db)):
     return result
 
 
+@router.get("/analyses/{analysis_id}")
+def get_analysis_by_id(
+    analysis_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Public shareable analysis endpoint.
+    Returns a full analysis response for a given normalized_listing ID.
+    Used for permalink pages (/analise/{id}) with OG meta tags.
+    """
+    import json as _json
+    from datetime import datetime, timezone, timedelta
+    from app.services.ad_analysis_service import _build_response, _get_model_info, _get_market_stats
+
+    row = db.execute(text("""
+        SELECT n.id, n.price, n.year, n.km, n.km_per_year, n.price_delta, n.deal_tier,
+               n.deal_score, n.seller_type, n.brand_name, n.model_name, n.description,
+               n.llm_analysis, n.analysis_cached_at, n.photo_count, n.listing_age_days,
+               n.model_id, n.fuel_type,
+               r.source_url
+        FROM normalized_listings n
+        JOIN raw_listings r ON r.id = n.raw_listing_id
+        WHERE n.id = :id
+    """), {"id": analysis_id}).mappings().fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Análise não encontrada")
+
+    # Check freshness — reject stale analyses
+    cached_at = row["analysis_cached_at"]
+    if not cached_at or not row["llm_analysis"]:
+        raise HTTPException(status_code=404, detail="Análise não disponível")
+
+    age = datetime.now(timezone.utc) - (
+        cached_at if cached_at.tzinfo else cached_at.replace(tzinfo=timezone.utc)
+    )
+    if age > timedelta(days=30):
+        raise HTTPException(status_code=404, detail="Análise expirada")
+
+    listing = dict(row)
+    llm = row["llm_analysis"]
+    if isinstance(llm, str):
+        try:
+            llm = _json.loads(llm)
+        except Exception:
+            llm = {}
+    if not isinstance(llm, dict):
+        llm = {}
+
+    # Re-hydrate enrichment from cached LLM blob
+    enrichment = {
+        "extras_analysis":      llm.get("extras_analysis"),
+        "negotiation_script":   llm.get("negotiation_script"),
+        "verdict_narrative":    llm.get("verdict_narrative"),
+        "seller_read":          llm.get("seller_read"),
+        "inspection_checklist": llm.get("inspection_checklist", []),
+        "negotiation_tips":     llm.get("negotiation_tips", []),
+    }
+
+    # Model info for reliability
+    model_info = {}
+    brand_n = row["brand_name"] or ""
+    model_n = row["model_name"] or ""
+    if brand_n and model_n:
+        model_info = _get_model_info(db, brand_n, model_n) or {}
+
+    # Market stats
+    market_stats = {}
+    model_id = model_info.get("id") if model_info else row["model_id"]
+    if model_id and row["year"]:
+        market_stats = _get_market_stats(db, model_id, row["year"]) or {}
+
+    return _build_response(
+        listing, llm, from_cache=True,
+        enrichment=enrichment or None,
+        model_info=model_info or None,
+        market_stats=market_stats or None,
+        analysis_id=row["id"],
+    )
+
+
 @router.get("/{model_id}")
 def get_model_listings(
     model_id: int,

@@ -1,11 +1,15 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from "next"
+import "./globals.css"
+import { cn } from "@/lib/utils"
+import { Navbar } from "@/components/layout/navbar"
+import { Footer } from "@/components/layout/footer"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
-const SITE_URL = "https://caractr.pt";
-const SITE_NAME = "Caractr";
-const TITLE = "CARACTR — O motor de recomendação que te conhece a ti";
+const SITE_URL = "https://caractr.pt"
+const SITE_NAME = "Caractr"
+const TITLE = "CARACTR — O motor de recomendação que te conhece a ti"
 const DESCRIPTION =
-  "Diz-nos o teu estilo de vida. Recomendamos os 5 modelos certos — com dados de fiabilidade, preço de mercado e análise de anúncios em tempo real.";
+  "Diz-nos o teu estilo de vida. Recomendamos os 5 modelos certos — com dados de fiabilidade, preço de mercado e análise de anúncios em tempo real."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -41,25 +45,29 @@ export const metadata: Metadata = {
   alternates: {
     canonical: SITE_URL,
   },
-};
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="pt">
+    <html lang="pt" className="dark" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#0d0d0d" />
+        <meta name="theme-color" content="#09090B" />
       </head>
-      <body>{children}</body>
+      <body className={cn("min-h-screen bg-background font-sans text-foreground antialiased")}>
+        <TooltipProvider delay={300}>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </TooltipProvider>
+      </body>
     </html>
-  );
+  )
 }

@@ -1,20 +1,24 @@
 """
 Caractr — Admin Dashboard API
-Single endpoint returning all analytics metrics for the admin dashboard.
-Protected by X-Admin-Token header.
+Analytics metrics + concierge pipeline management for the admin dashboard.
+All endpoints protected by X-Admin-Token header.
 """
 
 import os
 import hmac
 import json
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from pydantic import BaseModel
+from typing import Optional
 from app.db.database import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 _PERIOD_MAP = {"7d": 7, "30d": 30, "90d": 90}
+_VALID_STATUSES = {"new", "contacted", "searching", "delivered", "closed"}
+FREE_CONCIERGE_LIMIT = 50
 
 
 def _auth(x_admin_token: str = Header(...)):
@@ -275,4 +279,182 @@ def get_dashboard(
             "analysis_feedback_total": helpfulness["total"],
         },
         "wizard_answers": wizard_answers,
+    }
+
+
+# ── Concierge Management ─────────────────────────────────────────────────────
+
+
+class ConciergeUpdate(BaseModel):
+    status: Optional[str] = None
+    admin_notes: Optional[str] = None
+
+
+@router.get("/concierge/stats", dependencies=[Depends(_auth)])
+def concierge_stats(db: Session = Depends(get_db)):
+    """Quick concierge stats for the admin header."""
+    row = db.execute(text("""
+        SELECT
+            COUNT(*)                                          AS total,
+            COUNT(*) FILTER (WHERE status = 'new')            AS status_new,
+            COUNT(*) FILTER (WHERE status = 'contacted')      AS status_contacted,
+            COUNT(*) FILTER (WHERE status = 'searching')      AS status_searching,
+            COUNT(*) FILTER (WHERE status = 'delivered')      AS status_delivered,
+            COUNT(*) FILTER (WHERE status = 'closed')         AS status_closed,
+            ROUND(AVG(EXTRACT(EPOCH FROM (delivered_at - created_at)) / 3600)
+                  FILTER (WHERE delivered_at IS NOT NULL)::numeric, 1)
+                                                              AS avg_hours_to_delivery
+        FROM concierge_requests
+    """)).mappings().fetchone()
+
+    delivered = row["status_delivered"] or 0
+    return {
+        "total":               row["total"],
+        "by_status": {
+            "new":       row["status_new"],
+            "contacted": row["status_contacted"],
+            "searching": row["status_searching"],
+            "delivered": row["status_delivered"],
+            "closed":    row["status_closed"],
+        },
+        "free_limit":          FREE_CONCIERGE_LIMIT,
+        "free_remaining":      max(0, FREE_CONCIERGE_LIMIT - delivered),
+        "avg_hours_to_delivery": float(row["avg_hours_to_delivery"]) if row["avg_hours_to_delivery"] else None,
+    }
+
+
+@router.get("/concierge", dependencies=[Depends(_auth)])
+def list_concierge(
+    status: Optional[str] = Query(None),
+    period: str = Query("all", pattern="^(7d|30d|90d|all)$"),
+    db: Session = Depends(get_db),
+):
+    """List all concierge requests with optional status/period filter."""
+    conditions = []
+    params: dict = {}
+
+    if status and status in _VALID_STATUSES:
+        conditions.append("c.status = :status")
+        params["status"] = status
+
+    if period != "all" and period in _PERIOD_MAP:
+        days = _PERIOD_MAP[period]
+        conditions.append(f"c.created_at >= NOW() - INTERVAL '{days} days'")
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    rows = db.execute(text(f"""
+        SELECT
+            c.id, c.session_id, c.name, c.email, c.model_interest,
+            c.budget_max, c.feedback_tags, c.consent_dealer,
+            c.status, c.admin_notes, c.created_at, c.delivered_at,
+            rs.profile_computed, rs.models_shown
+        FROM concierge_requests c
+        LEFT JOIN recommendation_sessions rs ON rs.id = c.session_id
+        {where}
+        ORDER BY c.created_at DESC
+        LIMIT 200
+    """), params).mappings().fetchall()
+
+    requests = []
+    for r in rows:
+        # Parse session context for profile summary
+        profile_summary = None
+        models_shown = None
+        if r["profile_computed"]:
+            try:
+                pc = json.loads(r["profile_computed"]) if isinstance(r["profile_computed"], str) else r["profile_computed"]
+                profile_summary = pc
+            except Exception:
+                pass
+        if r["models_shown"]:
+            try:
+                ms = json.loads(r["models_shown"]) if isinstance(r["models_shown"], str) else r["models_shown"]
+                models_shown = [
+                    {"model_id": m.get("model_id"), "full_name": m.get("full_name", "?")}
+                    for m in (ms or [])[:5]
+                ]
+            except Exception:
+                pass
+
+        feedback_tags = r["feedback_tags"]
+        if isinstance(feedback_tags, str):
+            try:
+                feedback_tags = json.loads(feedback_tags)
+            except Exception:
+                feedback_tags = []
+
+        requests.append({
+            "id":              r["id"],
+            "session_id":      str(r["session_id"]) if r["session_id"] else None,
+            "name":            r["name"],
+            "email":           r["email"],
+            "model_interest":  r["model_interest"],
+            "budget_max":      r["budget_max"],
+            "feedback_tags":   feedback_tags or [],
+            "consent_dealer":  r["consent_dealer"],
+            "status":          r["status"],
+            "admin_notes":     r["admin_notes"],
+            "created_at":      r["created_at"].isoformat() if r["created_at"] else None,
+            "delivered_at":    r["delivered_at"].isoformat() if r["delivered_at"] else None,
+            "profile_summary": profile_summary,
+            "models_shown":    models_shown,
+        })
+
+    return {"count": len(requests), "requests": requests}
+
+
+@router.patch("/concierge/{request_id}", dependencies=[Depends(_auth)])
+def update_concierge(
+    request_id: int,
+    update: ConciergeUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update a concierge request's status and/or admin notes."""
+    # Verify request exists
+    existing = db.execute(
+        text("SELECT id, status FROM concierge_requests WHERE id = :id"),
+        {"id": request_id},
+    ).mappings().fetchone()
+
+    if not existing:
+        raise HTTPException(status_code=404, detail="Concierge request not found")
+
+    updates = []
+    params: dict = {"id": request_id}
+
+    if update.status is not None:
+        if update.status not in _VALID_STATUSES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status. Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
+            )
+        updates.append("status = :status")
+        params["status"] = update.status
+
+        # Auto-set delivered_at when transitioning to 'delivered'
+        if update.status == "delivered" and existing["status"] != "delivered":
+            updates.append("delivered_at = NOW()")
+
+    if update.admin_notes is not None:
+        updates.append("admin_notes = :notes")
+        params["notes"] = update.admin_notes
+
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+
+    set_clause = ", ".join(updates)
+    row = db.execute(text(f"""
+        UPDATE concierge_requests
+        SET {set_clause}
+        WHERE id = :id
+        RETURNING id, status, admin_notes, delivered_at
+    """), params).mappings().fetchone()
+    db.commit()
+
+    return {
+        "id":           row["id"],
+        "status":       row["status"],
+        "admin_notes":  row["admin_notes"],
+        "delivered_at": row["delivered_at"].isoformat() if row["delivered_at"] else None,
     }
