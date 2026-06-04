@@ -391,8 +391,39 @@ def _run_startup_migrations() -> None:
             ALTER TABLE concierge_requests
                 ADD COLUMN IF NOT EXISTS admin_notes TEXT
         """))
+        # v56: append-only listing snapshot log (price history + relisting/rollback moat)
+        # Unlike price_observations (one row per URL, overwritten), this NEVER overwrites —
+        # every observation is a new row. Foundation for price-history graphs,
+        # days-on-market, relisting detection, and odometer-rollback detection.
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS listing_snapshots (
+                id                    SERIAL PRIMARY KEY,
+                source_url            TEXT NOT NULL,
+                source_domain         VARCHAR(100),
+                normalized_listing_id INTEGER,
+                model_id              INTEGER,
+                brand_name            VARCHAR(80),
+                model_name            VARCHAR(120),
+                year                  INTEGER,
+                km                    INTEGER,
+                price                 INTEGER,
+                fuel_type             VARCHAR(30),
+                seller_type           VARCHAR(20),
+                photo_count           INTEGER,
+                identity_hash         VARCHAR(64),
+                observed_at           TIMESTAMPTZ DEFAULT now()
+            )
+        """))
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_snap_url
+                ON listing_snapshots(source_url, observed_at DESC)
+        """))
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_snap_identity
+                ON listing_snapshots(identity_hash, observed_at DESC)
+        """))
         db.commit()
-        print("[STARTUP] Migrations OK (price_observations + depreciation + admin_notes)")
+        print("[STARTUP] Migrations OK (price_observations + depreciation + admin_notes + listing_snapshots)")
     except Exception as e:
         print(f"[STARTUP] Migration error: {e}")
         db.rollback()

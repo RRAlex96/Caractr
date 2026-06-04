@@ -18,6 +18,7 @@ import os
 import re
 import json
 import asyncio
+import hashlib
 import unicodedata
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -730,6 +731,92 @@ def _record_price_observation(
         db.rollback()
 
 
+def _compute_identity_hash(
+    brand_name: Optional[str],
+    model_name: Optional[str],
+    year: Optional[int],
+    fuel_type: Optional[str],
+    description: Optional[str],
+) -> Optional[str]:
+    """
+    Fingerprint a physical car so it can be matched across relists at different URLs.
+    Sellers who relist typically copy-paste their own description, so a normalized
+    description hash combined with brand/model/year/fuel is a strong identity signal.
+    Returns None when there isn't enough signal to fingerprint reliably.
+    """
+    desc = (description or "").strip()
+    if not desc or len(desc) < 40:
+        # Too little text to fingerprint reliably — skip rather than create false matches.
+        return None
+    # Normalize: strip accents, lowercase, collapse whitespace, cap length.
+    norm = unicodedata.normalize("NFKD", desc)
+    norm = "".join(c for c in norm if not unicodedata.combining(c))
+    norm = re.sub(r"\s+", " ", norm.lower()).strip()[:600]
+    signature = "|".join([
+        (brand_name or "").lower().strip(),
+        (model_name or "").lower().strip(),
+        str(year or ""),
+        (fuel_type or "").lower().strip(),
+        norm,
+    ])
+    return hashlib.sha256(signature.encode("utf-8")).hexdigest()
+
+
+def _record_listing_snapshot(
+    db: Session,
+    normalized_listing_id: Optional[int],
+    model_id: Optional[int],
+    brand_name: Optional[str],
+    model_name: Optional[str],
+    year: Optional[int],
+    km: Optional[int],
+    price: Optional[int],
+    fuel_type: Optional[str],
+    seller_type: Optional[str],
+    photo_count: Optional[int],
+    source_url: str,
+    description: Optional[str],
+) -> None:
+    """
+    Append an immutable snapshot of this listing observation. NEVER overwrites —
+    every call is a new row. This is the moat data: price history per URL,
+    days-on-market, relisting detection, and odometer-rollback detection all
+    derive from accumulated snapshots. Fire-and-forget: never breaks an analysis.
+    """
+    if not source_url or not price or price < 500 or price > 500_000:
+        return
+    try:
+        identity_hash = _compute_identity_hash(brand_name, model_name, year, fuel_type, description)
+        db.execute(text("""
+            INSERT INTO listing_snapshots
+                (source_url, source_domain, normalized_listing_id, model_id,
+                 brand_name, model_name, year, km, price, fuel_type,
+                 seller_type, photo_count, identity_hash, observed_at)
+            VALUES
+                (:url, :domain, :norm_id, :model_id,
+                 :brand, :model, :year, :km, :price, :fuel,
+                 :seller, :photos, :ihash, now())
+        """), {
+            "url":     source_url,
+            "domain":  _extract_domain(source_url),
+            "norm_id": normalized_listing_id,
+            "model_id": model_id,
+            "brand":   brand_name,
+            "model":   model_name,
+            "year":    year,
+            "km":      km,
+            "price":   price,
+            "fuel":    fuel_type,
+            "seller":  seller_type or "desconhecido",
+            "photos":  photo_count,
+            "ihash":   identity_hash,
+        })
+        db.commit()
+    except Exception as e:
+        print(f"[SNAPSHOT] Insert error: {e}")
+        db.rollback()
+
+
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     """Try to resolve model_id from a listing URL already in the DB."""
     row = db.execute(text("""
@@ -1041,6 +1128,24 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         extraction_method=_extraction_method,
         data_quality_score=_quality_score,
         observation_type="user_analysis",
+    )
+
+    # ── Append immutable snapshot (price-history + relisting/rollback moat) ──
+    # Append-only: never overwrites. Starts accumulating the day this ships.
+    _record_listing_snapshot(
+        db,
+        normalized_listing_id=norm_id,
+        model_id=model_id,
+        brand_name=resolved_brand,
+        model_name=resolved_model,
+        year=year,
+        km=km,
+        price=price,
+        fuel_type=fuel_type,
+        seller_type=detail.get("seller_type", "desconhecido"),
+        photo_count=detail.get("photo_count", 0),
+        source_url=listing_url,
+        description=detail.get("description", ""),
     )
 
     return {
