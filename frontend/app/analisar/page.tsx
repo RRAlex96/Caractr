@@ -16,6 +16,7 @@ import { SellerRead } from "@/components/analysis/seller-read"
 import { TextPanel } from "@/components/analysis/text-panel"
 import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
+import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { ChecksGrid } from "@/components/analysis/checks-grid"
@@ -179,9 +180,11 @@ function AnalisarContent() {
 
           <InspectionChecklist items={result.inspection_checklist || []} />
 
+          <NegotiationNumbers data={result.negotiation} />
+
           <NegotiationPanel
             script={result.analysis.negotiation_script}
-            tips={result.negotiation_tips || []}
+            tips={result.negotiation ? [] : result.negotiation_tips || []}
           />
 
           {result.maintenance_estimate && (

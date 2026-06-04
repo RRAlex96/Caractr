@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { cn, TIER_CONFIG, FIT_CONFIG } from "@/lib/utils"
+import { cn, formatPrice, TIER_CONFIG, FIT_CONFIG } from "@/lib/utils"
 import type { DealTier, FitTier } from "@/lib/utils"
 import { analyseUrl } from "@/lib/api"
 import { Analytics } from "@/lib/analytics"
@@ -285,8 +285,33 @@ export function AdAnalysisPanel({
             </div>
           )}
 
+          {/* Negotiation numbers — the weapon */}
+          {result.negotiation && (
+            <div className="mb-3">
+              <p className="mb-2 font-mono text-[8px] uppercase tracking-[1.5px] text-gold">
+                A tua estratégia
+              </p>
+              <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border bg-border">
+                {[
+                  { l: "Abre em", v: result.negotiation.opening_offer, c: "text-gold" },
+                  { l: "Valor justo", v: result.negotiation.fair_value, c: "text-foreground" },
+                  { l: "Máximo", v: result.negotiation.walk_away, c: "text-muted-foreground" },
+                ].map((f) => (
+                  <div key={f.l} className="bg-card px-2 py-2.5 text-center">
+                    <p className="mb-1 font-mono text-[7px] uppercase tracking-[1px] text-muted-foreground">
+                      {f.l}
+                    </p>
+                    <p className={cn("font-mono text-[13px] font-bold leading-none", f.c)}>
+                      {formatPrice(f.v)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Negotiation */}
-          {(result.analysis?.negotiation_script || result.negotiation_tips?.length > 0) && (
+          {(result.analysis?.negotiation_script || (!result.negotiation && result.negotiation_tips?.length > 0)) && (
             <div className="mb-3">
               <p className="mb-2 font-mono text-[8px] uppercase tracking-[1.5px] text-muted-foreground">
                 Como negociar

@@ -1543,6 +1543,94 @@ def _build_negotiation_tips(listing: dict, market_stats: dict) -> list[str]:
     return tips[:4]
 
 
+def _build_negotiation_numbers(listing: dict, market_stats: dict) -> Optional[dict]:
+    """
+    Concrete negotiation figures the buyer can act on: opening offer, fair value,
+    and walk-away ceiling — grounded in market data plus this listing's leverage
+    (days on market, seller type, price position, mileage). The "weapon": three
+    numbers instead of vague advice.
+
+    Returns None when there isn't enough market data to give honest figures —
+    we never invent a number we can't defend.
+    """
+    price = listing.get("price") or 0
+    fair = market_stats.get("median_price") or market_stats.get("avg_price") or 0
+    sample = market_stats.get("sample_count") or 0
+    if not price or not fair or fair < 500:
+        return None
+
+    def _round50(x: float) -> int:
+        return int(round(x / 50.0) * 50)
+
+    listing_age = listing.get("listing_age_days") or 0
+    seller_type = (listing.get("seller_type") or "").lower()
+    km = listing.get("km") or 0
+    year = listing.get("year")
+
+    # Baseline ~3% off, scaled up by each leverage point we can defend out loud.
+    margin = 0.03
+    leverage: list[str] = []
+
+    if listing_age >= 30:
+        margin += 0.03
+        leverage.append(f"No mercado há {listing_age} dias — vendedor provavelmente motivado")
+    elif listing_age >= 14:
+        margin += 0.015
+        leverage.append(f"No mercado há {listing_age} dias")
+
+    if "particular" in seller_type:
+        margin += 0.01
+        leverage.append("Vendedor particular — mais margem, mas sem garantia legal")
+    elif "profiss" in seller_type or "stand" in seller_type:
+        margin -= 0.005  # less wiggle, but legal warranty
+
+    if price > fair * 1.05:
+        pct = round((price - fair) / fair * 100)
+        margin += 0.02
+        leverage.append(f"{pct}% acima do valor de mercado — usa anúncios comparáveis")
+    elif price < fair * 0.95:
+        pct = round((fair - price) / fair * 100)
+        leverage.append(f"{pct}% abaixo do mercado — já é bom preço, confirma o estado")
+
+    if year:
+        try:
+            age_years = max(1, datetime.now().year - int(year))
+            if km and km > age_years * 15000 * 1.2:
+                margin += 0.015
+                leverage.append("Quilometragem acima da média para o ano")
+        except (ValueError, TypeError):
+            pass
+
+    margin = max(0.0, min(margin, 0.12))  # never claim more than 12% headroom
+
+    fair_value = _round50(fair)
+    anchor = min(price, fair)                       # don't anchor above market
+    opening_offer = _round50(anchor * (1 - margin))
+    walk_away = _round50(fair)                       # don't pay above market for a normal car
+    if opening_offer >= walk_away:
+        opening_offer = _round50(walk_away * 0.95)
+
+    potential_saving = max(0, price - opening_offer)
+
+    if sample >= 20:
+        confidence = "alta"
+    elif sample >= 8:
+        confidence = "media"
+    else:
+        confidence = "baixa"
+
+    return {
+        "asking_price":     int(price),
+        "opening_offer":    opening_offer,
+        "fair_value":       fair_value,
+        "walk_away":        walk_away,
+        "potential_saving": potential_saving,
+        "leverage":         leverage[:4],
+        "confidence":       confidence,
+        "sample_count":     int(sample),
+    }
+
+
 def _build_response(
     listing: dict,
     llm: dict,
@@ -1615,6 +1703,7 @@ def _build_response(
         },
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
+        "negotiation":          _build_negotiation_numbers(listing, market_stats or {}),
         "maintenance_estimate": (model_info or {}).get("maintenance_cost_year"),
         "caveat": (
             "Este site usa JavaScript — só conseguimos extrair dados parciais. "

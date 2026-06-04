@@ -12,6 +12,7 @@ import { SellerRead } from "@/components/analysis/seller-read"
 import { TextPanel } from "@/components/analysis/text-panel"
 import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
+import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { TrustPanel } from "@/components/shared/trust-panel"
@@ -95,9 +96,11 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
           <InspectionChecklist items={data.inspection_checklist || []} />
 
+          <NegotiationNumbers data={data.negotiation} />
+
           <NegotiationPanel
             script={data.analysis.negotiation_script}
-            tips={data.negotiation_tips || []}
+            tips={data.negotiation ? [] : data.negotiation_tips || []}
           />
 
           {data.maintenance_estimate && (

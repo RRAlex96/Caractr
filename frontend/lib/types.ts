@@ -101,6 +101,17 @@ export interface MarketData {
   as_of?: string | null
 }
 
+export interface NegotiationNumbers {
+  asking_price: number
+  opening_offer: number
+  fair_value: number
+  walk_away: number
+  potential_saving: number
+  leverage: string[]
+  confidence: "alta" | "media" | "baixa"
+  sample_count: number
+}
+
 export interface AnalysisResult {
   analysis_id?: number | null
   from_cache: boolean
@@ -112,6 +123,7 @@ export interface AnalysisResult {
   analysis: AnalysisDetails
   inspection_checklist: string[]
   negotiation_tips: string[]
+  negotiation?: NegotiationNumbers | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null
   depreciation: DepreciationData | null
