@@ -11,6 +11,7 @@ OLX also exposes a JSON API embedded in the page (window.__PRELOADED_STATE__) �
 over HTML parsing since it is more stable.
 """
 
+import os
 import httpx
 import asyncio
 import re
@@ -24,7 +25,15 @@ from typing import Optional
 _PLAYWRIGHT_AVAILABLE: Optional[bool] = None
 
 
+# Playwright is opt-in: it OOMs on small Railway instances. The httpx path
+# returns full listings with prices (verified), so it's the default. Set
+# ALLOW_PLAYWRIGHT_FALLBACK=true to allow the browser fallback where memory allows.
+_ALLOW_PW_FALLBACK = os.getenv("ALLOW_PLAYWRIGHT_FALLBACK", "false").lower() == "true"
+
+
 def _check_playwright() -> bool:
+    if not _ALLOW_PW_FALLBACK:
+        return False
     global _PLAYWRIGHT_AVAILABLE
     if _PLAYWRIGHT_AVAILABLE is None:
         try:
@@ -303,32 +312,19 @@ async def fetch_listings(
     """
     search_url = _build_search_url(brand, model, budget_max, year_from, year_to)
 
-    if _check_playwright():
-        try:
-            html = await _render_page(search_url, wait_selector="[data-cy='l-card']")
-            # Try __PRELOADED_STATE__ first (most structured data)
-            state = _extract_preloaded_state(html)
-            if state:
-                listings = _extract_listings_from_preloaded(state, BASE_URL)
-                if listings:
-                    return listings[:max_results]
-            # Fallback: parse rendered HTML cards
-            return _extract_listings_from_html(html)[:max_results]
-        except Exception as e:
-            print(f"[OLX SCRAPER] Playwright error: {e}")
-            return []
-
-    # Fallback: static HTTP (prices likely None on OLX search pages)
+    # httpx-first: OLX search pages render listing cards (and often a preloaded
+    # state blob) in the static HTML — verified to return complete samples with
+    # prices. Avoids Playwright's memory cost.
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Referer": BASE_URL,
     }
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(0.4, 1.2))
             resp = await client.get(search_url)
             resp.raise_for_status()
             html = resp.text
@@ -337,10 +333,26 @@ async def fetch_listings(
                 listings = _extract_listings_from_preloaded(state, BASE_URL)
                 if listings:
                     return listings[:max_results]
-            return _extract_listings_from_html(html)[:max_results]
+            listings = _extract_listings_from_html(html)[:max_results]
+            if listings:
+                return listings
     except Exception as e:
-        print(f"[OLX SCRAPER] HTTP fallback error: {e}")
-        return []
+        print(f"[OLX SCRAPER] httpx error: {e}")
+
+    # Optional Playwright fallback — off by default (OOMs on small instances).
+    if _check_playwright():
+        try:
+            html = await _render_page(search_url, wait_selector="[data-cy='l-card']")
+            state = _extract_preloaded_state(html)
+            if state:
+                listings = _extract_listings_from_preloaded(state, BASE_URL)
+                if listings:
+                    return listings[:max_results]
+            return _extract_listings_from_html(html)[:max_results]
+        except Exception as e:
+            print(f"[OLX SCRAPER] Playwright fallback error: {e}")
+
+    return []
 
 
 async def fetch_listing_detail(url: str) -> dict:

@@ -9,6 +9,7 @@ Rate limiting: 2–3s delays, rotating user-agents.
 Results cached in raw_listings table (refresh if scraped_at > 24h).
 """
 
+import os
 import httpx
 import asyncio
 import re
@@ -23,7 +24,15 @@ from typing import Optional
 _PLAYWRIGHT_AVAILABLE: Optional[bool] = None  # None = not checked yet
 
 
+# Playwright is opt-in: it OOMs on small Railway instances. The httpx path
+# returns full listings with prices (verified), so it's the default. Set
+# ALLOW_PLAYWRIGHT_FALLBACK=true to allow the browser fallback where memory allows.
+_ALLOW_PW_FALLBACK = os.getenv("ALLOW_PLAYWRIGHT_FALLBACK", "false").lower() == "true"
+
+
 def _check_playwright() -> bool:
+    if not _ALLOW_PW_FALLBACK:
+        return False
     global _PLAYWRIGHT_AVAILABLE
     if _PLAYWRIGHT_AVAILABLE is None:
         try:
@@ -344,33 +353,37 @@ async def fetch_listings(
     """
     search_url = _build_search_url(brand, model, budget_max, year_from, year_to)
 
-    if _check_playwright():
-        try:
-            html = await _render_page(search_url, wait_selector="article[data-id]")
-            listings = _extract_listings_from_html(html, search_url)
-            return listings[:max_results]
-        except Exception as e:
-            print(f"[SV SCRAPER] Playwright error: {e}")
-            return []
-
-    # Fallback: static HTTP (prices likely None on SV search pages)
+    # httpx-first: SV search pages embed full listing data (JSON-LD ItemList +
+    # rendered cards) in the static HTML — no JS needed. Verified to return
+    # complete samples with prices. This avoids Playwright's memory cost.
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
         "Referer": BASE_URL,
     }
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(0.4, 1.2))
             resp = await client.get(search_url)
             resp.raise_for_status()
-            return _extract_listings_from_html(resp.text, search_url)[:max_results]
+            listings = _extract_listings_from_html(resp.text, search_url)[:max_results]
+            if listings:
+                return listings
     except Exception as e:
-        print(f"[SV SCRAPER] HTTP fallback error: {e}")
-        return []
+        print(f"[SV SCRAPER] httpx error: {e}")
+
+    # Optional Playwright fallback — off by default (OOMs on small instances).
+    if _check_playwright():
+        try:
+            html = await _render_page(search_url, wait_selector="article[data-id]")
+            return _extract_listings_from_html(html, search_url)[:max_results]
+        except Exception as e:
+            print(f"[SV SCRAPER] Playwright fallback error: {e}")
+
+    return []
 
 
 def _extract_next_data_advert(html: str) -> Optional[dict]:

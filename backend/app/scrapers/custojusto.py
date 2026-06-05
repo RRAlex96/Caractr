@@ -10,6 +10,7 @@ Usage:
     listings = asyncio.run(fetch_listings("Renault", "Clio", max_results=20))
 """
 
+import os
 import httpx
 import asyncio
 import re
@@ -23,7 +24,15 @@ from typing import Optional
 _PLAYWRIGHT_AVAILABLE: Optional[bool] = None
 
 
+# Playwright is opt-in: it OOMs on small Railway instances. CustoJusto serves
+# JSON-LD + microdata statically, so httpx is the default. Set
+# ALLOW_PLAYWRIGHT_FALLBACK=true to allow the browser fallback where memory allows.
+_ALLOW_PW_FALLBACK = os.getenv("ALLOW_PLAYWRIGHT_FALLBACK", "false").lower() == "true"
+
+
 def _check_playwright() -> bool:
+    if not _ALLOW_PW_FALLBACK:
+        return False
     global _PLAYWRIGHT_AVAILABLE
     if _PLAYWRIGHT_AVAILABLE is None:
         try:
@@ -268,37 +277,7 @@ async def fetch_listings(
     """
     search_url = _build_search_url(brand, model, year_from, year_to)
 
-    if _check_playwright():
-        try:
-            from playwright.async_api import async_playwright
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                ctx = await browser.new_context(
-                    locale="pt-PT",
-                    user_agent=_random_ua(),
-                )
-                page = await ctx.new_page()
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
-                # Wait for listing cards to render
-                try:
-                    await page.wait_for_selector(
-                        "a[href*='/carros/'], [data-testid='listing-card']",
-                        timeout=10000,
-                    )
-                except Exception:
-                    pass
-                # Small delay to let prices render
-                await asyncio.sleep(1.5)
-                html = await page.content()
-                await browser.close()
-
-            listings = _extract_listings_from_html(html)
-            print(f"[CJ SCRAPER] Playwright: {len(listings)} listings for {brand} {model}")
-            return listings[:max_results]
-        except Exception as e:
-            print(f"[CJ SCRAPER] Playwright error: {e}")
-
-    # Fallback: static HTTP (prices likely missing)
+    # httpx-first: CustoJusto serves JSON-LD ItemList + microdata statically.
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -309,12 +288,39 @@ async def fetch_listings(
         async with httpx.AsyncClient(
             follow_redirects=True, timeout=15.0, headers=headers
         ) as client:
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(0.4, 1.2))
             resp = await client.get(search_url)
             resp.raise_for_status()
             listings = _extract_listings_from_html(resp.text)
-            print(f"[CJ SCRAPER] Static: {len(listings)} listings for {brand} {model}")
-            return listings[:max_results]
+            print(f"[CJ SCRAPER] httpx: {len(listings)} listings for {brand} {model}")
+            if listings:
+                return listings[:max_results]
     except Exception as e:
-        print(f"[CJ SCRAPER] HTTP fallback error: {e}")
-        return []
+        print(f"[CJ SCRAPER] httpx error: {e}")
+
+    # Optional Playwright fallback — off by default (OOMs on small instances).
+    if _check_playwright():
+        try:
+            from playwright.async_api import async_playwright
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                ctx = await browser.new_context(locale="pt-PT", user_agent=_random_ua())
+                page = await ctx.new_page()
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+                try:
+                    await page.wait_for_selector(
+                        "a[href*='/carros/'], [data-testid='listing-card']",
+                        timeout=10000,
+                    )
+                except Exception:
+                    pass
+                await asyncio.sleep(1.5)
+                html = await page.content()
+                await browser.close()
+            listings = _extract_listings_from_html(html)
+            print(f"[CJ SCRAPER] Playwright fallback: {len(listings)} listings for {brand} {model}")
+            return listings[:max_results]
+        except Exception as e:
+            print(f"[CJ SCRAPER] Playwright fallback error: {e}")
+
+    return []

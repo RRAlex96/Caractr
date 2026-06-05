@@ -898,7 +898,7 @@ async def fetch_listing_detail(url: str) -> dict:
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
     }
     result: dict = {
         "title": "", "description": "", "price": None, "year": None,

@@ -50,7 +50,7 @@ _MARKET_CACHE_TTL = 6 * 3600  # 6 hours
 _MAX_MARKET_CACHE_KEYS = 500  # evict oldest entries if cache grows beyond this
 
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
-DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "true").lower() == "true"  # Playwright OOMs on Railway
+DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "false").lower() == "true"  # scraping is now httpx-based (no Playwright OOM)
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -560,24 +560,27 @@ async def _fetch_live_market_data(
         ]
 
         # ── Filter 1: year guard — safety net for any stragglers the URL filter missed ──
+        # The search URL already scopes results by year, so listings whose year we
+        # couldn't parse (common on OLX cards) are kept — only listings with a parsed
+        # year clearly OUTSIDE the window are dropped. This preserves sample size.
         if year and len(pool) >= 5:
             if gen_year_start is not None:
                 gen_end = gen_year_end if gen_year_end else 9999
                 year_pool = [
                     l for l in pool
-                    if l.get("year") and gen_year_start <= int(l["year"]) <= gen_end
+                    if (not l.get("year")) or (gen_year_start <= int(l["year"]) <= gen_end)
                 ]
-                label = f"gen {gen_year_start}–{gen_year_end or 'now'}"
+                label = f"gen {gen_year_start}-{gen_year_end or 'now'}"
             else:
                 year_pool = [
                     l for l in pool
-                    if l.get("year") and abs(int(l["year"]) - int(year)) <= 3
+                    if (not l.get("year")) or (abs(int(l["year"]) - int(year)) <= 3)
                 ]
                 label = "±3 years"
 
             if len(year_pool) >= 3:
                 pool = year_pool
-                print(f"[MARKET] Year guard ({label}) → {len(pool)} listings")
+                print(f"[MARKET] Year guard ({label}) -> {len(pool)} listings")
 
         # ── Filter 2: fuel type ───────────────────────────────────────────────
         if fuel_type and len(pool) >= 4:
@@ -588,7 +591,7 @@ async def _fetch_live_market_data(
             ]
             if len(fuel_pool) >= 3:
                 pool = fuel_pool
-                print(f"[MARKET] Fuel filter '{fuel_type}' → {len(pool)} listings")
+                print(f"[MARKET] Fuel filter '{fuel_type}' -> {len(pool)} listings")
 
         # ── Filter 3: engine variant hint ─────────────────────────────────────
         if engine_hint and len(pool) >= 5:
@@ -599,7 +602,7 @@ async def _fetch_live_market_data(
             ]
             if len(engine_pool) >= 3:
                 pool = engine_pool
-                print(f"[MARKET] Engine filter '{engine_hint}' → {len(pool)} listings")
+                print(f"[MARKET] Engine filter '{engine_hint}' -> {len(pool)} listings")
 
         if len(pool) < 3:
             print(f"[MARKET] Insufficient data ({len(pool)} listings) for {cache_key}")
@@ -911,7 +914,7 @@ def _resolve_vehicle_model(
             if series:
                 row = _query_model(series)
                 if row:
-                    print(f"[MODEL] BMW variant '{model_name}' → '{series}'")
+                    print(f"[MODEL] BMW variant '{model_name}' -> '{series}'")
                     return row
         # X-series: "X1", "X3", etc. — first word already works
         # iX, i3, i4, i7 — try as-is
@@ -927,7 +930,7 @@ def _resolve_vehicle_model(
         if classe:
             row = _query_model(classe)
             if row:
-                print(f"[MODEL] Mercedes variant '{model_name}' → '{classe}'")
+                print(f"[MODEL] Mercedes variant '{model_name}' -> '{classe}'")
                 return row
         # CLA, GLA, GLC, GLE, GLS — exact match to avoid 'CLA' matching 'Classe A'
         if len(letter) >= 2:
@@ -941,7 +944,7 @@ def _resolve_vehicle_model(
         if len(word) >= 2:
             row = _query_model(word)
             if row:
-                print(f"[MODEL] Fuzzy match: '{model_name}' → word '{word}'")
+                print(f"[MODEL] Fuzzy match: '{model_name}' -> word '{word}'")
                 return row
 
     print(f"[MODEL] No DB match for {brand_name} '{model_name}' (first_word='{model_first_word}')")

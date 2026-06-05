@@ -178,10 +178,13 @@ async def fetch_listings_all_sources(
     """
     import asyncio
 
+    # Standvirtual + OLX serve full priced listings via static HTML (httpx).
+    # CustoJusto's search redirects to a polluted text search (includes car
+    # parts) with no structured prices, so it's excluded from market scraping.
+    # It remains supported for detail-page analysis (fetch_detail_for_url).
     tasks = [
         fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to),
         fetch_listings_for_source("olx", brand, model, budget_max, max_per_source, year_from, year_to),
-        fetch_listings_for_source("custojusto", brand, model, budget_max, max_per_source, year_from, year_to),
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
