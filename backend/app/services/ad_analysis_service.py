@@ -507,13 +507,17 @@ async def _fetch_live_market_data(
     if not brand_name or not model_name:
         return {}
 
-    # Cache key includes generation + variant so Golf Mk7 diesel and Golf Mk8 diesel
-    # are cached independently and never share market data.
-    model_first = model_name.split()[0].lower()
+    # Use the FULL model name (accent-stripped) for both search and cache key.
+    # Using only the first word collapsed "Serie 1"/"Serie 3"/"Serie 5" into one
+    # bucket ("serie") — mixing all BMW series into one search and one cache entry.
+    # The scrapers' MODEL_SLUGS map full names ("Serie 3" -> "serie-3") for a
+    # precise search.
+    model_search = _strip_accents(model_name).strip()          # "Série 3" -> "Serie 3"
+    model_key   = model_search.lower().replace(" ", "-")       # -> "serie-3"
     fuel_key    = (fuel_type or "").lower().replace(" ", "")[:8]
     engine_key  = (engine_hint or "").lower().replace(" ", "")[:8]
     gen_key     = f"{gen_year_start or 'x'}-{gen_year_end or 'now'}"
-    cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_first}_{gen_key}_{fuel_key}_{engine_key}"
+    cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_key}_{gen_key}_{fuel_key}_{engine_key}"
     now = time.time()
 
     cached = _market_cache.get(cache_key)
@@ -521,9 +525,9 @@ async def _fetch_live_market_data(
         print(f"[MARKET] Cache hit for {cache_key}")
         return cached["stats"]
 
-    gen_label = (f"gen {gen_year_start}–{gen_year_end or 'now'}"
+    gen_label = (f"gen {gen_year_start}-{gen_year_end or 'now'}"
                  if gen_year_start is not None else "no gen")
-    print(f"[MARKET] Live scrape — {brand_name} {model_name}"
+    print(f"[MARKET] Live scrape - {brand_name} {model_name}"
           f"{' ' + fuel_type if fuel_type else ''}{' ' + engine_hint if engine_hint else ''}"
           f" [{gen_label}]")
     try:
@@ -543,7 +547,7 @@ async def _fetch_live_market_data(
 
         listings = await fetch_listings_all_sources(
             brand=brand_name,
-            model=model_first,
+            model=model_search,
             budget_max=None,
             max_per_source=20,
             year_from=scrape_year_from,
