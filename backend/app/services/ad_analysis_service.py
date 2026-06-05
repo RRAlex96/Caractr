@@ -1638,6 +1638,157 @@ def _build_negotiation_numbers(listing: dict, market_stats: dict) -> Optional[di
     }
 
 
+# ── Cost of ownership (custo de utilização) ──────────────────────────────────
+# Portuguese fuel prices (€/L) and electricity (€/kWh) — update periodically.
+_FUEL_PRICE_EUR = {"diesel": 1.60, "gasolina": 1.75, "gpl": 0.95}
+_ELEC_PRICE_EUR_KWH = 0.22
+_DEFAULT_KM_YEAR = 15000
+
+# Typical consumption (l/100km, or kWh/100km for electric) by fuel + displacement band.
+def _estimate_consumption(fuel: str, displacement_l: Optional[float], power_hp: Optional[int]) -> tuple[float, str]:
+    """Return (consumption_per_100, unit) where unit is 'l' or 'kwh'."""
+    f = (fuel or "").lower()
+    disp = displacement_l or 0.0
+    if "elétr" in f or "eletr" in f or "electric" in f:
+        return (16.5, "kwh")  # ~16.5 kWh/100km typical EV
+    if "híbr" in f or "hibr" in f or "hybrid" in f:
+        return (5.0, "l")
+    if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
+        base = 4.8 if disp <= 1.6 else (5.6 if disp <= 2.0 else 7.0)
+        return (base, "l")
+    # petrol / gpl / unknown → treat as petrol
+    base = 6.0 if disp <= 1.4 else (7.2 if disp <= 2.0 else 9.5)
+    if power_hp and power_hp > 200:
+        base += 1.5
+    return (base, "l")
+
+
+def _estimate_iuc(displacement_cc: Optional[int], fuel: str, year: Optional[int]) -> Optional[int]:
+    """
+    Rough annual IUC (road tax) estimate for a Portuguese passenger car.
+    Post-2007 vehicles (Cat. B): cilindrada component + a CO2 component we
+    approximate from displacement + fuel. Diesel carries a surcharge.
+    This is an ESTIMATE — exact IUC needs the registration CO2 value.
+    """
+    if not displacement_cc or displacement_cc < 600:
+        return None
+    cc = displacement_cc
+    # Cilindrada component (approx. 2024 Cat. B brackets)
+    if cc <= 1250:
+        cilindrada = 30
+    elif cc <= 1750:
+        cilindrada = 60
+    elif cc <= 2500:
+        cilindrada = 118
+    else:
+        cilindrada = 400
+    # CO2 component — estimate CO2 from displacement + fuel, map to bracket
+    f = (fuel or "").lower()
+    if "elétr" in f or "eletr" in f or "electric" in f:
+        return 0  # EVs are IUC-exempt / nominal
+    co2_est = (cc / 1000.0) * (62 if "diesel" in f or "gasóleo" in f or "gasoleo" in f else 75) + 40
+    if co2_est <= 120:
+        co2 = 60
+    elif co2_est <= 140:
+        co2 = 100
+    elif co2_est <= 160:
+        co2 = 150
+    elif co2_est <= 180:
+        co2 = 230
+    else:
+        co2 = 320
+    total = cilindrada + co2
+    # Diesel surcharge (adicional de gasóleo)
+    if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
+        total = int(total * 1.20)
+    return int(round(total / 5.0) * 5)
+
+
+def _build_cost_of_ownership(
+    listing: dict,
+    model_info: Optional[dict],
+    depreciation: Optional[dict],
+    engine_hint: Optional[str],
+) -> Optional[dict]:
+    """
+    Estimate the monthly cost of running this car: fuel + IUC + maintenance,
+    plus depreciation as the bigger-picture "true" monthly cost when available.
+    Insurance is deliberately excluded — it varies too much by driver to estimate
+    honestly. Every figure is an estimate with stated assumptions.
+    """
+    fuel = (listing.get("fuel_type") or "").lower()
+    price = listing.get("price") or 0
+    year = listing.get("year")
+    power_hp = listing.get("engine_power_hp")
+    try:
+        power_hp = int(power_hp) if power_hp else None
+    except (ValueError, TypeError):
+        power_hp = None
+
+    # Displacement from engine hint like "2.0 TDI" -> 2.0 L -> 2000 cc
+    displacement_l: Optional[float] = None
+    if engine_hint:
+        m = re.match(r"([1-9]\.[0-9])", engine_hint.strip())
+        if m:
+            displacement_l = float(m.group(1))
+    displacement_cc = int(displacement_l * 1000) if displacement_l else None
+
+    # ── Fuel cost / year ──
+    cons, unit = _estimate_consumption(fuel, displacement_l, power_hp)
+    if unit == "kwh":
+        price_per_unit = _ELEC_PRICE_EUR_KWH
+    else:
+        if "diesel" in fuel or "gasóleo" in fuel or "gasoleo" in fuel:
+            price_per_unit = _FUEL_PRICE_EUR["diesel"]
+        elif "gpl" in fuel:
+            price_per_unit = _FUEL_PRICE_EUR["gpl"]
+        else:
+            price_per_unit = _FUEL_PRICE_EUR["gasolina"]
+    annual_fuel = int(round((cons / 100.0) * _DEFAULT_KM_YEAR * price_per_unit))
+
+    # ── IUC / year ──
+    annual_iuc = _estimate_iuc(displacement_cc, fuel, year)
+
+    # ── Maintenance / year (from model data when available) ──
+    annual_maint = None
+    if model_info and model_info.get("maintenance_cost_year"):
+        try:
+            annual_maint = int(round(float(model_info["maintenance_cost_year"])))
+        except (ValueError, TypeError):
+            annual_maint = None
+
+    running_components = [c for c in (annual_fuel, annual_iuc, annual_maint) if c]
+    if not running_components:
+        return None
+    monthly_running = int(round(sum(running_components) / 12.0))
+
+    # ── Depreciation / month (the biggest real cost) when we have a curve ──
+    depreciation_monthly = None
+    if depreciation and price and depreciation.get("annual_pct"):
+        try:
+            annual_dep = price * float(depreciation["annual_pct"])
+            depreciation_monthly = int(round(annual_dep / 12.0))
+        except (ValueError, TypeError):
+            depreciation_monthly = None
+
+    monthly_true = monthly_running + (depreciation_monthly or 0)
+
+    return {
+        "monthly_running":      monthly_running,
+        "monthly_true":         monthly_true if depreciation_monthly else None,
+        "annual_fuel":          annual_fuel,
+        "annual_iuc":           annual_iuc,
+        "annual_maintenance":   annual_maint,
+        "depreciation_monthly": depreciation_monthly,
+        "assumptions": {
+            "km_year":          _DEFAULT_KM_YEAR,
+            "consumption":      round(cons, 1),
+            "consumption_unit": unit,
+            "fuel_price":       price_per_unit,
+        },
+    }
+
+
 def _build_response(
     listing: dict,
     llm: dict,
@@ -1711,6 +1862,10 @@ def _build_response(
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
         "negotiation":          _build_negotiation_numbers(listing, market_stats or {}),
+        "cost_of_ownership":    _build_cost_of_ownership(
+                                    listing, model_info, depreciation,
+                                    _extract_engine_hint(listing.get("description") or ""),
+                                ),
         "maintenance_estimate": (model_info or {}).get("maintenance_cost_year"),
         "caveat": (
             "Este site usa JavaScript — só conseguimos extrair dados parciais. "

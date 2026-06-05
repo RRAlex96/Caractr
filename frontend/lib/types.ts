@@ -112,6 +112,21 @@ export interface NegotiationNumbers {
   sample_count: number
 }
 
+export interface CostOfOwnership {
+  monthly_running: number
+  monthly_true: number | null
+  annual_fuel: number
+  annual_iuc: number | null
+  annual_maintenance: number | null
+  depreciation_monthly: number | null
+  assumptions: {
+    km_year: number
+    consumption: number
+    consumption_unit: "l" | "kwh"
+    fuel_price: number
+  }
+}
+
 export interface AnalysisResult {
   analysis_id?: number | null
   from_cache: boolean
@@ -124,6 +139,7 @@ export interface AnalysisResult {
   inspection_checklist: string[]
   negotiation_tips: string[]
   negotiation?: NegotiationNumbers | null
+  cost_of_ownership?: CostOfOwnership | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null
   depreciation: DepreciationData | null

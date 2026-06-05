@@ -17,6 +17,7 @@ import { TextPanel } from "@/components/analysis/text-panel"
 import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
 import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
+import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { ChecksGrid } from "@/components/analysis/checks-grid"
@@ -186,6 +187,8 @@ function AnalisarContent() {
             script={result.analysis.negotiation_script}
             tips={result.negotiation ? [] : result.negotiation_tips || []}
           />
+
+          <CostOfOwnership data={result.cost_of_ownership} />
 
           {result.maintenance_estimate && (
             <MaintenanceEstimate estimate={result.maintenance_estimate} />

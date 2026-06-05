@@ -13,6 +13,7 @@ import { TextPanel } from "@/components/analysis/text-panel"
 import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
 import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
+import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { TrustPanel } from "@/components/shared/trust-panel"
@@ -102,6 +103,8 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
             script={data.analysis.negotiation_script}
             tips={data.negotiation ? [] : data.negotiation_tips || []}
           />
+
+          <CostOfOwnership data={data.cost_of_ownership} />
 
           {data.maintenance_estimate && (
             <MaintenanceEstimate estimate={data.maintenance_estimate} />
