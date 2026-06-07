@@ -51,6 +51,7 @@ _MAX_MARKET_CACHE_KEYS = 500  # evict oldest entries if cache grows beyond this
 
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "false").lower() == "true"  # scraping is now httpx-based (no Playwright OOM)
+_MIN_NEGOTIATION_SAMPLE = 5  # below this many comparables, suppress precise offer figures
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -420,6 +421,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
             SELECT AVG(avg_price) as avg_price,
                    MIN(min_price) as min_price,
                    MAX(max_price) as max_price,
+                   SUM(sample_count) as sample_count,
                    MAX(updated_at) as last_updated,
                    MAX(source) as source
             FROM market_price_stats
@@ -431,6 +433,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
             SELECT AVG(avg_price) as avg_price,
                    MIN(min_price) as min_price,
                    MAX(max_price) as max_price,
+                   SUM(sample_count) as sample_count,
                    MAX(updated_at) as last_updated,
                    MAX(source) as source
             FROM market_price_stats
@@ -442,6 +445,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
             "avg_price": float(row["avg_price"]),
             "min_price": row["min_price"],
             "max_price": row["max_price"],
+            "sample_count": int(row["sample_count"]) if row["sample_count"] else 0,
             "source": row["source"] or "seed",
         }
         if row["last_updated"]:
@@ -1564,6 +1568,11 @@ def _build_negotiation_numbers(listing: dict, market_stats: dict) -> Optional[di
     fair = market_stats.get("median_price") or market_stats.get("avg_price") or 0
     sample = market_stats.get("sample_count") or 0
     if not price or not fair or fair < 500:
+        return None
+    # Honesty gate: never put precise offer/walk-away numbers in front of the
+    # buyer off a handful of comparables — a noisy median would mislead. Below
+    # the threshold we show nothing rather than a wrong number.
+    if sample and sample < _MIN_NEGOTIATION_SAMPLE:
         return None
 
     def _round50(x: float) -> int:
