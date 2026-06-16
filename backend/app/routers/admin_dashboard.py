@@ -458,3 +458,54 @@ def update_concierge(
         "admin_notes":  row["admin_notes"],
         "delivered_at": row["delivered_at"].isoformat() if row["delivered_at"] else None,
     }
+
+
+@router.get("/models/pending", dependencies=[Depends(_auth)])
+def models_pending_enrichment(db: Session = Depends(get_db)):
+    """
+    Models lacking reliability data — primarily those auto-registered on first
+    analysis. Lets the operator do a weekly pass to fill in reliability/known
+    issues. Ordered by how often each is actually analysed, so the most-used
+    gaps surface first.
+    """
+    try:
+        rows = db.execute(text("""
+            SELECT vm.id,
+                   b.name  AS brand_name,
+                   vm.name AS model_name,
+                   vm.created_at,
+                   (SELECT COUNT(*) FROM normalized_listings n WHERE n.model_id = vm.id)  AS analyses,
+                   (SELECT COUNT(*) FROM generations g WHERE g.model_id = vm.id)           AS generations,
+                   EXISTS(SELECT 1 FROM engines e WHERE e.model_id = vm.id)                AS has_engines
+            FROM vehicle_models vm
+            JOIN brands b ON b.id = vm.brand_id
+            WHERE NOT EXISTS (
+                SELECT 1 FROM generations g
+                WHERE g.model_id = vm.id AND g.reliability_score IS NOT NULL
+            )
+            ORDER BY analyses DESC, vm.created_at DESC NULLS LAST
+            LIMIT 300
+        """)).mappings().fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query failed: {e}")
+
+    items = []
+    for r in rows:
+        created = r["created_at"]
+        items.append({
+            "id":            r["id"],
+            "brand_name":    r["brand_name"],
+            "model_name":    r["model_name"],
+            "created_at":    created.isoformat() if created else None,
+            "analyses":      int(r["analyses"] or 0),
+            "generations":   int(r["generations"] or 0),
+            "has_engines":   bool(r["has_engines"]),
+        })
+
+    # Surface the ones people actually hit but we can't yet score.
+    analysed_gap = sum(1 for i in items if i["analyses"] > 0)
+    return {
+        "count": len(items),
+        "analysed_gap": analysed_gap,
+        "models": items,
+    }

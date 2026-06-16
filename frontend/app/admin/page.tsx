@@ -6,8 +6,9 @@ import { fetchAdminDashboard } from "@/lib/api"
 import { TokenGate } from "@/components/admin/token-gate"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
 import { ConciergeTab } from "@/components/admin/concierge-tab"
+import { ModelsTab } from "@/components/admin/models-tab"
 
-type Tab = "analytics" | "concierge"
+type Tab = "analytics" | "concierge" | "models"
 
 export default function AdminPage() {
   const [token, setToken] = useState("")
@@ -69,6 +70,7 @@ export default function AdminPage() {
               {([
                 { key: "analytics", label: "Analytics" },
                 { key: "concierge", label: "Concierge" },
+                { key: "models", label: "Modelos" },
               ] as const).map((t) => (
                 <button
                   key={t.key}
@@ -138,6 +140,9 @@ export default function AdminPage() {
 
         {/* Concierge Tab */}
         {tab === "concierge" && <ConciergeTab token={token} />}
+
+        {/* Models Tab */}
+        {tab === "models" && <ModelsTab token={token} />}
       </div>
     </div>
   )

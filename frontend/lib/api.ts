@@ -220,6 +220,27 @@ export async function fetchConciergeList(
   return res.json()
 }
 
+export interface PendingModel {
+  id: number
+  brand_name: string
+  model_name: string
+  created_at: string | null
+  analyses: number
+  generations: number
+  has_engines: boolean
+}
+
+export async function fetchPendingModels(
+  token: string
+): Promise<{ count: number; analysed_gap: number; models: PendingModel[] }> {
+  const res = await fetch(`${API}/api/admin/models/pending`, {
+    headers: adminHeaders(token),
+  })
+  if (res.status === 403) throw new Error("Token inválido")
+  if (!res.ok) throw new Error(`Erro ${res.status}`)
+  return res.json()
+}
+
 export async function updateConcierge(
   token: string,
   id: number,
