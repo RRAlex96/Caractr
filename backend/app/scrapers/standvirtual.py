@@ -150,12 +150,53 @@ def _random_ua() -> str:
     return random.choice(USER_AGENTS)
 
 
+# Map our canonical fuel names to Standvirtual's fuel-filter enum values, so the
+# market pool is segmented by fuel at the source (a 330e hybrid must never be
+# priced against base diesels).
+_SV_FUEL_ENUM = {
+    "diesel": "diesel",
+    "gasolina": "petrol",
+    "gasóleo": "diesel",
+    "gasoleo": "diesel",
+    "elétrico": "electric",
+    "eletrico": "electric",
+    "híbrido": "hybrid",
+    "hibrido": "hybrid",
+    "híbrido (plug-in)": "plugin-hybrid",
+    "híbrido plug-in": "plugin-hybrid",
+    "plug-in": "plugin-hybrid",
+    "gpl": "petrol-lpg",
+}
+
+
+def _sv_fuel_slug(fuel_type: Optional[str]) -> Optional[str]:
+    if not fuel_type:
+        return None
+    f = fuel_type.lower().strip()
+    if f in _SV_FUEL_ENUM:
+        return _SV_FUEL_ENUM[f]
+    if "plug" in f:
+        return "plugin-hybrid"
+    if "híbr" in f or "hibr" in f:
+        return "hybrid"
+    if "elétr" in f or "eletr" in f:
+        return "electric"
+    if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
+        return "diesel"
+    if "gpl" in f:
+        return "petrol-lpg"
+    if "gasolina" in f:
+        return "petrol"
+    return None
+
+
 def _build_search_url(
     brand: str,
     model: str,
     budget_max: Optional[int] = None,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> str:
     brand_slug = BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
     model_clean = model.strip()
@@ -168,6 +209,9 @@ def _build_search_url(
         params.append(f"search[filter_float_year:from]={year_from}")
     if year_to:
         params.append(f"search[filter_float_year:to]={year_to}")
+    fuel_slug = _sv_fuel_slug(fuel_type)
+    if fuel_slug:
+        params.append(f"search[filter_enum_fuel_type][0]={fuel_slug}")
     if params:
         url += "?" + "&".join(params)
     return url
@@ -261,24 +305,35 @@ def _extract_listings_from_html(html: str, source_url: str) -> list[dict]:
                     title = t.get_text(strip=True)
                     break
 
-            # Price
+            # Price — prefer a plausible full asking price and skip financing
+            # widgets ("desde 199 €/mês", "entrada 2 000 €") that otherwise got
+            # picked up as the price (e.g. an M5 listed at "€2.000").
+            def _is_financing(txt: str) -> bool:
+                t = txt.lower()
+                return any(w in t for w in ("/mês", "/mes", "mensal", "mês", "desde", "entrada", "financ"))
+
             price = None
             for sel in ["[class*='price']", "strong", "[data-price]"]:
-                p = card.select_one(sel)
-                if p:
-                    price = _parse_price(p.get_text(strip=True))
-                    if price:
+                for p in card.select(sel):
+                    txt = p.get_text(" ", strip=True)
+                    if _is_financing(txt):
+                        continue
+                    cand = _parse_price(txt)
+                    if cand and 1000 <= cand <= 2_000_000:
+                        price = cand
                         break
+                if price:
+                    break
 
             # Rendered HTML: SV uses "29 990 EUR" format with obfuscated class names.
             # Fall back to scanning all short text nodes that contain EUR or €.
             if not price:
                 for tag in card.find_all(True):
                     t = tag.get_text(strip=True)
-                    if ("EUR" in t or "€" in t) and len(t) < 35 and re.search(r"\d{3}", t):
+                    if ("EUR" in t or "€" in t) and len(t) < 35 and re.search(r"\d{3}", t) and not _is_financing(t):
                         candidate = _parse_price(t)
-                        # Sanity check: car prices are 1k–500k
-                        if candidate and 1000 <= candidate <= 500000:
+                        # Sanity check: car prices are 1k–2M
+                        if candidate and 1000 <= candidate <= 2_000_000:
                             price = candidate
                             break
 
@@ -343,15 +398,16 @@ async def fetch_listings(
     max_results: int = 20,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch listings from Standvirtual for a given brand/model.
     Uses Playwright to render JS-heavy search pages so prices are populated.
     Falls back to static httpx if Playwright is not installed.
-    year_from / year_to are passed as URL filters so only the correct generation
-    is fetched at the source — not filtered after the fact.
+    year_from / year_to / fuel_type are passed as URL filters so only the correct
+    generation and fuel variant are fetched at the source — not filtered after.
     """
-    search_url = _build_search_url(brand, model, budget_max, year_from, year_to)
+    search_url = _build_search_url(brand, model, budget_max, year_from, year_to, fuel_type)
 
     # httpx-first: SV search pages embed full listing data (JSON-LD ItemList +
     # rendered cards) in the static HTML — no JS needed. Verified to return

@@ -554,6 +554,7 @@ async def _fetch_live_market_data(
             model=model_search,
             budget_max=None,
             max_per_source=20,
+            fuel_type=fuel_type,
             year_from=scrape_year_from,
             year_to=scrape_year_to,
         )

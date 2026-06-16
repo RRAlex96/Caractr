@@ -78,15 +78,38 @@ def _random_ua() -> str:
     return random.choice(USER_AGENTS)
 
 
+def _olx_fuel_keyword(fuel_type: Optional[str]) -> Optional[str]:
+    """Portuguese fuel keyword to bias OLX's text search toward the right variant."""
+    if not fuel_type:
+        return None
+    f = fuel_type.lower()
+    if "plug" in f:
+        return "Híbrido"  # OLX rarely distinguishes plug-in in text; bias to hybrid
+    if "híbr" in f or "hibr" in f:
+        return "Híbrido"
+    if "elétr" in f or "eletr" in f:
+        return "Elétrico"
+    if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
+        return "Diesel"
+    if "gasolina" in f:
+        return "Gasolina"
+    return None
+
+
 def _build_search_url(
     brand: str,
     model: str,
     budget_max: Optional[int] = None,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> str:
     """OLX uses a keyword query string in the URL path."""
-    query = f"{brand} {model}".strip().replace(" ", "-")
+    query = f"{brand} {model}".strip()
+    fuel_kw = _olx_fuel_keyword(fuel_type)
+    if fuel_kw:
+        query = f"{query} {fuel_kw}"
+    query = query.replace(" ", "-")
     url = f"{SEARCH_URL}q-{query}/"
     params = []
     if budget_max:
@@ -302,15 +325,16 @@ async def fetch_listings(
     max_results: int = 20,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch search results from OLX for a given brand/model.
     Uses Playwright to render JS-heavy search pages so __PRELOADED_STATE__ is populated.
     Falls back to static httpx if Playwright is not installed.
-    year_from / year_to are baked into the search URL so only the correct generation
-    is fetched — not filtered post-hoc.
+    year_from / year_to / fuel_type are baked into the search query so only the
+    correct generation and fuel variant are fetched — not filtered post-hoc.
     """
-    search_url = _build_search_url(brand, model, budget_max, year_from, year_to)
+    search_url = _build_search_url(brand, model, budget_max, year_from, year_to, fuel_type)
 
     # httpx-first: OLX search pages render listing cards (and often a preloaded
     # state blob) in the static HTML — verified to return complete samples with

@@ -141,19 +141,21 @@ async def fetch_listings_for_source(
     max_results: int = 20,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch search results from a specific source by name.
     source: "standvirtual" | "olx"
-    year_from / year_to are baked into the search URL to scope by generation.
+    year_from / year_to / fuel_type are baked into the search URL to scope by
+    generation and fuel variant.
     """
     if source == "standvirtual":
         from app.scrapers.standvirtual import fetch_listings
-        return await fetch_listings(brand, model, budget_max, max_results, year_from, year_to)
+        return await fetch_listings(brand, model, budget_max, max_results, year_from, year_to, fuel_type)
 
     elif source == "olx":
         from app.scrapers.olx import fetch_listings as olx_fetch
-        return await olx_fetch(brand, model, budget_max, max_results, year_from, year_to)
+        return await olx_fetch(brand, model, budget_max, max_results, year_from, year_to, fuel_type)
 
     elif source == "custojusto":
         from app.scrapers.custojusto import fetch_listings as cj_fetch
@@ -170,11 +172,13 @@ async def fetch_listings_all_sources(
     max_per_source: int = 10,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    fuel_type: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch from all supported sources concurrently and merge results.
     Deduplicates by source_url.
-    year_from / year_to scope both scrapers to the correct generation at the URL level.
+    year_from / year_to / fuel_type scope both scrapers to the correct generation
+    and fuel variant at the URL level.
     """
     import asyncio
 
@@ -183,8 +187,8 @@ async def fetch_listings_all_sources(
     # parts) with no structured prices, so it's excluded from market scraping.
     # It remains supported for detail-page analysis (fetch_detail_for_url).
     tasks = [
-        fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to),
-        fetch_listings_for_source("olx", brand, model, budget_max, max_per_source, year_from, year_to),
+        fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to, fuel_type),
+        fetch_listings_for_source("olx", brand, model, budget_max, max_per_source, year_from, year_to, fuel_type),
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
