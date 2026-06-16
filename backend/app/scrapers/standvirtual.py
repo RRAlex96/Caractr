@@ -515,13 +515,22 @@ def _parse_advert_data(advert: dict, result: dict) -> None:
         if fuel:
             result["fuel_type"] = fuel
 
-    # Engine power (kW from SV → cv/hp)
+    # Engine power — read the unit from the human label so we convert correctly.
+    # SV may store the value in cv or kW depending on the field; blindly treating
+    # it as kW (×1.36) inflated cv values by 36%. The label looks like "190 cv"
+    # or "140 kW" — detect and convert only when it's really kW.
     if not result.get("engine_power_hp"):
-        power_raw = _param_val(params, "engine_power")
-        if power_raw:
+        power_label = _param_label(params, "engine_power") or ""
+        power_val = _param_val(params, "engine_power") or ""
+        src = power_label if re.search(r"\d", power_label) else str(power_val)
+        m = re.search(r"(\d{2,4})", src)
+        if m:
             try:
-                kw = int(re.sub(r"[^\d]", "", str(power_raw)))
-                result["engine_power_hp"] = round(kw * 1.36)
+                num = int(m.group(1))
+                is_kw = "kw" in src.lower() and "cv" not in src.lower()
+                hp = round(num * 1.36) if is_kw else num
+                if 30 <= hp <= 1200:
+                    result["engine_power_hp"] = hp
             except (ValueError, TypeError):
                 pass
 

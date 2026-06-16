@@ -406,19 +406,34 @@ async def fetch_listing_detail(url: str) -> dict:
                 result["title"] = h1.get_text(strip=True)
 
             # ── Price: find text matching "XX.XXX €" pattern ──
-            # OLX shows price in a prominent heading element
-            price_pattern = re.compile(r'(\d[\d\s.]*)\s*€')
-            for el in soup.select("h2, h3, h4, [class*='price'], [data-testid*='price']"):
-                m = price_pattern.search(el.get_text(strip=True))
-                if m:
-                    result["price"] = _parse_price(m.group(1))
-                    if result["price"]:
+            # OLX shows the asking price in a prominent heading element. Guard
+            # against financing widgets ("199 €/mês"), "desde X €", and other
+            # non-asking amounts — these were a source of wildly wrong prices.
+            price_pattern = re.compile(r'(\d[\d\s.]*)\s*€(\s*/?\s*m[êe]s)?', re.IGNORECASE)
+
+            def _looks_like_monthly(text: str, match: re.Match) -> bool:
+                if match.group(2):  # "€/mês" right after the number
+                    return True
+                ctx = text[max(0, match.start() - 12):match.end() + 12].lower()
+                return any(w in ctx for w in ("/mês", "/mes", "mensal", "mês", "desde", "financ"))
+
+            for el in soup.select("h1, h2, h3, [class*='price'], [data-testid*='price']"):
+                t = el.get_text(" ", strip=True)
+                m = price_pattern.search(t)
+                if m and not _looks_like_monthly(t, m):
+                    p = _parse_price(m.group(1))
+                    if p and p >= 1000:  # cars cost ≥ €1.000; smaller = monthly/fee
+                        result["price"] = p
                         break
-            # Fallback: scan full page
+            # Fallback: scan full page, still skipping monthly amounts
             if not result["price"]:
-                m = price_pattern.search(page_text)
-                if m:
-                    result["price"] = _parse_price(m.group(1))
+                for m in price_pattern.finditer(page_text):
+                    if _looks_like_monthly(page_text, m):
+                        continue
+                    p = _parse_price(m.group(1))
+                    if p and p >= 1000:
+                        result["price"] = p
+                        break
 
             # ── Portuguese label-value pairs ──
             # OLX renders specs as "Ano: 2020", "Quilómetros: 185.000 km", etc.
@@ -467,18 +482,55 @@ async def fetch_listing_detail(url: str) -> dict:
 
 # ── Portuguese label-value extraction ──────────────────────────────────────
 
-# Patterns for Portuguese car spec labels as displayed on OLX
+def _norm_fuel(raw: str) -> Optional[str]:
+    """Normalise a Portuguese fuel word to a canonical value."""
+    r = (raw or "").lower()
+    if "elétr" in r or "eletr" in r or "electric" in r:
+        return "Elétrico"
+    if "plug" in r:
+        return "Híbrido (Plug-in)"
+    if "híbr" in r or "hibr" in r or "hybrid" in r:
+        return "Híbrido"
+    if "diesel" in r or "gasóleo" in r or "gasoleo" in r:
+        return "Diesel"
+    if "gpl" in r:
+        return "GPL"
+    if "gasolina" in r:
+        return "Gasolina"
+    return None
+
+
+def _norm_transmission(raw: str) -> Optional[str]:
+    r = (raw or "").lower()
+    if "autom" in r:
+        return "Automática"
+    if "manual" in r:
+        return "Manual"
+    return None
+
+
+# Patterns for Portuguese car spec labels as displayed on OLX.
+# Values are matched against tight whitelists/anchored groups so a capture never
+# bleeds into the *next* label (the cause of "Diesel Potência" garbage).
+# NOTE: field names must match what the pipeline reads downstream
+# (engine_power_hp, not power).
 _PT_LABEL_PATTERNS = [
-    # (regex pattern matching "Label: Value", field name, parser function)
-    (re.compile(r'Ano\s*:\s*(\d{4})', re.IGNORECASE), "year", lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
-    (re.compile(r'Quil[oó]metros?\s*:\s*([\d\s.]+)\s*km', re.IGNORECASE), "km", lambda m: _parse_km(m.group(1))),
-    (re.compile(r'Combust[ií]vel\s*:\s*(\w[\w\s-]*)', re.IGNORECASE), "fuel_type", lambda m: m.group(1).strip()),
-    (re.compile(r'Pot[eê]ncia\s*:\s*(\d+)', re.IGNORECASE), "power", lambda m: int(m.group(1))),
-    (re.compile(r'Cilindrada\s*:\s*([\d.]+)', re.IGNORECASE), "displacement", lambda m: m.group(1)),
-    (re.compile(r'Tipo de Caixa\s*:\s*(\w+)', re.IGNORECASE), "transmission", lambda m: m.group(1).strip()),
-    (re.compile(r'Portas\s*:\s*(\d)', re.IGNORECASE), "doors", lambda m: m.group(1)),
-    (re.compile(r'Lugares\s*:\s*(\d)', re.IGNORECASE), "seats", lambda m: m.group(1)),
-    (re.compile(r'Cor\s*:\s*(\w[\w\s]*)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
+    (re.compile(r'Ano\s*:?\s*(\d{4})', re.IGNORECASE), "year",
+        lambda m: int(m.group(1)) if 1990 <= int(m.group(1)) <= 2030 else None),
+    (re.compile(r'Quil[oó]metros?\s*:?\s*([\d\s.]+?)\s*km', re.IGNORECASE), "km",
+        lambda m: _parse_km(m.group(1))),
+    (re.compile(r'Combust[ií]vel\s*:?\s*(Gasolina|Diesel|Gas[oó]leo|H[ií]brido(?:\s*\(?Plug[- ]?in\)?)?|El[eé]tric[oa]|GPL)',
+                re.IGNORECASE), "fuel_type", lambda m: _norm_fuel(m.group(1))),
+    # Power: OLX lists it in cv (≈ hp in PT usage). Capture the number only.
+    (re.compile(r'Pot[eê]ncia\s*:?\s*(\d{2,4})\s*(?:cv|cav|hp)?', re.IGNORECASE), "engine_power_hp",
+        lambda m: int(m.group(1)) if 30 <= int(m.group(1)) <= 1200 else None),
+    (re.compile(r'Cilindrada\s*:?\s*([\d.\s]+?)\s*c?m?3?\b', re.IGNORECASE), "displacement",
+        lambda m: m.group(1).strip()),
+    (re.compile(r'Tipo de Caixa\s*:?\s*(Manual|Autom[áa]tica|Semi[- ]?autom[áa]tica)', re.IGNORECASE),
+        "transmission", lambda m: _norm_transmission(m.group(1))),
+    (re.compile(r'Portas\s*:?\s*([2-5])\b', re.IGNORECASE), "doors", lambda m: m.group(1)),
+    (re.compile(r'Lugares\s*:?\s*([1-9])\b', re.IGNORECASE), "seats", lambda m: m.group(1)),
+    (re.compile(r'Cor\s*:?\s*([A-Za-zÀ-ÿ]+)', re.IGNORECASE), "colour", lambda m: m.group(1).strip()),
 ]
 
 
