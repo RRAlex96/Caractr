@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Fragment } from "react"
+import { cn } from "@/lib/utils"
 import { fetchPendingModels } from "@/lib/api"
 import type { PendingModel } from "@/lib/api"
+import { ModelEnrichPanel } from "./model-enrich-panel"
 
 interface ModelsTabProps {
   token: string
@@ -26,6 +28,7 @@ export function ModelsTab({ token }: ModelsTabProps) {
   const [analysedGap, setAnalysedGap] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [expanded, setExpanded] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -114,38 +117,58 @@ export function ModelsTab({ token }: ModelsTabProps) {
             </thead>
             <tbody>
               {models.map((m) => (
-                <tr
-                  key={m.id}
-                  className="border-b border-border/50 bg-card transition-colors hover:bg-foreground/[0.02]"
-                >
-                  <td className="px-4 py-3">
-                    <span className="text-[14px] font-medium text-foreground">
-                      {m.brand_name} {m.model_name}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
-                        m.analyses > 0
-                          ? "font-mono text-[13px] font-bold text-gold"
-                          : "font-mono text-[13px] text-muted-foreground/50"
-                      }
-                    >
-                      {m.analyses}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                    {m.generations}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {m.has_engines ? "sim" : "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground/60">
-                    {formatDate(m.created_at)}
-                  </td>
-                </tr>
+                <Fragment key={m.id}>
+                  <tr
+                    onClick={() => setExpanded(expanded === m.id ? null : m.id)}
+                    className={cn(
+                      "cursor-pointer border-b border-border/50 bg-card transition-colors hover:bg-foreground/[0.02]",
+                      expanded === m.id && "bg-foreground/[0.03]"
+                    )}
+                  >
+                    <td className="px-4 py-3">
+                      <span className="text-[14px] font-medium text-foreground">
+                        {m.brand_name} {m.model_name}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          m.analyses > 0
+                            ? "font-mono text-[13px] font-bold text-gold"
+                            : "font-mono text-[13px] text-muted-foreground/50"
+                        }
+                      >
+                        {m.analyses}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                      {m.generations}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {m.has_engines ? "sim" : "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground/60">
+                      {formatDate(m.created_at)}
+                    </td>
+                  </tr>
+                  {expanded === m.id && (
+                    <tr className="border-b border-border/50 bg-background">
+                      <td colSpan={5}>
+                        <ModelEnrichPanel
+                          token={token}
+                          modelId={m.id}
+                          label={`${m.brand_name} ${m.model_name}`}
+                          onSaved={() => {
+                            setExpanded(null)
+                            load()
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

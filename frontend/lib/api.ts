@@ -241,6 +241,60 @@ export async function fetchPendingModels(
   return res.json()
 }
 
+export interface KnownIssue {
+  severity: string
+  description: string
+  affected_years?: string | null
+  fix_cost_estimate?: string | null
+}
+
+export interface ModelEnrichment {
+  reliability_score?: number | null
+  reliability_summary?: string | null
+  maintenance_cost_year?: number | null
+  year_start?: number | null
+  year_end?: number | null
+  engine_code?: string | null
+  fuel_type?: string | null
+  displacement_cc?: number | null
+  power_hp?: number | null
+  known_issues: KnownIssue[]
+}
+
+export async function enrichModelDraft(
+  token: string,
+  id: number
+): Promise<ModelEnrichment> {
+  const res = await fetch(`${API}/api/admin/models/${id}/enrich/draft`, {
+    method: "POST",
+    headers: adminHeaders(token),
+  })
+  if (res.status === 403) throw new Error("Token inválido")
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `Erro ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function enrichModelSave(
+  token: string,
+  id: number,
+  data: ModelEnrichment
+): Promise<{ status: string }> {
+  const res = await fetch(`${API}/api/admin/models/${id}/enrich/save`, {
+    method: "POST",
+    headers: adminHeaders(token),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 403) throw new Error("Token inválido")
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `Erro ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function updateConcierge(
   token: string,
   id: number,

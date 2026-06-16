@@ -509,3 +509,153 @@ def models_pending_enrichment(db: Session = Depends(get_db)):
         "analysed_gap": analysed_gap,
         "models": items,
     }
+
+
+@router.post("/models/{model_id}/enrich/draft", dependencies=[Depends(_auth)])
+def enrich_model_draft(model_id: int, db: Session = Depends(get_db)):
+    """Ask the LLM to draft reliability data for a model. Returns a draft for the
+    operator to review — does NOT write to the DB."""
+    from app.services.llm_client import generate_json, llm_available
+
+    row = db.execute(text("""
+        SELECT vm.id, b.name AS brand, vm.name AS model
+        FROM vehicle_models vm JOIN brands b ON b.id = vm.brand_id
+        WHERE vm.id = :id
+    """), {"id": model_id}).mappings().fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Modelo não encontrado")
+    if not llm_available():
+        raise HTTPException(status_code=503, detail="LLM indisponível")
+
+    prompt = f"""És um especialista em fiabilidade de automóveis usados no mercado português.
+Avalia o modelo: {row['brand']} {row['model']}.
+
+Responde APENAS com JSON válido (sem markdown):
+{{
+  "reliability_score": número 0-10 (10 = extremamente fiável),
+  "reliability_summary": "1-2 frases honestas sobre a fiabilidade geral deste modelo",
+  "maintenance_cost_year": custo médio anual de manutenção em euros (inteiro),
+  "year_start": ano de início de produção (inteiro),
+  "year_end": ano de fim ou null se ainda em produção,
+  "engine_code": "código do motor mais comum (ex: 'B47D20', 'EA288') ou null",
+  "fuel_type": "diesel|gasolina|híbrido|elétrico",
+  "displacement_cc": cilindrada típica em cm3 (inteiro) ou null,
+  "power_hp": potência típica em cv (inteiro) ou null,
+  "known_issues": [
+    {{"severity": "alto|medio|baixo", "description": "problema concreto e específico", "affected_years": "ex: '2015-2018'", "fix_cost_estimate": "ex: '€800-1500'"}}
+  ]
+}}
+known_issues: máximo 5, só problemas REAIS e conhecidos deste modelo. Sê específico e honesto."""
+
+    try:
+        draft = generate_json(prompt, max_tokens=1400)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro do LLM: {e}")
+
+    draft["model_id"] = model_id
+    draft["brand_name"] = row["brand"]
+    draft["model_name"] = row["model"]
+    return draft
+
+
+class KnownIssueIn(BaseModel):
+    severity: str = "medio"
+    description: str = ""
+    affected_years: Optional[str] = None
+    fix_cost_estimate: Optional[str] = None
+
+
+class EnrichSave(BaseModel):
+    reliability_score: Optional[float] = None
+    reliability_summary: Optional[str] = None
+    maintenance_cost_year: Optional[int] = None
+    year_start: Optional[int] = None
+    year_end: Optional[int] = None
+    engine_code: Optional[str] = None
+    fuel_type: Optional[str] = None
+    displacement_cc: Optional[int] = None
+    power_hp: Optional[int] = None
+    known_issues: list[KnownIssueIn] = []
+
+
+@router.post("/models/{model_id}/enrich/save", dependencies=[Depends(_auth)])
+def enrich_model_save(model_id: int, payload: EnrichSave, db: Session = Depends(get_db)):
+    """Persist the (reviewed) reliability data: generation score + engine + issues."""
+    exists = db.execute(
+        text("SELECT id FROM vehicle_models WHERE id = :id"), {"id": model_id}
+    ).scalar()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Modelo não encontrado")
+
+    score = payload.reliability_score
+    ci_low = max(0.0, round((score or 0) - 1.0, 1)) if score is not None else None
+    ci_high = min(10.0, round((score or 0) + 1.0, 1)) if score is not None else None
+
+    try:
+        # Generation: create one if none, marked llm_estimated (honestly "limited").
+        gen_id = db.execute(
+            text("SELECT id FROM generations WHERE model_id = :m ORDER BY id LIMIT 1"),
+            {"m": model_id},
+        ).scalar()
+        gen_params = {
+            "m": model_id, "ys": payload.year_start, "ye": payload.year_end,
+            "sc": score, "lo": ci_low, "hi": ci_high,
+        }
+        if gen_id is None:
+            db.execute(text("""
+                INSERT INTO generations
+                    (model_id, name, year_start, year_end,
+                     reliability_score, reliability_ci_low, reliability_ci_high,
+                     reliability_data_quality)
+                VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited')
+            """), gen_params)
+        else:
+            gen_params["g"] = gen_id
+            db.execute(text("""
+                UPDATE generations SET
+                    reliability_score = :sc,
+                    reliability_ci_low = :lo,
+                    reliability_ci_high = :hi,
+                    reliability_data_quality = 'limited',
+                    year_start = COALESCE(year_start, :ys),
+                    year_end = COALESCE(year_end, :ye)
+                WHERE id = :g
+            """), gen_params)
+
+        # Engine row carrying reliability + maintenance for _get_model_info.
+        eng_id = db.execute(text("""
+            INSERT INTO engines
+                (model_id, code, fuel_type, displacement_cc, power_hp,
+                 reliability_score, maintenance_cost_year)
+            VALUES (:m, :code, :fuel, :disp, :pow, :sc, :maint)
+            RETURNING id
+        """), {
+            "m": model_id,
+            "code": (payload.engine_code or "")[:80] or None,
+            "fuel": (payload.fuel_type or "")[:20] or None,
+            "disp": payload.displacement_cc,
+            "pow": payload.power_hp,
+            "sc": score,
+            "maint": payload.maintenance_cost_year,
+        }).scalar()
+
+        for iss in (payload.known_issues or [])[:6]:
+            if not iss.description:
+                continue
+            db.execute(text("""
+                INSERT INTO engine_issues
+                    (engine_id, severity, description, affected_years, fix_cost_estimate, source)
+                VALUES (:e, :sev, :desc, :ay, :fc, 'IA (estimativa)')
+            """), {
+                "e": eng_id,
+                "sev": (iss.severity or "medio")[:20],
+                "desc": iss.description[:500],
+                "ay": (iss.affected_years or "")[:50] or None,
+                "fc": (iss.fix_cost_estimate or "")[:50] or None,
+            })
+
+        db.commit()
+        return {"status": "saved", "model_id": model_id, "engine_id": eng_id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Falha ao guardar: {e}")
