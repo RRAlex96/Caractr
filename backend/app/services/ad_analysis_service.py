@@ -1820,6 +1820,60 @@ def _estimate_iuc(displacement_cc: Optional[int], fuel: str, year: Optional[int]
     return int(round(total / 5.0) * 5)
 
 
+def _build_anomaly(listing: dict, market_stats: dict, data_warnings: Optional[list]) -> Optional[dict]:
+    """
+    Turn price/data anomalies into an explicit, user-facing warning — the kind of
+    'too good to be true' / scam protection a buyer most wants. Returns the most
+    severe signal found, or None.
+    """
+    price = listing.get("price") or 0
+    fair = (market_stats or {}).get("median_price") or (market_stats or {}).get("avg_price") or 0
+    warnings = data_warnings or []
+
+    # Hard danger: placeholder/impossible prices flagged during validation.
+    for w in warnings:
+        if w.startswith("new_car_too_cheap") or w.startswith("suspicious_price_pattern"):
+            return {
+                "level": "danger",
+                "title": "Preço improvável",
+                "message": "O preço pedido é improvável para este carro. Desconfia — "
+                           "pode ser um erro, um esquema, ou esconder um problema grave. "
+                           "Vê o carro pessoalmente e nunca transfiras dinheiro nem sinal "
+                           "antes de confirmar tudo.",
+            }
+
+    if price and fair and fair > 0:
+        ratio = price / fair
+        if ratio < 0.55:
+            return {
+                "level": "danger",
+                "title": "Preço muito abaixo do normal",
+                "message": f"Está bem abaixo do que carros semelhantes valem (~{int(fair):,}€). "
+                           "Pode ser uma oportunidade real, mas é também o padrão típico de "
+                           "fraudes e carros com problemas escondidos. Confirma o estado e a "
+                           "documentação em pessoa — nunca pagues sinal antes disso.",
+            }
+        if ratio < 0.68:
+            return {
+                "level": "warning",
+                "title": "Preço abaixo do mercado",
+                "message": "Está abaixo da média do mercado. Pode ser bom negócio — confirma "
+                           "o estado real, a documentação e o histórico de manutenção antes de avançar.",
+            }
+
+    for w in warnings:
+        if w.startswith("km_vs_year_mismatch"):
+            return {
+                "level": "warning",
+                "title": "Quilometragem invulgar",
+                "message": "A quilometragem não encaixa bem com o ano do carro. Confirma com o "
+                           "vendedor e verifica o histórico — pode ser erro no anúncio ou "
+                           "manipulação do conta-quilómetros.",
+            }
+
+    return None
+
+
 def _build_cost_of_ownership(
     listing: dict,
     model_info: Optional[dict],
@@ -1983,6 +2037,7 @@ def _build_response(
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
         "negotiation":          _build_negotiation_numbers(listing, market_stats or {}),
+        "anomaly":              _build_anomaly(listing, market_stats or {}, listing.get("_data_warnings")),
         "cost_of_ownership":    _build_cost_of_ownership(
                                     listing, model_info, depreciation,
                                     _extract_engine_hint(listing.get("description") or ""),

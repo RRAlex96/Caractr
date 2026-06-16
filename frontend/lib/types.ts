@@ -116,6 +116,12 @@ export interface NegotiationNumbers {
   sample_count: number
 }
 
+export interface Anomaly {
+  level: "danger" | "warning"
+  title: string
+  message: string
+}
+
 export interface CostOfOwnership {
   monthly_running: number
   monthly_true: number | null
@@ -143,6 +149,7 @@ export interface AnalysisResult {
   inspection_checklist: string[]
   negotiation_tips: string[]
   negotiation?: NegotiationNumbers | null
+  anomaly?: Anomaly | null
   cost_of_ownership?: CostOfOwnership | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null

@@ -6,6 +6,7 @@ import type { AnalysisResult } from "@/lib/types"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
+import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -55,6 +56,8 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
         {/* Analysis components — same as /analisar */}
         <div className="space-y-5">
+          <AnomalyBadge anomaly={data.anomaly} />
+
           <VerdictCard
             listing={data.listing}
             deal={data.deal}

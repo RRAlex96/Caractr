@@ -10,6 +10,7 @@ import { AnalysisError } from "@/components/analysis/analysis-error"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
+import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -139,6 +140,8 @@ function AnalisarContent() {
       {/* ── Result ── */}
       {result && !loading && (
         <div className="mt-12 space-y-5">
+          <AnomalyBadge anomaly={result.anomaly} />
+
           <VerdictCard
             listing={result.listing}
             deal={result.deal}
