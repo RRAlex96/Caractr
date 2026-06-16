@@ -492,6 +492,7 @@ async def _fetch_live_market_data(
     engine_hint: Optional[str] = None,
     gen_year_start: Optional[int] = None,
     gen_year_end: Optional[int] = None,
+    sv_model_slug: Optional[str] = None,
 ) -> dict:
     """
     Fetch real-time market pricing from Standvirtual + OLX.
@@ -555,6 +556,7 @@ async def _fetch_live_market_data(
             budget_max=None,
             max_per_source=20,
             fuel_type=fuel_type,
+            sv_model_slug=sv_model_slug,
             year_from=scrape_year_from,
             year_to=scrape_year_to,
         )
@@ -864,17 +866,37 @@ _MERC_CLASS_MAP = {
 }
 
 
+def _models_compatible(extracted: str, matched: str) -> bool:
+    """
+    Guard against a loose LIKE match resolving to a DIFFERENT model — e.g.
+    'Range Rover Velar' matching 'Range Rover Evoque' on the shared word 'range'.
+    A loose match is only trusted when the names are equal, one contains the
+    other, or they share the DISTINGUISHING (last) token.
+    """
+    e = _strip_accents(extracted or "").lower().strip()
+    m = _strip_accents(matched or "").lower().strip()
+    if not e or not m:
+        return True
+    if e == m or e in m or m in e:
+        return True
+    et, mt = e.split(), m.split()
+    return bool(et and mt and et[-1] == mt[-1])
+
+
 def _resolve_vehicle_model(
     db: Session, brand_name: str, model_name: str, model_first_word: str
 ) -> Optional[dict]:
     """
     Resolve a scraped brand/model to a vehicle_models DB row.
 
-    Strategy:
-    1. Direct LIKE match on first word of model name
-    2. BMW variant mapping: "116" → "Série 1", "320" → "Série 3"
-    3. Mercedes variant mapping: "A" → "Classe A", "C" → "Classe C"
-    4. Fuzzy: try each word of the model name individually
+    Strategy (precision over recall — a wrong match corrupts the whole analysis):
+    0. Exact full model-name match (also finds previously auto-created models)
+    1. BMW variant mapping: "116" → "Série 1", "320" → "Série 3"
+    2. Mercedes variant mapping: "A" → "Classe A", "C" → "Classe C"
+    3. Exact / loose match on first word — loose matches validated by
+       _models_compatible so a generic word can't match a different model
+    4. Fuzzy: each word, also compatibility-validated
+    Returns None when there's no confident match (caller auto-creates the model).
     """
     if not brand_name or not model_first_word:
         return None
@@ -906,12 +928,21 @@ def _resolve_vehicle_model(
             "model": f"%{pattern_norm}%"
         }).mappings().fetchone()
 
-    # ── Strategy 1: direct match ──
+    # ── Strategy 0: exact full model-name match ──
+    # Catches clean DB models and, crucially, models we auto-created on a
+    # previous analysis (idempotent — no duplicates).
+    full_row = _query_model(model_name, exact=True)
+    if full_row:
+        return full_row
+
+    # ── Strategy 1: direct match on first word ──
     # Skip for single-letter tokens (too ambiguous for LIKE) and Mercedes
-    # (Mercedes needs specialized class mapping in Strategy 3)
+    # (Mercedes needs specialized class mapping in Strategy 3). Loose matches
+    # are validated so a generic word ('range') can't resolve to a different
+    # model ('Range Rover Evoque' for a Velar).
     if len(model_first_word) > 1 and "mercedes" not in brand_norm:
         row = _query_model(model_first_word)
-        if row:
+        if row and _models_compatible(model_name, row["model_name"]):
             return row
 
     # ── Strategy 2: BMW variant number → series ──
@@ -947,17 +978,66 @@ def _resolve_vehicle_model(
             if row:
                 return row
 
-    # ── Strategy 4: try each word of model_name ──
+    # ── Strategy 4: try each word of model_name (compatibility-validated) ──
     words = model_name.lower().split()
     for word in words[1:]:  # skip first word (already tried)
-        if len(word) >= 2:
+        if len(word) >= 3:  # >=3 to avoid matching on noise like "d", "sb"
             row = _query_model(word)
-            if row:
+            if row and _models_compatible(model_name, row["model_name"]):
                 print(f"[MODEL] Fuzzy match: '{model_name}' -> word '{word}'")
                 return row
 
     print(f"[MODEL] No DB match for {brand_name} '{model_name}' (first_word='{model_first_word}')")
     return None
+
+
+def _get_or_create_model(
+    db: Session, brand_name: str, model_name: str, model_first_word: str
+) -> Optional[dict]:
+    """
+    Resolve a scraped brand/model to a vehicle_models row, CREATING it if it's
+    not in the DB (self-healing catalogue). A model we don't have is registered
+    on first sight rather than mis-matched to a different one — the market
+    comparison then uses the listing's own source slug, so it's correct from day
+    one even before reliability/known-issues are enriched.
+    """
+    resolved = _resolve_vehicle_model(db, brand_name, model_name, model_first_word)
+    if resolved:
+        return resolved
+
+    # Only auto-create when we have a clean, plausible brand + model.
+    brand_clean = (brand_name or "").strip()
+    model_clean = (model_name or "").strip()
+    if not brand_clean or not model_clean or len(model_clean) > 40:
+        return None
+    # Guard against trim noise leaking into the model name.
+    model_clean = re.sub(r"\s+", " ", model_clean)[:40].strip()
+
+    try:
+        brand_norm = _strip_accents(brand_clean).lower()
+        brand_row = db.execute(text(
+            "SELECT id, name FROM brands WHERE LOWER(name) = :b LIMIT 1"
+        ), {"b": brand_norm}).mappings().fetchone()
+        if brand_row:
+            brand_id = brand_row["id"]
+        else:
+            brand_id = db.execute(text(
+                "INSERT INTO brands (name) VALUES (:n) RETURNING id"
+            ), {"n": brand_clean}).scalar()
+            print(f"[MODEL] Auto-created brand '{brand_clean}'")
+
+        new_id = db.execute(text("""
+            INSERT INTO vehicle_models (brand_id, name)
+            VALUES (:bid, :name)
+            RETURNING id
+        """), {"bid": brand_id, "name": model_clean}).scalar()
+        db.commit()
+        print(f"[MODEL] Auto-registered '{brand_clean} {model_clean}' (id={new_id})")
+        return {"id": new_id, "brand_name": brand_clean, "model_name": model_clean}
+    except Exception as e:
+        db.rollback()
+        print(f"[MODEL] Auto-create failed for '{brand_clean} {model_clean}': {e}")
+        return None
 
 
 async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[dict]:
@@ -1076,9 +1156,10 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     }).scalar()
     db.commit()
 
-    # Lookup model — guard against empty brand/model (generic scraper may not resolve them)
+    # Lookup model — resolve, or auto-register if unknown (self-healing catalogue).
+    # Guard against empty brand/model (generic scraper may not resolve them).
     model_first_word = (model_name.lower().split() or [""])[0]
-    model_row = _resolve_vehicle_model(db, brand_name, model_name, model_first_word)
+    model_row = _get_or_create_model(db, brand_name, model_name, model_first_word)
 
     model_id = model_row["id"] if model_row else None
     resolved_brand = model_row["brand_name"] if model_row else brand_name
@@ -1181,6 +1262,9 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "engine_power_hp":  detail.get("engine_power_hp"),
         "transmission":     detail.get("transmission"),
         "colour":           detail.get("colour"),
+        "version":              detail.get("version"),
+        "engine_displacement_cc": detail.get("engine_displacement_cc"),
+        "sv_model_slug":        detail.get("sv_model_slug"),
         "source_url":    listing_url,
         "source":        source,
         "_js_limited":   _js_limited,
@@ -1343,6 +1427,7 @@ async def _analyse_listing_inner(
                     engine_hint=engine_hint,
                     gen_year_start=gen_year_start,
                     gen_year_end=gen_year_end,
+                    sv_model_slug=normalized.get("sv_model_slug"),
                 ),
                 timeout=45,  # 45s hard cap — Playwright can't hang the whole app
             )
@@ -1749,13 +1834,14 @@ def _build_cost_of_ownership(
     except (ValueError, TypeError):
         power_hp = None
 
-    # Displacement from engine hint like "2.0 TDI" -> 2.0 L -> 2000 cc
-    displacement_l: Optional[float] = None
-    if engine_hint:
+    # Displacement — prefer the exact value extracted from the listing
+    # (SV's engine_capacity, e.g. 1999cc); else parse the engine hint "2.0 TDI".
+    displacement_cc = listing.get("engine_displacement_cc")
+    if not displacement_cc and engine_hint:
         m = re.match(r"([1-9]\.[0-9])", engine_hint.strip())
         if m:
-            displacement_l = float(m.group(1))
-    displacement_cc = int(displacement_l * 1000) if displacement_l else None
+            displacement_cc = int(float(m.group(1)) * 1000)
+    displacement_l = (displacement_cc / 1000.0) if displacement_cc else None
 
     # ── Fuel cost / year ──
     cons, unit = _estimate_consumption(fuel, displacement_l, power_hp)

@@ -197,10 +197,16 @@ def _build_search_url(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
+    model_slug_override: Optional[str] = None,
 ) -> str:
     brand_slug = BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
-    model_clean = model.strip()
-    model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
+    # Prefer SV's own model slug (from the listing) when provided — it's exact
+    # for any model, including ones not in our MODEL_SLUGS map (e.g. 'velar').
+    if model_slug_override:
+        model_slug = model_slug_override.strip()
+    else:
+        model_clean = model.strip()
+        model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
     url = f"{SEARCH_URL}/{brand_slug}/{model_slug}"
     params = []
     if budget_max:
@@ -399,15 +405,17 @@ async def fetch_listings(
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
+    model_slug: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch listings from Standvirtual for a given brand/model.
     Uses Playwright to render JS-heavy search pages so prices are populated.
     Falls back to static httpx if Playwright is not installed.
     year_from / year_to / fuel_type are passed as URL filters so only the correct
-    generation and fuel variant are fetched at the source — not filtered after.
+    generation and fuel variant are fetched. model_slug overrides the model path
+    with SV's own slug, so models missing from our map still search correctly.
     """
-    search_url = _build_search_url(brand, model, budget_max, year_from, year_to, fuel_type)
+    search_url = _build_search_url(brand, model, budget_max, year_from, year_to, fuel_type, model_slug)
 
     # httpx-first: SV search pages embed full listing data (JSON-LD ItemList +
     # rendered cards) in the static HTML — no JS needed. Verified to return
@@ -589,6 +597,20 @@ def _parse_advert_data(advert: dict, result: dict) -> None:
                     result["engine_power_hp"] = hp
             except (ValueError, TypeError):
                 pass
+
+    # SV's own make/model slugs — used to search the EXACT model market even
+    # when it isn't in our DB (e.g. 'velar'), and version/displacement for
+    # trim analysis + IUC. These never hurt; they only enrich.
+    if not result.get("sv_model_slug"):
+        result["sv_model_slug"] = (_param_val(params, "model") or "").strip()
+    if not result.get("version"):
+        result["version"] = (_param_label(params, "version") or "").strip()
+    if not result.get("engine_displacement_cc"):
+        cap = _param_val(params, "engine_capacity") or _param_label(params, "engine_capacity")
+        if cap:
+            digits = re.sub(r"[^\d]", "", str(cap))
+            if digits and 600 <= int(digits) <= 8000:
+                result["engine_displacement_cc"] = int(digits)
 
     # Transmission
     if not result.get("transmission"):
