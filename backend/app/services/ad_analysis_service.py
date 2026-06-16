@@ -211,11 +211,11 @@ Responde APENAS com este JSON (sem texto extra, sem markdown):
   "engine_code": "Código do motor se identificável (ex: 'EA888', 'N47D20', 'K9K 636', 'OM651') ou null",
   "engine_analysis": "1-2 frases sobre ESTE motor específico: fiabilidade conhecida, pontos fracos, o que verificar. Ex: 'O EA888 Gen3 é sólido mas consome óleo — verificar nível entre revisões. Correia aos 210k km.'",
   "extras_analysis": "2-3 frases: que extras tem, o que valem no mercado, e o que FALTA em relação ao esperado para esta versão.",
-  "negotiation_script": "Script CONCRETO de negociação: valor de primeira oferta, argumentos específicos baseados nos dados (km, tempo no mercado, extras em falta, problemas do motor).",
+  "negotiation_script": "Uma mensagem curta e natural, em português de Portugal, pronta a enviar ao vendedor por WhatsApp/email — como uma pessoa real escreveria, não um guião de vendas. Educada e à vontade, demonstra interesse genuíno, menciona 1-2 factos concretos (ex: está há X dias à venda, km acima da média, falta o livro de revisões) e faz uma proposta de valor com naturalidade. Nada de linguagem corporativa ou robótica. Máximo 4 frases.",
   "verdict_narrative": "3-4 frases: síntese final como amigo especialista. Honesto e direto. Contextualiza preço, km, motor, extras — vale ou não? Para quem é ideal?",
   "seller_read": "2-3 frases: psicologia do vendedor baseada na descrição. Descrição detalhada = transparência, vaga = possível ocultação. Palavras como 'urgente', 'impecável' — o que significam.",
   "inspection_checklist": ["5-7 pontos de inspeção ESPECÍFICOS para ESTE motor e modelo. Ex: 'Verificar corrente de distribuição — problema conhecido acima de 120k km'. Não ponhas coisas genéricas como 'verificar pneus'."],
-  "negotiation_tips": ["3-5 dicas de negociação específicas para ESTA situação, baseadas no preço, km, tempo no mercado e tipo de vendedor."]
+  "negotiation_tips": ["3-4 dicas curtas e naturais, em português de Portugal, como um amigo que percebe de carros te diria ao ouvido. Concretas a esta situação (preço, km, tempo no mercado, vendedor). Tom humano, nada de jargão."]
 }}"""
 
 
@@ -1512,44 +1512,45 @@ def _build_negotiation_tips(listing: dict, market_stats: dict) -> list[str]:
         if price_delta < -0.05:  # car is above market
             pct_above = round(abs(price_delta) * 100)
             target = round(price * 0.93 / 500) * 500
+            target_fmt = f"{target:,}".replace(",", ".")
             tips.append(
-                f"Está {pct_above}% acima do mercado — propõe {target:,}€ mencionando anúncios comparáveis"
+                f"Anda uns {pct_above}% acima de carros parecidos. Leva-lhe alguns anúncios semelhantes e atira um valor à volta dos {target_fmt}€ — com jeitinho costuma resultar."
             )
         elif price_delta > 0.05:  # car is below market — validate before paying
             tips.append(
-                "Preço abaixo do mercado — confirma o estado real antes de fechar negócio"
+                "Está abaixo da média do mercado, o que é bom sinal — mas confirma bem o estado antes de avançar, às vezes há um motivo."
             )
 
     # Listing age leverage
     if listing_age >= 30:
         tips.append(
-            f"Anúncio há {listing_age} dias — vendedor está provavelmente motivado, podes negociar"
+            f"Já está à venda há {listing_age} dias. Quem espera há tanto tempo costuma estar mais aberto a baixar — usa isso a teu favor."
         )
     elif listing_age >= 14:
-        tips.append(f"Anúncio há {listing_age} dias — há espaço para tentar 3-5% de desconto")
+        tips.append(f"Está anunciado há {listing_age} dias, por isso há margem para pedir uns 3 a 5% de desconto sem ofender ninguém.")
 
     # Seller type
     if seller_type == "particular":
         tips.append(
-            "Vendedor particular — mais flexível em preço, mas sem garantia legal"
+            "É particular, por isso há mais espaço para negociar — mas lembra-te que não ficas com a garantia que terias num stand."
         )
     elif seller_type == "profissional":
         tips.append(
-            "Stand profissional — menos margem de negociação, mas com garantia de 1 ano"
+            "Sendo stand, a margem no preço é menor, mas tens garantia. Se não baixarem, tenta antes pedir extras: revisão feita, pneus, multimédia."
         )
 
     # High km leverage
     if km > 150000:
         tips.append(
-            f"Com {km:,} km, pede uma inspeção independente antes — usa o resultado para negociar"
+            f"Com {km:,} km".replace(",", ".") + ", vale mesmo a pena uma inspeção independente antes de fechar. Se aparecer alguma coisa, é o teu argumento para baixar o preço."
         )
     elif km > 100000:
         tips.append(
-            "Acima de 100.000 km — menciona os custos de manutenção previsíveis para justificar desconto"
+            "Já passou dos 100 mil km — lembra-lhe com simpatia que vais ter manutenção pela frente, ajuda a justificar um valor mais baixo."
         )
 
     if not tips:
-        tips.append("Pede sempre a história de serviços completa antes de fazer oferta")
+        tips.append("Antes de qualquer oferta, pede o histórico de revisões completo. Se faltar, é logo meio caminho andado para negociar.")
 
     return tips[:4]
 
@@ -1589,31 +1590,31 @@ def _build_negotiation_numbers(listing: dict, market_stats: dict) -> Optional[di
 
     if listing_age >= 30:
         margin += 0.03
-        leverage.append(f"No mercado há {listing_age} dias — vendedor provavelmente motivado")
+        leverage.append(f"Já está há {listing_age} dias à venda — quem espera tanto costuma estar mais aberto a baixar")
     elif listing_age >= 14:
         margin += 0.015
-        leverage.append(f"No mercado há {listing_age} dias")
+        leverage.append(f"Anunciado há {listing_age} dias, há espaço para negociar")
 
     if "particular" in seller_type:
         margin += 0.01
-        leverage.append("Vendedor particular — mais margem, mas sem garantia legal")
+        leverage.append("É particular: mais margem para negociar (mas sem garantia)")
     elif "profiss" in seller_type or "stand" in seller_type:
         margin -= 0.005  # less wiggle, but legal warranty
 
     if price > fair * 1.05:
         pct = round((price - fair) / fair * 100)
         margin += 0.02
-        leverage.append(f"{pct}% acima do valor de mercado — usa anúncios comparáveis")
+        leverage.append(f"Está uns {pct}% acima de carros parecidos — mostra-lhe os comparáveis")
     elif price < fair * 0.95:
         pct = round((fair - price) / fair * 100)
-        leverage.append(f"{pct}% abaixo do mercado — já é bom preço, confirma o estado")
+        leverage.append(f"Está uns {pct}% abaixo da média — já é bom preço, confirma o estado")
 
     if year:
         try:
             age_years = max(1, datetime.now().year - int(year))
             if km and km > age_years * 15000 * 1.2:
                 margin += 0.015
-                leverage.append("Quilometragem acima da média para o ano")
+                leverage.append("Tem mais km do que a média para o ano")
         except (ValueError, TypeError):
             pass
 
