@@ -10,7 +10,6 @@ import { AnalysisError } from "@/components/analysis/analysis-error"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { FlagsList } from "@/components/analysis/flags-list"
-import { ExtrasGrid } from "@/components/analysis/extras-grid"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
 import { TextPanel } from "@/components/analysis/text-panel"
@@ -18,6 +17,7 @@ import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
 import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
 import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
+import { EquipmentCard } from "@/components/analysis/equipment-card"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { ChecksGrid } from "@/components/analysis/checks-grid"
@@ -148,12 +148,12 @@ function AnalisarContent() {
 
           <MetricsGrid deal={result.deal} analysis={result.analysis} />
 
+          <EquipmentCard analysis={result.analysis} />
+
           <FlagsList
             greenFlags={result.analysis.green_flags || []}
             redFlags={result.analysis.red_flags || []}
           />
-
-          <ExtrasGrid extras={result.analysis.key_extras || []} />
 
           {result.analysis.engine_analysis && (
             <EngineCard

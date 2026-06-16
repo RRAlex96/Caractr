@@ -6,7 +6,6 @@ import type { AnalysisResult } from "@/lib/types"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { FlagsList } from "@/components/analysis/flags-list"
-import { ExtrasGrid } from "@/components/analysis/extras-grid"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
 import { TextPanel } from "@/components/analysis/text-panel"
@@ -14,6 +13,7 @@ import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
 import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
 import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
 import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
+import { EquipmentCard } from "@/components/analysis/equipment-card"
 import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
 import { DepreciationChart } from "@/components/analysis/depreciation-chart"
 import { TrustPanel } from "@/components/shared/trust-panel"
@@ -64,12 +64,12 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
           <MetricsGrid deal={data.deal} analysis={data.analysis} />
 
+          <EquipmentCard analysis={data.analysis} />
+
           <FlagsList
             greenFlags={data.analysis.green_flags || []}
             redFlags={data.analysis.red_flags || []}
           />
-
-          <ExtrasGrid extras={data.analysis.key_extras || []} />
 
           {data.analysis.engine_analysis && (
             <EngineCard

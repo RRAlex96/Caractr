@@ -42,6 +42,9 @@ export interface AnalysisDetails {
   trim_level: string | null
   spec_tier: string | null
   spec_value_assessment: string | null
+  trim_includes: string[]
+  optional_extras: string[]
+  equipment_note: string | null
   key_extras: string[]
   engine_code: string | null
   engine_analysis: string | null

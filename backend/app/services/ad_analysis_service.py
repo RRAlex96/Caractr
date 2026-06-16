@@ -173,6 +173,7 @@ O teu trabalho: analisar este anúncio como se o comprador te estivesse a pagar 
 
 ANÚNCIO:
 Modelo: {listing.get('brand_name', '')} {listing.get('model_name', '')}
+Versão de fábrica (trim): {listing.get('version') or 'não indicada — infere da descrição'}
 Ano: {listing.get('year', 'desconhecido')}
 Km: {listing.get('km', 'desconhecido')} ({km_note})
 Preço pedido: {price:,} EUR
@@ -192,9 +193,12 @@ Problemas conhecidos do modelo: {known_issues}
 
 INSTRUÇÕES IMPORTANTES:
 1. IDENTIFICA O MOTOR EXATO: com base na cilindrada, potência e combustível, identifica o código do motor (ex: "Motor N47D20 no BMW", "Motor K9K no Renault", "OM651 no Mercedes"). Isto é crítico para os problemas conhecidos.
-2. IDENTIFICA A VERSÃO/TRIM: Avantgarde, Comfort, Sport, R-Line, GT-Line, etc. Cada versão tem equipamento diferente — não os mistures.
-3. ANALISA OS EXTRAS DA DESCRIÇÃO: Lê cuidadosamente a descrição e extrai TODOS os extras mencionados. Cada extra tem impacto no valor.
-4. AVALIA O PREÇO COM BASE NOS EXTRAS: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
+2. IDENTIFICA A VERSÃO/TRIM: Avantgarde, Comfort, Sport, R-Line, GT-Line, R-Dynamic, Pack M, etc. Cada versão traz equipamento de série diferente.
+3. SEPARA EQUIPAMENTO DE SÉRIE vs EXTRAS OPCIONAIS — isto é crucial para quem não percebe de carros:
+   - "trim_includes": o que ESTA versão de fábrica já traz de série (ex: R-Line → jantes, faróis LED, bancos desportivos, multimédia). Conhecimento do modelo, não só da descrição.
+   - "optional_extras": o que foi ADICIONADO além da versão (ex: teto panorâmico, som premium, bola de reboque, pack de assistência). Só o que a descrição revela como extra.
+   Não repitas o mesmo item nos dois. Se não souberes a versão, deixa trim_includes vazio e lista tudo em optional_extras.
+4. AVALIA O PREÇO COM BASE NO EQUIPAMENTO: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
 
 Responde APENAS com este JSON (sem texto extra, sem markdown):
 {{
@@ -204,8 +208,11 @@ Responde APENAS com este JSON (sem texto extra, sem markdown):
   "red_flags": ["MÁXIMO 4. Cada flag deve ser específica. Ex: 'Motor N47 com >150k km — corrente de distribuição traseira, verificar urgentemente'. NUNCA flags genéricas."],
   "seller_analysis": "2-3 frases: o que a descrição REVELA sobre o vendedor. Profissional ou particular? O que omite? O tom é confiante ou vago? Há sinais de urgência na venda?",
   "profile_fit": "Como este anúncio específico se adequa ao perfil do comprador (1-2 frases)",
-  "trim_level": "Nome exato da versão/trim detectado (ex: 'Avantgarde', 'R-Line', 'GT-Line') ou null se não identificável",
-  "spec_tier": "base|medio|alto — baseado nos extras reais detectados na descrição",
+  "trim_level": "Nome exato da versão/trim detectado (ex: 'Avantgarde', 'R-Line', 'R-Dynamic S', 'Pack M') ou null se não identificável",
+  "spec_tier": "base|medio|alto — baseado no equipamento total (série + extras)",
+  "trim_includes": ["3-7 itens que ESTA versão de fábrica traz de série. Ex para R-Line: 'Jantes 18\"', 'Faróis LED', 'Bancos desportivos', 'Volante multifunções'. Vazio se a versão for desconhecida."],
+  "optional_extras": ["Extras OPCIONAIS adicionados além da versão, com valor quando relevante. Ex: 'Teto panorâmico', 'Som Harman Kardon', 'Bola de reboque'. Máximo 8."],
+  "equipment_note": "1 frase simples para quem não percebe de carros: este carro está bem ou mal equipado para a versão/preço, e porquê. Ex: 'Bem equipado — além do R-Line de série, tem teto e som premium que valem o preço.'",
   "key_extras": ["Lista TODOS os extras mencionados na descrição. Ex: 'Bancos em pele', 'Teto panorâmico', 'Navegação', 'Câmara traseira', 'Jantes 19', 'Sensores estacionamento', 'LED'. Máximo 12."],
   "spec_value_assessment": "acima_do_esperado|adequado|abaixo_do_esperado — considerando os extras para esta versão e preço",
   "engine_code": "Código do motor se identificável (ex: 'EA888', 'N47D20', 'K9K 636', 'OM651') ou null",
@@ -1957,8 +1964,11 @@ def _build_response(
             "red_flags": llm.get("red_flags", []),
             "seller_analysis": llm.get("seller_analysis", ""),
             "profile_fit": llm.get("profile_fit", ""),
-            "trim_level": llm.get("trim_level"),
+            "trim_level": llm.get("trim_level") or listing.get("version"),
             "spec_tier": llm.get("spec_tier", "base"),
+            "trim_includes": llm.get("trim_includes", []),
+            "optional_extras": llm.get("optional_extras", []),
+            "equipment_note": llm.get("equipment_note"),
             "key_extras": llm.get("key_extras", []),
             "spec_value_assessment": llm.get("spec_value_assessment", "adequado"),
             "engine_code": llm.get("engine_code"),
