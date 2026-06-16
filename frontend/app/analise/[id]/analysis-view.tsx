@@ -5,6 +5,7 @@ import type { AnalysisResult } from "@/lib/types"
 
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
+import { MarketBasis } from "@/components/analysis/market-basis"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -64,6 +65,8 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
           <MetricsGrid deal={data.deal} analysis={data.analysis} />
 
+          <MarketBasis deal={data.deal} listing={data.listing} />
+
           <EquipmentCard analysis={data.analysis} />
 
           <FlagsList
@@ -119,6 +122,7 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
           <TrustPanel
             reliability={data.reliability}
+            reliabilityLimited={!data.reliability}
             modelName={`${brand} ${model}`.trim() || undefined}
           />
 

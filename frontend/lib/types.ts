@@ -28,6 +28,7 @@ export interface AnalysisDeal {
   market_data_source: "live" | "db" | "none"
   market_data_age_days: number | null
   market_data_stale: boolean
+  market_fuel_type: string | null
   generation_year_start: number | null
   generation_year_end: number | null
 }

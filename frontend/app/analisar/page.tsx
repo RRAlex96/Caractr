@@ -9,6 +9,7 @@ import { LoadingSteps } from "@/components/analysis/loading-steps"
 import { AnalysisError } from "@/components/analysis/analysis-error"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
+import { MarketBasis } from "@/components/analysis/market-basis"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -148,6 +149,8 @@ function AnalisarContent() {
 
           <MetricsGrid deal={result.deal} analysis={result.analysis} />
 
+          <MarketBasis deal={result.deal} listing={result.listing} />
+
           <EquipmentCard analysis={result.analysis} />
 
           <FlagsList
@@ -203,6 +206,7 @@ function AnalisarContent() {
 
           <TrustPanel
             reliability={result.reliability}
+            reliabilityLimited={!result.reliability}
             modelName={
               result.listing
                 ? `${result.listing.brand_name || ""} ${result.listing.model_name || ""}`.trim()

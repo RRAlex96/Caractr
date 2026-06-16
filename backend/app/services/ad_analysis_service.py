@@ -1954,6 +1954,7 @@ def _build_response(
             "market_data_source": (market_stats or {}).get("source", "none"),
             "market_data_age_days": (market_stats or {}).get("age_days"),
             "market_data_stale": (market_stats or {}).get("stale", False),
+            "market_fuel_type": listing.get("fuel_type"),
             "generation_year_start": gen_year_start,
             "generation_year_end": gen_year_end,
         },

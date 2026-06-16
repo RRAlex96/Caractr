@@ -184,11 +184,12 @@ interface TrustPanelProps {
   reliability?: ReliabilityData | null
   market?: MarketData | null
   modelName?: string
+  reliabilityLimited?: boolean
   className?: string
 }
 
-export function TrustPanel({ reliability, market, modelName, className }: TrustPanelProps) {
-  if (!reliability && !market) return null
+export function TrustPanel({ reliability, market, modelName, reliabilityLimited, className }: TrustPanelProps) {
+  if (!reliability && !market && !reliabilityLimited) return null
 
   return (
     <div className={cn("mt-5 border-t border-border pt-5", className)}>
@@ -202,6 +203,18 @@ export function TrustPanel({ reliability, market, modelName, className }: TrustP
             Fiabilidade
           </span>
           <ReliabilityBlock reliability={reliability} />
+        </div>
+      )}
+
+      {!reliability && reliabilityLimited && (
+        <div className="mt-4 border-t border-border pt-4">
+          <span className="mb-2 block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
+            Fiabilidade
+          </span>
+          <p className="text-[13px] font-light leading-relaxed text-muted-foreground">
+            Ainda estamos a reunir dados de fiabilidade para este modelo. A
+            análise acima baseia-se no preço, mercado e no que o anúncio revela.
+          </p>
         </div>
       )}
 
