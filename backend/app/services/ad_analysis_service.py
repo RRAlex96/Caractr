@@ -1392,11 +1392,16 @@ async def _analyse_listing_inner(
         model_info = _get_model_info(db, brand_name, model_name)
 
     # ── 3a. Compute deal metrics ──
+    # Use the MEDIAN as the market reference, not the average. The average is
+    # skewed by expensive trims/outliers (e.g. M-Sport variants), which made the
+    # verdict say "atrativo" while the negotiation panel (median-based) showed the
+    # car was actually at market. Median keeps both consistent.
     price = normalized.get("price")
-    avg_price = market_stats.get("avg_price")
+    ref_price = market_stats.get("median_price") or market_stats.get("avg_price")
+    avg_price = ref_price
     km_per_year = normalized.get("km_per_year") or _compute_km_per_year(normalized.get("km"), normalized.get("year"))
-    price_delta = _compute_price_delta(price or 0, avg_price or 0) if price and avg_price else 0.0
-    deal_tier = _classify_deal_tier(price_delta, km_per_year, price, avg_price, normalized.get("seller_type", "desconhecido"))
+    price_delta = _compute_price_delta(price or 0, ref_price or 0) if price and ref_price else 0.0
+    deal_tier = _classify_deal_tier(price_delta, km_per_year, price, ref_price, normalized.get("seller_type", "desconhecido"))
     deal_score = _compute_deal_score(price_delta, km_per_year)
 
     # Enrich listing with computed metrics
@@ -1575,6 +1580,14 @@ def _build_negotiation_numbers(listing: dict, market_stats: dict) -> Optional[di
     # buyer off a handful of comparables — a noisy median would mislead. Below
     # the threshold we show nothing rather than a wrong number.
     if sample and sample < _MIN_NEGOTIATION_SAMPLE:
+        return None
+    # Sanity gate: if the asking price is wildly off the market reference, we've
+    # almost certainly matched the wrong comparison pool (a model not in our DB
+    # mis-resolved to another) or the listing itself is anomalous (scam/typo).
+    # Precise offer numbers ("fair €17k for a €39.5k car") would be absurd —
+    # suppress them and let the verdict narrative explain.
+    ratio = price / fair
+    if ratio < 0.55 or ratio > 1.8:
         return None
 
     def _round50(x: float) -> int:
