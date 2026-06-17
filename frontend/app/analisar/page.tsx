@@ -11,6 +11,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
+import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -153,6 +154,8 @@ function AnalisarContent() {
           <MetricsGrid deal={result.deal} analysis={result.analysis} />
 
           <MarketBasis deal={result.deal} listing={result.listing} />
+
+          <PriceHistory data={result.price_history} />
 
           <EquipmentCard analysis={result.analysis} />
 

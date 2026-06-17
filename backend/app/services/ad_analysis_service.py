@@ -838,6 +838,85 @@ def _record_listing_snapshot(
         db.rollback()
 
 
+def _build_price_history(db: Session, listing: dict) -> Optional[dict]:
+    """
+    Surface price history + relisting from the accumulated listing_snapshots —
+    things ChatGPT structurally cannot know. Returns None until there's a real
+    signal (a price change, or the same car seen before at another URL).
+    """
+    url = listing.get("source_url")
+    if not url:
+        return None
+    try:
+        rows = db.execute(text("""
+            SELECT price, km, observed_at
+            FROM listing_snapshots
+            WHERE source_url = :url AND price IS NOT NULL
+            ORDER BY observed_at ASC
+        """), {"url": url}).mappings().fetchall()
+    except Exception:
+        return None
+    if not rows:
+        return None
+
+    def _days_ago(dt) -> Optional[int]:
+        if not dt:
+            return None
+        if getattr(dt, "tzinfo", None) is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).days
+
+    first, last = rows[0], rows[-1]
+    prices = [r["price"] for r in rows]
+    drop_total = first["price"] - last["price"]
+
+    last_change = None
+    for i in range(len(rows) - 1, 0, -1):
+        if rows[i]["price"] != rows[i - 1]["price"]:
+            last_change = {
+                "from": rows[i - 1]["price"],
+                "to": rows[i]["price"],
+                "days_ago": _days_ago(rows[i]["observed_at"]),
+            }
+            break
+
+    # Same physical car seen before at a different URL (relisting / rollback).
+    relisted = False
+    rollback = False
+    ihash = _compute_identity_hash(
+        listing.get("brand_name"), listing.get("model_name"),
+        listing.get("year"), listing.get("fuel_type"), listing.get("description"),
+    )
+    if ihash:
+        try:
+            prev = db.execute(text("""
+                SELECT km FROM listing_snapshots
+                WHERE identity_hash = :h AND source_url != :url
+                ORDER BY observed_at ASC LIMIT 1
+            """), {"h": ihash, "url": url}).mappings().fetchone()
+            if prev:
+                relisted = True
+                cur_km = listing.get("km")
+                if prev["km"] and cur_km and cur_km < prev["km"] - 500:
+                    rollback = True
+        except Exception:
+            pass
+
+    if len(set(prices)) <= 1 and not relisted:
+        return None  # nothing worth showing yet
+
+    return {
+        "observations":       len(rows),
+        "tracked_days":       _days_ago(first["observed_at"]),
+        "first_price":        first["price"],
+        "current_price":      last["price"],
+        "drop_total":         drop_total if drop_total > 0 else 0,
+        "last_change":        last_change,
+        "relisted_before":    relisted,
+        "rollback_suspected": rollback,
+    }
+
+
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     """Try to resolve model_id from a listing URL already in the DB."""
     row = db.execute(text("""
@@ -1379,12 +1458,15 @@ async def _analyse_listing_inner(
         cached_model_id = cached_model_info.get("id") if cached_model_info else None
         if cached_model_id and cached.get("year"):
             cached_market = _get_market_stats(db, cached_model_id, cached.get("year")) or {}
+        if not cached.get("source_url"):
+            cached["source_url"] = listing_url
         return _build_response(
             cached, llm, from_cache=True,
             enrichment=cached_enrichment or None,
             model_info=cached_model_info or None,
             market_stats=cached_market or None,
             analysis_id=cached.get("id"),
+            price_history=_build_price_history(db, cached),
         )
 
     # ── 2. Resolve or scrape listing ──
@@ -1552,6 +1634,8 @@ async def _analyse_listing_inner(
         except Exception as e:
             print(f"[AD_ANALYSIS] Depreciation lookup error: {e}")
 
+    price_history = _build_price_history(db, normalized)
+
     return _build_response(
         normalized, llm_result, from_cache=False, market_stats=market_stats,
         gen_year_start=gen_year_start, gen_year_end=gen_year_end,
@@ -1560,6 +1644,7 @@ async def _analyse_listing_inner(
         pw_debug=normalized.get("_pw_debug"),
         depreciation=depreciation_data,
         analysis_id=normalized.get("id"),
+        price_history=price_history,
     )
 
 
@@ -1974,6 +2059,7 @@ def _build_response(
     pw_debug: Optional[str] = None,
     depreciation: Optional[dict] = None,
     analysis_id: Optional[int] = None,
+    price_history: Optional[dict] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -2038,6 +2124,7 @@ def _build_response(
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
         "negotiation":          _build_negotiation_numbers(listing, market_stats or {}),
         "anomaly":              _build_anomaly(listing, market_stats or {}, listing.get("_data_warnings")),
+        "price_history":        price_history,
         "cost_of_ownership":    _build_cost_of_ownership(
                                     listing, model_info, depreciation,
                                     _extract_engine_hint(listing.get("description") or ""),

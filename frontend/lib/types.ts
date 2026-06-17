@@ -122,6 +122,17 @@ export interface Anomaly {
   message: string
 }
 
+export interface PriceHistory {
+  observations: number
+  tracked_days: number | null
+  first_price: number
+  current_price: number
+  drop_total: number
+  last_change: { from: number; to: number; days_ago: number | null } | null
+  relisted_before: boolean
+  rollback_suspected: boolean
+}
+
 export interface CostOfOwnership {
   monthly_running: number
   monthly_true: number | null
@@ -150,6 +161,7 @@ export interface AnalysisResult {
   negotiation_tips: string[]
   negotiation?: NegotiationNumbers | null
   anomaly?: Anomaly | null
+  price_history?: PriceHistory | null
   cost_of_ownership?: CostOfOwnership | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null

@@ -7,6 +7,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
+import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
 import { SellerRead } from "@/components/analysis/seller-read"
@@ -69,6 +70,8 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
           <MetricsGrid deal={data.deal} analysis={data.analysis} />
 
           <MarketBasis deal={data.deal} listing={data.listing} />
+
+          <PriceHistory data={data.price_history} />
 
           <EquipmentCard analysis={data.analysis} />
 
