@@ -1168,6 +1168,11 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     # Route to correct scraper via dispatcher
     detail = await fetch_detail_for_url(listing_url)
 
+    # Listing sold/removed (HTTP 404/410) — surface it cleanly rather than a
+    # broken empty analysis.
+    if detail.get("_gone"):
+        return {"_gone": True}
+
     # JS SPA flag — site had minimal page text, but may still have meta tags.
     # Continue with whatever data we have; the response will include a caveat.
     _js_limited = detail.pop("_js_only", False)
@@ -1507,6 +1512,9 @@ async def _analyse_listing_inner(
         normalized = _resolve_model_from_url(db, listing_url)
         if not normalized:
             normalized = await _scrape_and_store_listing(db, listing_url)
+
+    if normalized and normalized.get("_gone"):
+        return {"error": "Este anúncio já não está disponível — foi vendido ou removido do site."}
 
     if not normalized:
         return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente."}

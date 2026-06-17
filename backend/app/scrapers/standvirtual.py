@@ -696,22 +696,49 @@ async def fetch_listing_detail(url: str) -> dict:
     _layers_used: list[str] = []
 
     # ── Fetch HTML ─────────────────────────────────────────────────────────────
-    headers = {
-        "User-Agent": _random_ua(),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
-        "Referer": f"{BASE_URL}/carros",
-    }
-    try:
-        async with httpx.AsyncClient(
-            follow_redirects=True, timeout=15.0, headers=headers
-        ) as client:
-            await asyncio.sleep(random.uniform(1.0, 2.5))
-            resp = await client.get(url)
-            resp.raise_for_status()
-            html = resp.text
-    except Exception as e:
-        print(f"[SV] FETCH FAILED for {url}: {e}")
+    # Browser-like headers + a few retries with fresh UAs — datacenter IPs
+    # (Railway) get intermittently bot-challenged, so a single attempt drops
+    # otherwise-valid pages. Retrying with backoff recovers most of them.
+    def _headers() -> dict:
+        return {
+            "User-Agent": _random_ua(),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate",
+            "Referer": f"{BASE_URL}/carros",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Connection": "keep-alive",
+        }
+
+    html = ""
+    last_err = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(
+                follow_redirects=True, timeout=15.0, headers=_headers()
+            ) as client:
+                await asyncio.sleep(random.uniform(0.6, 1.6) * (attempt + 1))
+                resp = await client.get(url)
+                # 404/410 = listing sold/removed — permanent, don't retry.
+                if resp.status_code in (404, 410):
+                    print(f"[SV] Listing gone ({resp.status_code}) for {url}")
+                    result["_extraction_method"] = "listing_gone"
+                    result["_gone"] = True
+                    result["_data_quality"] = _compute_data_quality(result)
+                    return result
+                resp.raise_for_status()
+                html = resp.text
+            if html:
+                break
+        except Exception as e:
+            last_err = e
+            print(f"[SV] fetch attempt {attempt + 1}/3 failed for {url}: {e}")
+
+    if not html:
+        print(f"[SV] FETCH FAILED for {url}: {last_err}")
         result["_extraction_method"] = "fetch_failed"
         result["_extraction_layers"] = ["fetch:FAILED"]
         result["_data_quality"] = _compute_data_quality(result)
