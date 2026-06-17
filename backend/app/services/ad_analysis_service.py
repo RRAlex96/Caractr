@@ -52,6 +52,7 @@ _MAX_MARKET_CACHE_KEYS = 500  # evict oldest entries if cache grows beyond this
 USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "false").lower() == "true"  # scraping is now httpx-based (no Playwright OOM)
 _MIN_NEGOTIATION_SAMPLE = 5  # below this many comparables, suppress precise offer figures
+_MIN_RELIABLE_MARKET_SAMPLE = 5  # below this, the market median is too noisy to drive the price verdict
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -162,10 +163,21 @@ Avalia também se este carro é adequado para ESTE comprador específico."""
     listing_age_str = f"{listing_age} dias" if listing_age else "desconhecido"
     maintenance = model_info.get("maintenance_cost_year")
     maintenance_str = f"~€{int(maintenance):,}/ano" if maintenance else "N/D"
-    avg_price = market_stats.get('avg_price', 0) or 0
+    ref_price = market_stats.get('median_price') or market_stats.get('avg_price') or 0
     price = listing.get('price', 0) or 0
     price_delta_pct = listing.get('price_delta_pct', '?')
     price_pos = 'abaixo' if (listing.get('price_delta', 0) or 0) > 0 else 'acima'
+    market_sample = market_stats.get('sample_count') or 0
+    # Only present a confident price-vs-market line when the pool is big enough.
+    if ref_price and market_sample >= _MIN_RELIABLE_MARKET_SAMPLE and price_delta_pct not in (None, '?'):
+        market_line = (f"Mediana de mercado: €{int(ref_price):,} ({market_sample} anúncios) | "
+                       f"Este carro está {price_delta_pct}% {price_pos} do mercado")
+    elif ref_price and market_sample:
+        market_line = (f"Dados de mercado LIMITADOS (apenas {market_sample} anúncios comparáveis) — "
+                       f"NÃO tires conclusões fortes sobre o preço; baseia o veredicto em km, "
+                       f"motor, estado e equipamento.")
+    else:
+        market_line = "Sem dados de mercado fiáveis — avalia pelo km, motor, estado e equipamento."
 
     return f"""És um consultor especialista em carros usados em Portugal com 20 anos de experiência. Conheces TODOS os modelos, gerações, motores, versões e problemas típicos. Fala em PT-PT. Tom direto e honesto como um amigo que percebe muito de carros. Responde APENAS com JSON válido, sem texto extra.
 
@@ -186,7 +198,7 @@ Anúncio há: {listing_age_str}
 Descrição do anúncio: {listing.get('description', 'Sem descrição disponível.')[:2000]}
 
 CONTEXTO DE MERCADO:
-Preço médio de mercado: €{int(avg_price):,} | Este carro está {price_delta_pct}% {price_pos} do mercado
+{market_line}
 Custo manutenção estimado: {maintenance_str}
 Problemas conhecidos do modelo: {known_issues}
 {profile_note}
@@ -1613,8 +1625,24 @@ async def _analyse_listing_inner(
     ref_price = market_stats.get("median_price") or market_stats.get("avg_price")
     avg_price = ref_price
     km_per_year = normalized.get("km_per_year") or _compute_km_per_year(normalized.get("km"), normalized.get("year"))
-    price_delta = _compute_price_delta(price or 0, ref_price or 0) if price and ref_price else 0.0
-    deal_tier = _classify_deal_tier(price_delta, km_per_year, price, ref_price, normalized.get("seller_type", "desconhecido"))
+
+    # Only let the market drive the price verdict when the comparable pool is big
+    # enough to trust. Off a handful of listings the median is noisy — a 2021
+    # 116d was flagged "cuidado, 40% above" against just 3 comparables. When the
+    # sample is thin we go price-neutral and lean on km/engine/condition instead.
+    market_sample = market_stats.get("sample_count") or 0
+    market_reliable = bool(ref_price) and price and market_sample >= _MIN_RELIABLE_MARKET_SAMPLE
+
+    if market_reliable:
+        price_delta = _compute_price_delta(price, ref_price)
+        deal_tier = _classify_deal_tier(price_delta, km_per_year, price, ref_price, normalized.get("seller_type", "desconhecido"))
+        normalized["price_delta_pct"] = round(abs((ref_price - price) / ref_price * 100), 1)
+    else:
+        # Market too thin to judge price — neutral on price, km-based tier only.
+        price_delta = 0.0
+        deal_tier = _classify_deal_tier(0.0, km_per_year, price, None, normalized.get("seller_type", "desconhecido"))
+        normalized["price_delta_pct"] = None
+
     deal_score = _compute_deal_score(price_delta, km_per_year)
 
     # Enrich listing with computed metrics
@@ -1622,10 +1650,7 @@ async def _analyse_listing_inner(
     normalized["price_delta"] = price_delta
     normalized["deal_tier"] = deal_tier
     normalized["deal_score"] = deal_score
-    if avg_price and price:
-        normalized["price_delta_pct"] = round(abs((avg_price - price) / avg_price * 100), 1)
-    else:
-        normalized["price_delta_pct"] = None
+    normalized["_market_reliable"] = market_reliable
 
     # ── 4. Analysis (Gemini or rule engine fallback) ──
     # Single unified LLM call returns both analysis + enrichment fields.
