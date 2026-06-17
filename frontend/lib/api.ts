@@ -241,6 +241,22 @@ export async function fetchPendingModels(
   return res.json()
 }
 
+export interface ExtractionHealth {
+  status: "ok" | "degraded" | "critical" | "no_data"
+  recent_price_pct: number | null
+  daily: { day: string | null; total: number; price_pct: number | null; model_pct: number | null }[]
+  by_source: { source: string; total: number; price_pct: number | null }[]
+}
+
+export async function fetchExtractionHealth(token: string): Promise<ExtractionHealth> {
+  const res = await fetch(`${API}/api/admin/extraction-health`, {
+    headers: adminHeaders(token),
+  })
+  if (res.status === 403) throw new Error("Token inválido")
+  if (!res.ok) throw new Error(`Erro ${res.status}`)
+  return res.json()
+}
+
 export interface KnownIssue {
   severity: string
   description: string

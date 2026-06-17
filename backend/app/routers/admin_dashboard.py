@@ -511,6 +511,69 @@ def models_pending_enrichment(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/extraction-health", dependencies=[Depends(_auth)])
+def extraction_health(db: Session = Depends(get_db)):
+    """
+    Extraction health over time: % of scraped listings with a price and a
+    resolved model, daily + per source. A sustained drop signals the sites are
+    serving bot-walls / degraded pages — so it's seen, not hit silently by users.
+    """
+    try:
+        daily = db.execute(text("""
+            SELECT date_trunc('day', r.scraped_at)::date AS day,
+                   COUNT(*)                              AS total,
+                   COUNT(n.price)                        AS with_price,
+                   COUNT(n.model_id)                     AS with_model
+            FROM normalized_listings n
+            JOIN raw_listings r ON r.id = n.raw_listing_id
+            WHERE r.scraped_at >= NOW() - INTERVAL '21 days'
+            GROUP BY day
+            ORDER BY day
+        """)).mappings().fetchall()
+
+        by_source = db.execute(text("""
+            SELECT r.source                              AS source,
+                   COUNT(*)                              AS total,
+                   COUNT(n.price)                        AS with_price
+            FROM normalized_listings n
+            JOIN raw_listings r ON r.id = n.raw_listing_id
+            WHERE r.scraped_at >= NOW() - INTERVAL '7 days'
+            GROUP BY r.source
+            ORDER BY total DESC
+        """)).mappings().fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query failed: {e}")
+
+    def pct(part, whole):
+        return round(100 * part / whole) if whole else None
+
+    days = [{
+        "day": d["day"].isoformat() if d["day"] else None,
+        "total": int(d["total"]),
+        "price_pct": pct(d["with_price"], d["total"]),
+        "model_pct": pct(d["with_model"], d["total"]),
+    } for d in daily]
+
+    sources = [{
+        "source": s["source"] or "desconhecido",
+        "total": int(s["total"]),
+        "price_pct": pct(s["with_price"], s["total"]),
+    } for s in by_source]
+
+    # Recent health = price completeness over the last 7 days.
+    recent = [d for d in days[-7:]]
+    recent_total = sum(d["total"] for d in recent)
+    recent_priced = sum(round((d["price_pct"] or 0) / 100 * d["total"]) for d in recent)
+    recent_pct = pct(recent_priced, recent_total)
+    status = (
+        "ok" if (recent_pct or 0) >= 80 else
+        "degraded" if (recent_pct or 0) >= 55 else
+        "critical"
+    ) if recent_total else "no_data"
+
+    return {"status": status, "recent_price_pct": recent_pct, "daily": days, "by_source": sources}
+
+
 @router.post("/models/{model_id}/enrich/draft", dependencies=[Depends(_auth)])
 def enrich_model_draft(model_id: int, db: Session = Depends(get_db)):
     """Ask the LLM to draft reliability data for a model. Returns a draft for the

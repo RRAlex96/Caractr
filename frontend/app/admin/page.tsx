@@ -7,6 +7,7 @@ import { TokenGate } from "@/components/admin/token-gate"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
 import { ConciergeTab } from "@/components/admin/concierge-tab"
 import { ModelsTab } from "@/components/admin/models-tab"
+import { ExtractionHealth } from "@/components/admin/extraction-health"
 
 type Tab = "analytics" | "concierge" | "models"
 
@@ -134,7 +135,12 @@ export default function AdminPage() {
                 </p>
               </div>
             )}
-            {data && !loading && <AnalyticsTab data={data} />}
+            {data && !loading && (
+              <>
+                <AnalyticsTab data={data} />
+                <ExtractionHealth token={token} />
+              </>
+            )}
           </>
         )}
 
