@@ -491,6 +491,20 @@ def _extract_engine_hint(text: str) -> Optional[str]:
     return None
 
 
+def _sv_variant_code(url: Optional[str]) -> Optional[str]:
+    """First standalone 3-digit token in a listing slug — the variant (e.g. '320',
+    '525'). For BMW its first digit is the series. Returns None when absent."""
+    if not url:
+        return None
+    m = re.search(r"/anuncio/([a-z0-9-]+?)-ID", url)
+    if not m:
+        return None
+    for tok in m.group(1).split("-"):
+        if re.fullmatch(r"\d{3}", tok):
+            return tok
+    return None
+
+
 async def _fetch_live_market_data(
     brand_name: str,
     model_name: str,
@@ -500,6 +514,7 @@ async def _fetch_live_market_data(
     gen_year_start: Optional[int] = None,
     gen_year_end: Optional[int] = None,
     sv_model_slug: Optional[str] = None,
+    variant_code: Optional[str] = None,
 ) -> dict:
     """
     Fetch real-time market pricing from Standvirtual + OLX.
@@ -610,6 +625,21 @@ async def _fetch_live_market_data(
             if len(fuel_pool) >= 3:
                 pool = fuel_pool
                 print(f"[MARKET] Fuel filter '{fuel_type}' -> {len(pool)} listings")
+
+        # ── Filter 2b: BMW series scope ───────────────────────────────────────
+        # A "/bmw/serie-3" search over-returns the whole BMW range (116, 220,
+        # 420, 520...). For BMW the first digit of the 3-digit variant IS the
+        # series, so scope to it. Listings whose variant we can't read are kept.
+        # BMW-only: for Mercedes the 3-digit number is not the class.
+        if variant_code and len(variant_code) == 3 and "bmw" in (brand_name or "").lower() and len(pool) >= 5:
+            series = variant_code[0]
+            scoped = [
+                l for l in pool
+                if (lambda vc: vc is None or vc[0] == series)(_sv_variant_code(l.get("source_url")))
+            ]
+            if len(scoped) >= 4:
+                pool = scoped
+                print(f"[MARKET] BMW series filter '{series}xx' -> {len(pool)} listings")
 
         # ── Filter 3: engine variant hint ─────────────────────────────────────
         if engine_hint and len(pool) >= 5:
@@ -1517,6 +1547,7 @@ async def _analyse_listing_inner(
                     gen_year_start=gen_year_start,
                     gen_year_end=gen_year_end,
                     sv_model_slug=normalized.get("sv_model_slug"),
+                    variant_code=_sv_variant_code(listing_url),
                 ),
                 timeout=45,  # 45s hard cap — Playwright can't hang the whole app
             )
