@@ -431,21 +431,39 @@ def _run_startup_migrations() -> None:
         db.close()
 
 
+# Cost controls for the portfolio deploy:
+# - Playwright/Chromium is opt-in (scraping is httpx-first), so we skip the
+#   heavy browser bootstrap unless it's explicitly enabled.
+# - The always-on background loops keep the process busy and defeat Railway's
+#   scale-to-zero. Off by default; the monthly refresh runs on demand instead
+#   (scripts/monthly_refresh.py or POST /api/admin/refresh). Set
+#   ENABLE_BACKGROUND_JOBS=true to restore the in-process schedulers.
+_ENABLE_BACKGROUND_JOBS = os.getenv("ENABLE_BACKGROUND_JOBS", "false").lower() == "true"
+_ALLOW_PLAYWRIGHT = os.getenv("ALLOW_PLAYWRIGHT_FALLBACK", "false").lower() == "true"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run idempotent schema migrations
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _run_startup_migrations)
 
-    # Bootstrap Playwright browsers before starting background tasks
-    await loop.run_in_executor(None, _ensure_playwright_browsers)
+    # Bootstrap Playwright browsers only when the browser fallback is enabled —
+    # otherwise this is wasted memory/time and blocks a cheap cold start.
+    if _ALLOW_PLAYWRIGHT:
+        await loop.run_in_executor(None, _ensure_playwright_browsers)
 
     # LLM selftest removed from startup to conserve API quota.
     # Use GET /api/health/llm for on-demand testing.
 
-    asyncio.create_task(_market_refresh_loop())
-    asyncio.create_task(_reliability_scorer_loop())
-    asyncio.create_task(_data_retention_loop())
+    if _ENABLE_BACKGROUND_JOBS:
+        asyncio.create_task(_market_refresh_loop())
+        asyncio.create_task(_reliability_scorer_loop())
+        asyncio.create_task(_data_retention_loop())
+        print("[STARTUP] Background jobs ENABLED")
+    else:
+        print("[STARTUP] Background jobs disabled (scale-to-zero friendly) — "
+              "run monthly refresh on demand")
     yield
 
 
