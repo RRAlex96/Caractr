@@ -1,0 +1,39 @@
+# Render Blueprint — free-tier, persistent backend host for the Caractr API.
+# Connect this repo in Render → "New +" → "Blueprint" and it picks this up.
+# Postgres lives on Neon (free, persistent) — set DATABASE_URL to the Neon URL.
+services:
+  - type: web
+    name: caractr-api
+    runtime: python
+    rootDir: backend
+    plan: free                       # spins down after ~15 min idle, cold-starts on next request; never lapses
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Postgres on Neon (free, persistent). Paste the Neon connection string.
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OPERATOR_EMAIL
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      # Comma-separated frontend origins (e.g. https://www.caractr.pt,https://caractr.pt)
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Render sits behind one proxy hop — needed for correct rate-limiting IPs.
+      - key: TRUSTED_PROXY_COUNT
+        value: "1"
+      # Cost/scale-to-zero friendly defaults (see app/main.py):
+      - key: ENABLE_BACKGROUND_JOBS
+        value: "false"               # monthly refresh runs on demand instead (scripts/monthly_refresh.py)
+      - key: ALLOW_PLAYWRIGHT_FALLBACK
+        value: "false"               # httpx-first scraping; no Chromium in the build
+      - key: DISABLE_LIVE_MARKET
+        value: "false"
