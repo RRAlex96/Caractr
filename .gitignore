@@ -34,3 +34,8 @@ frontend/.env.local
 # Docs (generated)
 docs/
 .vercel
+
+# stray 0-byte artifacts from mistyped commands
+/npm
+/backend/python
+/frontend/npm
