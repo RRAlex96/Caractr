@@ -35,17 +35,16 @@ If Railway already purged it, skip this — the catalogue is reproducible from t
 psql "postgresql://…neon…?sslmode=require" -f caractr_dump.sql
 ```
 
-**Option B — rebuild from the repo (if no dump):**
+**Option B — rebuild from the repo (if no dump):** one command, no `psql` needed —
 ```bash
 cd backend
-psql "$DATABASE_URL" -f seeds/full_deploy_schema.sql        # schema + base catalogue
-psql "$DATABASE_URL" -f seeds/seed_data_refined_v2.sql      # model/engine/character data
-psql "$DATABASE_URL" -f seeds/seed_data_v3_expansion.sql    # expanded catalogue
-psql "$DATABASE_URL" -f seeds/migration_v51_generations.sql # generation windows
-# newer columns/tables (price_observations, depreciation, admin_notes,
-# listing_snapshots) are created automatically on first app boot.
+DATABASE_URL="postgresql://…neon…?sslmode=require" python -m scripts.load_seed
 ```
-Then run `python -m scripts.monthly_refresh` (see below) to populate live market data.
+It loads `full_deploy_schema.sql` (schema + full catalogue) then
+`migration_v51_generations.sql` (generation windows) and prints a sanity count.
+Newer columns/tables (price_observations, depreciation, admin_notes,
+listing_snapshots) are created automatically on first app boot. Then run
+`python -m scripts.monthly_refresh` (see below) to populate live market data.
 
 ## 4. Deploy the backend to Render
 

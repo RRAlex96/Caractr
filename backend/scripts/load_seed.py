@@ -18,10 +18,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# full_deploy_schema.sql is the canonical, self-contained schema + catalogue
+# (~38 brands and hundreds of models/engines/driving-character rows). The older
+# seed_data_refined_v2 / seed_data_v3_expansion files target a previous
+# engine_issues schema (an "issue_name" column that no longer exists) and are
+# intentionally NOT loaded. migration_v51_generations adds generation windows
+# and matches the current schema.
 SEED_FILES = [
-    "seeds/full_deploy_schema.sql",     # schema (17 tables) + base catalogue
-    "seeds/seed_data_refined_v2.sql",   # model / engine / driving-character data
-    "seeds/seed_data_v3_expansion.sql", # expanded catalogue
+    "seeds/full_deploy_schema.sql",         # schema (17 tables) + full catalogue
     "seeds/migration_v51_generations.sql",  # generation windows
 ]
 
