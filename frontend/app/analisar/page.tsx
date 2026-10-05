@@ -29,7 +29,7 @@ import { TrustPanel } from "@/components/shared/trust-panel"
 import { ShareButton } from "@/components/shared/share-button"
 import { MicroFeedback } from "@/components/shared/micro-feedback"
 import { WizardBridge } from "@/components/shared/wizard-bridge"
-import { analyseUrl } from "@/lib/api"
+import { analyseUrl, warmBackend } from "@/lib/api"
 import { Analytics } from "@/lib/analytics"
 import type { AnalysisResult } from "@/lib/types"
 
@@ -44,6 +44,11 @@ function AnalisarContent() {
   const [userProfile, setUserProfile] = useState<Record<string, number> | null>(null)
   const [showQuick, setShowQuick] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Wake the free-tier backend while the user reads the page / types a URL.
+  useEffect(() => {
+    warmBackend()
+  }, [])
 
   // Load profile from localStorage
   useEffect(() => {
@@ -131,6 +136,17 @@ function AnalisarContent() {
         loading={loading}
         inputRef={inputRef}
       />
+
+      {/* First visit lands fast: see a real analysis instantly, no waiting */}
+      {!result && !loading && (
+        <p className="mt-3 text-center text-[13px] font-light text-muted-foreground">
+          Sem anúncio à mão?{" "}
+          <Link href="/exemplos" className="text-gold underline-offset-2 hover:underline">
+            Vê análises de exemplo
+          </Link>
+          .
+        </p>
+      )}
 
       {/* ── Error ── */}
       {error && !loading && <AnalysisError error={error} className="mt-5" />}

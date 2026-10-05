@@ -8,7 +8,7 @@ import { ProgressBar } from "@/components/wizard/progress-bar"
 import { QuestionCard } from "@/components/wizard/question-card"
 import { DreamBrandPicker } from "@/components/wizard/dream-brand-picker"
 import { BudgetPicker } from "@/components/wizard/budget-picker"
-import { recommend, fetchDreamCars } from "@/lib/api"
+import { recommend, fetchDreamCars, warmBackend } from "@/lib/api"
 import { Analytics } from "@/lib/analytics"
 
 // ── Question definitions ──────────────────────────────────────────────────
@@ -135,6 +135,7 @@ export default function EscolherPage() {
 
   // Check for existing profile on mount
   useEffect(() => {
+    warmBackend()  // wake the backend while the user answers the 5 questions
     Analytics.selectorStarted()
     startTimeRef.current = Date.now()
     const timestamp = localStorage.getItem("caractr_profile_timestamp")

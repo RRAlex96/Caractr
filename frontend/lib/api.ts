@@ -14,6 +14,19 @@ import type {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+/**
+ * Fire-and-forget ping to wake the free-tier backend (it sleeps after ~15 min
+ * idle and cold-starts in ~50s). Called when a user lands on a page that will
+ * need the API, so it's warming while they read/answer — masking the cold start.
+ */
+export function warmBackend(): void {
+  try {
+    fetch(`${API}/api/health`, { cache: "no-store" }).catch(() => {})
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Analysis ────────────────────────────────────────────────────────────────
 
 export async function analyseUrl(

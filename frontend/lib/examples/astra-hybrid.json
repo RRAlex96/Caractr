@@ -1,0 +1,98 @@
+{
+ "analysis_id": 3,
+ "from_cache": false,
+ "source": "standvirtual",
+ "source_label": "Standvirtual",
+ "source_domain": "",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/opel-astra-ver-1-2-t-hybrid-gs-edct-ID8Q0eQn.html",
+ "listing": {
+  "brand_name": "Opel",
+  "model_name": "Astra",
+  "year": 2025,
+  "km": 16570,
+  "price": 24490,
+  "seller_type": "desconhecido",
+  "photo_count": 15,
+  "listing_age_days": 2
+ },
+ "deal": {
+  "tier": "razoavel",
+  "score": 0.42,
+  "price_delta": 0.0,
+  "price_delta_pct": null,
+  "km_per_year": 16570.0,
+  "market_avg_price": null,
+  "market_median_price": null,
+  "market_sample_count": null,
+  "market_data_source": "none",
+  "market_data_age_days": null,
+  "market_data_stale": false,
+  "market_fuel_type": "Gasolina",
+  "generation_year_start": 2021,
+  "generation_year_end": null
+ },
+ "analysis": {
+  "verdict": "razoavel",
+  "verdict_reason": "Preço alinhado com o mercado, sem grandes alertas.",
+  "green_flags": [
+   "Boas fotos do anúncio (15 imagens)",
+   "Anúncio recente — provavelmente não vendido ainda"
+  ],
+  "red_flags": [],
+  "seller_analysis": "Tipo de vendedor não identificado — confirmar antes de avançar.",
+  "profile_fit": "Análise baseada nas características do Opel Astra.",
+  "trim_level": "1.2 T Hybrid GS eDCT",
+  "spec_tier": "base",
+  "trim_includes": [],
+  "optional_extras": [],
+  "equipment_note": null,
+  "key_extras": [],
+  "spec_value_assessment": "adequado",
+  "engine_code": null,
+  "engine_analysis": "Motor a gasolina.",
+  "extras_analysis": "Não foram identificados extras na descrição do Opel Astra. Isto pode indicar uma versão base, ou o vendedor simplesmente não listou o equipamento. Confirma diretamente antes de avaliar.",
+  "negotiation_script": "Propõe €23,300 como ponto de partida (≈5% de desconto).",
+  "verdict_narrative": "Este Opel Astra de 2025 está dentro do normal para o mercado — não é oferta, mas também não é caro. Equipamento limitado ou não listado — confirma com o vendedor o que inclui.",
+  "seller_read": "Descrição detalhada — sinal positivo de transparência por parte do vendedor. Com 15 fotos, mostra o carro em detalhe — bom indicador de confiança."
+ },
+ "inspection_checklist": [
+  "Histórico de serviços — pedir caderneta ou registos de manutenção",
+  "Teste em estrada — verificar vibrações, ruídos e travagem"
+ ],
+ "negotiation_tips": [
+  "Antes de qualquer oferta, pede o histórico de revisões completo. Se faltar, é logo meio caminho andado para negociar."
+ ],
+ "negotiation": null,
+ "anomaly": null,
+ "price_history": null,
+ "cost_of_ownership": {
+  "monthly_running": 178,
+  "monthly_true": null,
+  "annual_fuel": 1575,
+  "annual_iuc": 130,
+  "annual_maintenance": 425,
+  "depreciation_monthly": null,
+  "assumptions": {
+   "km_year": 15000,
+   "consumption": 6.0,
+   "consumption_unit": "l",
+   "fuel_price": 1.75
+  }
+ },
+ "maintenance_estimate": 425.0,
+ "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
+ "js_limited": false,
+ "_analysis_engine": "rule:gemini_error",
+ "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_extraction_method": "next_data",
+ "_data_quality": {
+  "score": 0.88,
+  "grade": "A",
+  "critical_filled": "5/5",
+  "missing_critical": []
+ },
+ "_data_warnings": [],
+ "fit": null,
+ "reliability": null,
+ "depreciation": null
+}

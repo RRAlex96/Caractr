@@ -1,0 +1,119 @@
+{
+ "analysis_id": 1,
+ "from_cache": false,
+ "source": "standvirtual",
+ "source_label": "Standvirtual",
+ "source_domain": "",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/toyota-corolla-ver-1-8-hybrid-exclusive-ID8Q1338.html",
+ "listing": {
+  "brand_name": "Toyota",
+  "model_name": "Corolla",
+  "year": 2020,
+  "km": 85000,
+  "price": 21900,
+  "seller_type": "stand",
+  "photo_count": 57,
+  "listing_age_days": 1
+ },
+ "deal": {
+  "tier": "cuidado",
+  "score": 0.3292,
+  "price_delta": -0.3415,
+  "price_delta_pct": 6.8,
+  "km_per_year": 14167.0,
+  "market_avg_price": 20500.0,
+  "market_median_price": null,
+  "market_sample_count": 55,
+  "market_data_source": "db",
+  "market_data_age_days": 0,
+  "market_data_stale": false,
+  "market_fuel_type": "Híbrido (Gasolina)",
+  "generation_year_start": 2018,
+  "generation_year_end": null
+ },
+ "analysis": {
+  "verdict": "cuidado",
+  "verdict_reason": "Preço acima do mercado — negociar antes de avançar.",
+  "green_flags": [
+   "Garantia incluída",
+   "Boas fotos do anúncio (57 imagens)",
+   "Bem equipado (4 extras identificados)",
+   "Anúncio recente — provavelmente não vendido ainda"
+  ],
+  "red_flags": [
+   "Preço acima do mercado — margem de negociação recomendada"
+  ],
+  "seller_analysis": "Stand profissional. Garantia incluída — verificar período e cobertura. Apresentação cuidada.",
+  "profile_fit": "Análise baseada nas características do Toyota Corolla.",
+  "trim_level": "1.8 Hybrid Exclusive",
+  "spec_tier": "medio",
+  "trim_includes": [],
+  "optional_extras": [],
+  "equipment_note": null,
+  "key_extras": [
+   "Bluetooth",
+   "Apple CarPlay",
+   "Android Auto",
+   "Com garantia"
+  ],
+  "spec_value_assessment": "adequado",
+  "engine_code": "2.2",
+  "engine_analysis": "Motorização 2.2 (Híbrido (Gasolina)). Híbrido — verificar estado da bateria de alta tensão e ciclos de carga registados.",
+  "extras_analysis": "Extras identificados: Bluetooth, Apple CarPlay, Android Auto, Com garantia. Equipamento de nível médio, dentro do esperado para esta gama. Não detetados: bancos em pele, teto panorâmico, faróis LED — se presentes, valorizariam o carro.",
+  "negotiation_script": "Começa por oferecer €19,900. Argumentos: o preço está €1,400 acima da média de mercado. Num stand, pede garantia estendida ou revisão incluída como contrapartida.",
+  "verdict_narrative": "Este Toyota Corolla de 2020 requer cautela — há pontos que merecem investigação antes de avançar. A €21,900, está 7% acima da média (€20,500) — há margem para negociar.",
+  "seller_read": "Descrição com informação razoável, mas não exaustiva. Com 57 fotos, mostra o carro em detalhe — bom indicador de confiança."
+ },
+ "inspection_checklist": [
+  "Travões — verificar espessura dos discos e pastilhas",
+  "Histórico de serviços — pedir caderneta ou registos de manutenção",
+  "Teste em estrada — verificar vibrações, ruídos e travagem"
+ ],
+ "negotiation_tips": [
+  "Anda uns 34% acima de carros parecidos. Leva-lhe alguns anúncios semelhantes e atira um valor à volta dos 20.500€ — com jeitinho costuma resultar."
+ ],
+ "negotiation": {
+  "asking_price": 21900,
+  "opening_offer": 19600,
+  "fair_value": 20500,
+  "walk_away": 20500,
+  "potential_saving": 2300,
+  "leverage": [
+   "Está uns 7% acima de carros parecidos — mostra-lhe os comparáveis"
+  ],
+  "confidence": "alta",
+  "sample_count": 55
+ },
+ "anomaly": null,
+ "price_history": null,
+ "cost_of_ownership": {
+  "monthly_running": 166,
+  "monthly_true": null,
+  "annual_fuel": 1312,
+  "annual_iuc": 350,
+  "annual_maintenance": 335,
+  "depreciation_monthly": null,
+  "assumptions": {
+   "km_year": 15000,
+   "consumption": 5.0,
+   "consumption_unit": "l",
+   "fuel_price": 1.75
+  }
+ },
+ "maintenance_estimate": 335.0,
+ "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
+ "js_limited": false,
+ "_analysis_engine": "rule:gemini_error",
+ "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_extraction_method": "next_data",
+ "_data_quality": {
+  "score": 0.96,
+  "grade": "A",
+  "critical_filled": "5/5",
+  "missing_critical": []
+ },
+ "_data_warnings": [],
+ "fit": null,
+ "reliability": null,
+ "depreciation": null
+}

@@ -1,0 +1,118 @@
+{
+ "analysis_id": 5,
+ "from_cache": false,
+ "source": "standvirtual",
+ "source_label": "Standvirtual",
+ "source_domain": "",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/fiat-500x-ver-1-3-mj-lounge-j18-s-s-ID8PZU8U.html",
+ "listing": {
+  "brand_name": "Fiat",
+  "model_name": "500X",
+  "year": 2016,
+  "km": 251426,
+  "price": 7750,
+  "seller_type": "stand",
+  "photo_count": 37,
+  "listing_age_days": 2
+ },
+ "deal": {
+  "tier": "evitar",
+  "score": 0.65,
+  "price_delta": 1.0,
+  "price_delta_pct": 51.3,
+  "km_per_year": 25143.0,
+  "market_avg_price": 14491,
+  "market_median_price": 15900,
+  "market_sample_count": 11,
+  "market_data_source": "live",
+  "market_data_age_days": null,
+  "market_data_stale": false,
+  "market_fuel_type": "Diesel",
+  "generation_year_start": 2014,
+  "generation_year_end": null
+ },
+ "analysis": {
+  "verdict": "evitar",
+  "verdict_reason": "Quilometragem muito elevada — veículo com desgaste intensivo.",
+  "green_flags": [
+   "Preço 20% abaixo da média de mercado",
+   "Boas fotos do anúncio (37 imagens)",
+   "Bem equipado (6 extras identificados)",
+   "Anúncio recente — provavelmente não vendido ainda"
+  ],
+  "red_flags": [
+   "Preço muito abaixo do mercado — verificar cuidadosamente antes de contatar",
+   "Quilometragem muito elevada (25,143 km/ano — uso intensivo)"
+  ],
+  "seller_analysis": "Stand profissional. Sem menção de garantia — negociar inclusão. Apresentação cuidada.",
+  "profile_fit": "Análise baseada nas características do Fiat 500X.",
+  "trim_level": "Sport",
+  "spec_tier": "alto",
+  "trim_includes": [],
+  "optional_extras": [],
+  "equipment_note": null,
+  "key_extras": [
+   "Sensores de parque",
+   "Ar condicionado",
+   "Jantes liga leve",
+   "Vidros elétricos",
+   "Start/Stop",
+   "Assistente de faixa"
+  ],
+  "spec_value_assessment": "acima_do_esperado",
+  "engine_code": "1.3",
+  "engine_analysis": "Motorização 1.3 (Diesel). Com mais de 200.000 km, os componentes de desgaste maior (turbo, injetores, caixa) devem ser verificados com cuidado. Motor diesel com km elevados — verificar DPF, EGR e injetores.",
+  "extras_analysis": "Extras identificados: Sensores de parque, Ar condicionado, Jantes liga leve, Vidros elétricos, Start/Stop, Assistente de faixa. Equipamento acima da média para este modelo — valoriza o anúncio. Com o preço abaixo do mercado e bom equipamento, é uma proposta competitiva.",
+  "negotiation_script": "O preço já é competitivo, mas tenta €7,500 — nunca pagues o primeiro preço. Argumentos: com 251,426 km, há custos de manutenção previsíveis. Num stand, pede garantia estendida ou revisão incluída como contrapartida.",
+  "verdict_narrative": "Este Fiat 500X de 2016 não se recomenda nas condições atuais — procura alternativas semelhantes. A €7,750, está cerca de 47% abaixo da média de mercado (€14,491). Equipamento acima da média (6 extras), o que valoriza este exemplar. A quilometragem anual é elevada — espera mais desgaste nos componentes habituais.",
+  "seller_read": "Descrição detalhada — sinal positivo de transparência por parte do vendedor. Com 37 fotos, mostra o carro em detalhe — bom indicador de confiança."
+ },
+ "inspection_checklist": [
+  "Correia/corrente de distribuição — perguntar data da última substituição",
+  "Embraiagem — testar deslizamento em aceleração",
+  "Travões — verificar espessura dos discos e pastilhas",
+  "Histórico de serviços — pedir caderneta ou registos de manutenção",
+  "Teste em estrada — verificar vibrações, ruídos e travagem"
+ ],
+ "negotiation_tips": [
+  "Está abaixo da média do mercado, o que é bom sinal — mas confirma bem o estado antes de avançar, às vezes há um motivo.",
+  "Com 251.426 km, vale mesmo a pena uma inspeção independente antes de fechar. Se aparecer alguma coisa, é o teu argumento para baixar o preço."
+ ],
+ "negotiation": null,
+ "anomaly": {
+  "level": "danger",
+  "title": "Preço muito abaixo do normal",
+  "message": "Está bem abaixo do que carros semelhantes valem (~15,900€). Pode ser uma oportunidade real, mas é também o padrão típico de fraudes e carros com problemas escondidos. Confirma o estado e a documentação em pessoa — nunca pagues sinal antes disso."
+ },
+ "price_history": null,
+ "cost_of_ownership": {
+  "monthly_running": 105,
+  "monthly_true": null,
+  "annual_fuel": 1152,
+  "annual_iuc": 110,
+  "annual_maintenance": null,
+  "depreciation_monthly": null,
+  "assumptions": {
+   "km_year": 15000,
+   "consumption": 4.8,
+   "consumption_unit": "l",
+   "fuel_price": 1.6
+  }
+ },
+ "maintenance_estimate": null,
+ "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
+ "js_limited": false,
+ "_analysis_engine": "rule:gemini_error",
+ "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_extraction_method": "next_data",
+ "_data_quality": {
+  "score": 0.96,
+  "grade": "A",
+  "critical_filled": "5/5",
+  "missing_critical": []
+ },
+ "_data_warnings": [],
+ "fit": null,
+ "reliability": null,
+ "depreciation": null
+}
