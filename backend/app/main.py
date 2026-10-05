@@ -422,8 +422,57 @@ def _run_startup_migrations() -> None:
             CREATE INDEX IF NOT EXISTS idx_snap_identity
                 ON listing_snapshots(identity_hash, observed_at DESC)
         """))
+        # Reconcile the listings tables. Older seed snapshots created a very
+        # different raw_listings/normalized_listings design (url/mileage_km, with
+        # NOT NULL columns the app never fills). Detect that by the absence of
+        # raw_listings.source_url and recreate both to the current schema. These
+        # tables hold only scraped/analysis cache (re-derivable), and the guard
+        # means this runs at most once — it's a no-op once the schema is correct.
+        _needs_listings_fix = not db.execute(text("""
+            SELECT EXISTS(SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'raw_listings' AND column_name = 'source_url')
+        """)).scalar()
+        if _needs_listings_fix:
+            db.execute(text("DROP TABLE IF EXISTS normalized_listings CASCADE"))
+            db.execute(text("DROP TABLE IF EXISTS raw_listings CASCADE"))
+            db.execute(text("""
+                CREATE TABLE raw_listings (
+                    id          SERIAL PRIMARY KEY,
+                    source      VARCHAR(30),
+                    source_url  TEXT UNIQUE,
+                    description TEXT,
+                    seller_type VARCHAR(20),
+                    photo_count INTEGER,
+                    scraped_at  TIMESTAMPTZ DEFAULT NOW()
+                )
+            """))
+            db.execute(text("""
+                CREATE TABLE normalized_listings (
+                    id                 SERIAL PRIMARY KEY,
+                    raw_listing_id     INTEGER UNIQUE REFERENCES raw_listings(id),
+                    model_id           INTEGER,
+                    brand_name         VARCHAR(80),
+                    model_name         VARCHAR(120),
+                    year               INTEGER,
+                    km                 INTEGER,
+                    price              INTEGER,
+                    fuel_type          VARCHAR(30),
+                    seller_type        VARCHAR(20),
+                    description        TEXT,
+                    photo_count        INTEGER,
+                    listing_age_days   INTEGER,
+                    km_per_year        FLOAT,
+                    price_delta        FLOAT,
+                    deal_tier          VARCHAR(20),
+                    deal_score         FLOAT,
+                    llm_analysis       JSONB,
+                    analysis_cached_at TIMESTAMPTZ,
+                    created_at         TIMESTAMPTZ DEFAULT NOW()
+                )
+            """))
+            print("[STARTUP] Reconciled stale listings tables -> current schema")
         db.commit()
-        print("[STARTUP] Migrations OK (price_observations + depreciation + admin_notes + listing_snapshots)")
+        print("[STARTUP] Migrations OK (price_observations + depreciation + admin_notes + listing_snapshots + listings reconcile)")
     except Exception as e:
         print(f"[STARTUP] Migration error: {e}")
         db.rollback()
