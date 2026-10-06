@@ -1,5 +1,7 @@
 # Caractr — a used-car decision engine for Portugal
 
+[![CI](https://github.com/RRAlex96/Caractr/actions/workflows/ci.yml/badge.svg)](https://github.com/RRAlex96/Caractr/actions/workflows/ci.yml)
+
 Caractr helps someone who *doesn't* know cars buy a used one without overpaying or getting burned. You either answer five questions about your life and get a shortlist of models that fit, or you paste any listing and get an honest, data-backed verdict on it — fair price, what to negotiate, what the trim actually includes, what it'll cost to run, and whether anything smells wrong.
 
 It's a personal project: designed, built, and deployed end-to-end. Portuguese used-car buying runs on information asymmetry — the seller always knows more than the buyer — and this is an attempt to flip that. UI is in European Portuguese; this write-up is in English.
@@ -63,8 +65,15 @@ So I stopped optimising for revenue and re-cast the project honestly: **a genuin
 
 **Frontend:** Next.js 16, React 19, Tailwind 4, shadcn/ui, TypeScript · **Backend:** FastAPI, SQLAlchemy, PostgreSQL · **AI:** Google Gemini 2.5 Flash · **Scraping:** httpx + BeautifulSoup (Playwright optional) · **Hosting:** Vercel · Render · Neon.
 
+## Testing & CI
+
+Unit tests cover the deterministic decision logic — negotiation figures, the
+scam/anomaly gate, cost-of-ownership + Portuguese IUC, the model-resolution
+compatibility guard, and the listing-extraction parsers — as real regression
+tests for the bugs that once broke trust. GitHub Actions runs `pytest` and the
+frontend build on every push (`backend/tests`, `.github/workflows/ci.yml`).
+
 ## What I'd do next
 
-- Unit tests on the deterministic logic (negotiation, TCO/IUC, model resolution, market filters) + GitHub Actions CI.
 - An **agentic "catalogue curator"**: a monthly agent that finds models with missing data, researches each (web search + reasoning), and drafts reliability/spec updates for one-click human review — turning catalogue maintenance into review-not-write.
 - Finer within-fuel variant matching, and surfacing price history more richly as the snapshot log fills.
