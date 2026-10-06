@@ -73,7 +73,19 @@ compatibility guard, and the listing-extraction parsers — as real regression
 tests for the bugs that once broke trust. GitHub Actions runs `pytest` and the
 frontend build on every push (`backend/tests`, `.github/workflows/ci.yml`).
 
+## Agentic catalogue curator
+
+The catalogue can never be *complete*, so I built an agent to keep it filled
+([`backend/app/services/curator_agent.py`](./backend/app/services/curator_agent.py)).
+It's a real agent, not a wrapped prompt: a **goal** (no model without reliability
+data), a **loop** that decides per model, four **tools** (read gaps → research →
+validate → write), and **confidence-based routing** — it auto-saves what it's
+sure of and leaves the rest in the admin's pending list for one-click human
+review. The LLM is just the reasoning engine inside one tool; the agent is the
+orchestration and the guards around it. Runs on demand (`python -m scripts.curate`),
+so it costs nothing to keep alive.
+
 ## What I'd do next
 
-- An **agentic "catalogue curator"**: a monthly agent that finds models with missing data, researches each (web search + reasoning), and drafts reliability/spec updates for one-click human review — turning catalogue maintenance into review-not-write.
+- Give the curator's research tool live **web-search grounding** (it's closed-book today) — the tool boundary is already clean, so it's a drop-in upgrade.
 - Finer within-fuel variant matching, and surfacing price history more richly as the snapshot log fills.
