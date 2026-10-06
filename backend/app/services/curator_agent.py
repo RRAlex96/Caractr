@@ -17,10 +17,15 @@ Run it on demand (cheap, no always-on infra):
 """
 from typing import Optional
 
+import json
+import re
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.services.llm_client import generate_json, llm_available, QuotaExhaustedError
+from app.services.llm_client import (
+    generate_json, generate_grounded, llm_available, QuotaExhaustedError, LLMError,
+)
 
 # How sure the agent must be to write without a human looking. Below this, the
 # model is left in the pending list for one-click review in the admin.
@@ -46,6 +51,17 @@ def find_gaps(db: Session, limit: int = 10) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _extract_json(raw: str) -> dict:
+    """Grounded answers can wrap the JSON in prose/citations — pull the object."""
+    s = raw.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-z]*\n?|\n?```$", "", s).strip()
+    start, end = s.find("{"), s.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("no JSON object in grounded response")
+    return json.loads(s[start:end + 1])
+
+
 # ── TOOL 2 · act/reason: research one model into a structured draft ──────────
 def research_model(brand: str, model: str) -> dict:
     """
@@ -53,10 +69,12 @@ def research_model(brand: str, model: str) -> dict:
     self-assessed confidence (0–1) — that confidence is what lets the agent
     decide whether a human needs to look.
 
-    This is "closed-book": the model answers from training knowledge. The next
-    upgrade is to give it a web-search tool so it researches live sources
-    ("grounding") — same function signature, better sourcing. The agent loop
-    around it doesn't change, which is the whole point of a clean tool boundary.
+    It tries GROUNDED generation first (Gemini + Google Search → it researches
+    live sources), and falls back to closed-book (training memory) if grounding
+    is unavailable. Only this function gained the web-search tool — the loop, the
+    guard and the routing are untouched. That clean tool boundary is the point.
+    The draft carries _grounded (bool) and _sources (cited URLs) so the loop can
+    report which path ran.
     """
     prompt = f"""És um especialista em fiabilidade de automóveis usados no mercado português.
 Avalia o modelo: {brand} {model}.
@@ -80,7 +98,16 @@ Responde APENAS com JSON válido:
                 ou estás a adivinhar)
 }}
 known_issues: máximo 5, só problemas REAIS e conhecidos. Sê específico e honesto."""
-    draft = generate_json(prompt, max_tokens=1400)
+
+    grounded, sources = False, []
+    try:
+        raw, sources = generate_grounded(prompt)        # TOOL: web-grounded research
+        draft = _extract_json(raw)
+        grounded = True
+    except (LLMError, ValueError):
+        draft = generate_json(prompt, max_tokens=1400)   # fallback: closed-book
+    draft["_grounded"] = grounded
+    draft["_sources"] = sources[:5]
     return draft
 
 
@@ -120,19 +147,22 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
         {"m": model_id},
     ).scalar()
     params = {"m": model_id, "ys": draft.get("year_start"), "ye": draft.get("year_end"),
-              "sc": score, "lo": ci_low, "hi": ci_high}
+              "sc": score, "lo": ci_low, "hi": ci_high,
+              "src": json.dumps(draft.get("_sources") or [])}
     if gen_id is None:
         db.execute(text("""
             INSERT INTO generations
                 (model_id, name, year_start, year_end,
-                 reliability_score, reliability_ci_low, reliability_ci_high, reliability_data_quality)
-            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited')
+                 reliability_score, reliability_ci_low, reliability_ci_high,
+                 reliability_data_quality, reliability_sources)
+            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited', :src::jsonb)
         """), params)
     else:
         params["g"] = gen_id
         db.execute(text("""
             UPDATE generations SET reliability_score = :sc, reliability_ci_low = :lo,
                 reliability_ci_high = :hi, reliability_data_quality = 'limited',
+                reliability_sources = :src::jsonb,
                 year_start = COALESCE(year_start, :ys), year_end = COALESCE(year_end, :ye)
             WHERE id = :g
         """), params)
@@ -187,13 +217,15 @@ def run_curator(db: Session, limit: int = 10,
                 report["log"].append(f"review  {label}: failed validation ({'; '.join(issues)})")
                 continue
             conf = float(draft.get("confidence", 0))
+            mode = "grounded" if draft.get("_grounded") else "closed-book"
+            src = f", {len(draft.get('_sources') or [])} sources" if draft.get("_grounded") else ""
             if conf >= autosave_confidence:                         # DECISION: autonomy dial
                 save_reliability(db, m["id"], draft)                # TOOL: write
                 report["saved"] += 1
-                report["log"].append(f"saved   {label}: score {draft.get('reliability_score')} (conf {conf:.2f})")
+                report["log"].append(f"saved   {label}: score {draft.get('reliability_score')} (conf {conf:.2f}, {mode}{src})")
             else:
                 report["queued"] += 1                               # human-in-the-loop
-                report["log"].append(f"review  {label}: low confidence {conf:.2f} — left for human")
+                report["log"].append(f"review  {label}: low confidence {conf:.2f} ({mode}) — left for human")
         except QuotaExhaustedError:
             report["log"].append("STOP: LLM quota exhausted — run again later")
             break                                                   # resource-aware termination

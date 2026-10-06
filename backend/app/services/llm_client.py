@@ -164,6 +164,50 @@ def generate_json(prompt: str, max_tokens: int = 1024) -> dict:
         raise LLMError(f"Gemini returned invalid JSON: {e}\nRaw: {text[:300]}")
 
 
+def generate_grounded(prompt: str) -> tuple[str, list[str]]:
+    """
+    Call Gemini WITH Google Search grounding (the newer google-genai SDK), so the
+    model researches live sources instead of answering from memory.
+
+    Returns (text, source_urls). Raises LLMError if grounding is unavailable or
+    fails — the caller is expected to fall back to closed-book generate_json().
+    This is the 'tool' the Curator agent's research step uses.
+    """
+    if not _API_KEY:
+        raise LLMError("GEMINI_API_KEY not set")
+    try:
+        from google import genai as _genai
+        from google.genai import types as _types
+    except ImportError:
+        raise LLMError("google-genai not installed (grounding unavailable)")
+
+    try:
+        client = _genai.Client(api_key=_API_KEY)
+        config = _types.GenerateContentConfig(
+            tools=[_types.Tool(google_search=_types.GoogleSearch())],
+            temperature=0.3,
+        )
+        resp = client.models.generate_content(model=_MODEL, contents=prompt, config=config)
+    except Exception as e:
+        raise LLMError(f"grounded call failed: {type(e).__name__}: {e}")
+
+    text = (getattr(resp, "text", None) or "").strip()
+    if not text:
+        raise LLMError("empty grounded response")
+
+    # Pull the source URLs Gemini actually cited (grounding metadata).
+    sources: list[str] = []
+    try:
+        gm = resp.candidates[0].grounding_metadata
+        for ch in (getattr(gm, "grounding_chunks", None) or []):
+            uri = getattr(getattr(ch, "web", None), "uri", None)
+            if uri:
+                sources.append(uri)
+    except Exception:
+        pass
+    return text, sources
+
+
 def llm_available() -> bool:
     """Quick check — returns True if GEMINI_API_KEY is configured."""
     return bool(_API_KEY)

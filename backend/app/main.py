@@ -386,6 +386,17 @@ def _run_startup_migrations() -> None:
                 ADD COLUMN IF NOT EXISTS depreciation_curve     JSONB NOT NULL DEFAULT '[]'::jsonb,
                 ADD COLUMN IF NOT EXISTS depreciation_as_of     DATE
         """))
+        # Bayesian/curator reliability columns on generations. Older seed
+        # snapshots stop at 'platform', so enrichment + the curator agent (and
+        # the admin pending query) need these added idempotently.
+        db.execute(text("""
+            ALTER TABLE generations
+                ADD COLUMN IF NOT EXISTS reliability_score        NUMERIC(3,1),
+                ADD COLUMN IF NOT EXISTS reliability_ci_low       NUMERIC(3,1),
+                ADD COLUMN IF NOT EXISTS reliability_ci_high      NUMERIC(3,1),
+                ADD COLUMN IF NOT EXISTS reliability_data_quality VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS reliability_sources      JSONB
+        """))
         # v55: admin_notes for concierge pipeline (internal operator field)
         db.execute(text("""
             ALTER TABLE concierge_requests
