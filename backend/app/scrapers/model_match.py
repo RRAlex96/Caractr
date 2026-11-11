@@ -31,11 +31,69 @@ def norm_model(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+_BMW_SERIES = re.compile(r"^s[ée]rie (\d)(?: (.+))?$")
+
+
 def name_match(db_model: str, raw_model: str) -> bool:
     db, raw = norm_model(db_model), norm_model(raw_model)
     if not db or not raw:
         return False
-    return re.search(r"(?<![\w.\-])" + re.escape(db) + r"(?![\w\-])", raw) is not None
+    if re.search(r"(?<![\w.\-])" + re.escape(db) + r"(?![\w\-])", raw):
+        return True
+    # BMW "Série 3" is sold as 318/320d/330e and listed as "3 Series":
+    # accept a 3-digit code starting with the series number (any extra words
+    # in the DB name, e.g. "Gran Coupé", must also be present).
+    m = _BMW_SERIES.match(db)
+    if m:
+        num, rest = m.group(1), (m.group(2) or "")
+        code = re.search(r"(?<![\w.\-])m?" + num + r"\d{2}[a-z]{0,2}(?![\w\-])", raw)
+        series = re.search(r"(?<![\w.\-])" + num + r" series(?![\w\-])", raw)
+        rest_ok = all(w in raw for w in norm_model(rest).replace("é", "e").split()) if rest else True
+        return bool((code or series) and rest_ok)
+    return False
+
+
+def _brand_aliases(brand: str) -> list[str]:
+    from app.scrapers.safety_gate import BRAND_NORM
+    b = (brand or "").lower()
+    return sorted({b, b.replace("-", " ")} | {k for k, v in BRAND_NORM.items() if v.lower() == b})
+
+
+def brand_in_text(brand: str, text: str) -> bool:
+    t = (text or "").lower().replace("-", " ")
+    return any(re.search(r"(?<![\w])" + re.escape(a.replace("-", " ")) + r"(?![\w])", t)
+               for a in _brand_aliases(brand))
+
+
+def listing_text(listing: dict) -> str:
+    """Title + the human slug of the listing URL ('…/anuncio/vw-golf-ver-1-5-tsi-ID8Q0ImG.html')."""
+    url = listing.get("source_url") or ""
+    slug = url.rstrip("/").rsplit("/", 1)[-1]
+    slug = re.sub(r"-ID\w+(\.html)?$", "", slug).replace("-", " ")
+    return f"{listing.get('title') or ''} {slug}"
+
+
+def listing_matches_generation(listing: dict, brand: str, model: str,
+                               year_start: int | None, year_end: int | None,
+                               sibling_models: list[str] = ()) -> bool:
+    """Is a scraped marketplace listing really this generation of this model?
+    Search results include promoted ads for other cars (a Ferrari under
+    "Golf") and other generations (a 1988 Corolla under 2018+)."""
+    year = listing.get("year")
+    if not year or (year_start and year < year_start) or (year_end and year > year_end):
+        return False
+    price = listing.get("price") or 0
+    if price <= 1000:          # "1 000 €" is a common placeholder, not a price
+        return False
+    text = listing_text(listing)
+    if not brand_in_text(brand, text) or not name_match(model, text):
+        return False
+    # A more specific model we also carry ("Corolla Cross" vs "Corolla") wins.
+    for sib in sibling_models:
+        if sib != model and len(norm_model(sib)) > len(norm_model(model)) \
+                and name_match(model, sib) and name_match(sib, text):
+            return False
+    return True
 
 
 def overlap_years(gen_start: int | None, gen_end: int | None, years: list[int]) -> int | None:

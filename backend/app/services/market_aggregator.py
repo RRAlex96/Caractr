@@ -33,6 +33,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 MIN_SAMPLE_SIZE = 3    # minimum listings for a statistics row
+MIN_PUBLISH_SAMPLE = 6  # clean listings needed before a fresh price replaces market_price_stats
 MAD_OUTLIER_Z   = 3.5  # z-score threshold for MAD outlier removal
 
 # Map seller_type → price_context (the CHECK constraint on market_price_stats_history)
@@ -162,19 +163,12 @@ def run_aggregation(db: Session) -> dict:
         logger.warning(f"price_observations query failed (table may not exist): {e}")
         db.rollback()
 
-    # ── 2. Load normalized_listings as fallback ────────────────────────────
-    nl_rows = db.execute(text("""
-        SELECT
-            nl.generation_id,
-            nl.year,
-            nl.seller_type,
-            nl.price
-        FROM normalized_listings nl
-        WHERE nl.price IS NOT NULL
-          AND nl.price BETWEEN 500 AND 500000
-          AND nl.generation_id IS NOT NULL
-        ORDER BY nl.generation_id, nl.year
-    """)).fetchall()
+    # ── 2. normalized_listings fallback — retired ──────────────────────────
+    # normalized_listings is now the ad-analysis cache (no generation_id), and
+    # both batch scrapes and user analyses already land in price_observations,
+    # so there is nothing left for a fallback to add. Querying the old column
+    # crashed every aggregation run.
+    nl_rows: list = []
 
     # ── 3. Group by (generation_id, price_context, year) ──────────────────
     # Track sources per group for provenance
@@ -337,22 +331,30 @@ def _refresh_market_price_stats(db: Session) -> dict:
     Only updates rows where we have >= MIN_SAMPLE_SIZE observations.
     This keeps the analysis pipeline's price reference fresh.
     """
-    upserted = 0
+    upserted = skipped = 0
     try:
-        rows = db.execute(text("""
-            SELECT
-                model_id,
-                vehicle_year,
-                COUNT(*) AS cnt,
-                AVG(price)::INTEGER AS avg_price,
-                MIN(price) AS min_price,
-                MAX(price) AS max_price
+        # Robust stats, not raw AVG/MIN/MAX: a single mis-bucketed listing (a
+        # 210 000 € Ferrari scraped under "Golf") used to set a Golf's price.
+        # avg_price = MAD-trimmed median (the analysis' market reference),
+        # min/max = trimmed p10/p90, and a fresh group must have at least
+        # MIN_PUBLISH_SAMPLE clean observations before it may replace a price.
+        obs = db.execute(text("""
+            SELECT model_id, vehicle_year, price
             FROM price_observations
-            WHERE model_id IS NOT NULL
+            WHERE model_id IS NOT NULL AND vehicle_year IS NOT NULL
               AND price BETWEEN 500 AND 500000
-            GROUP BY model_id, vehicle_year
-            HAVING COUNT(*) >= :min_n
-        """), {"min_n": MIN_SAMPLE_SIZE}).fetchall()
+        """)).fetchall()
+        groups: dict[tuple, list[float]] = {}
+        for model_id, year, price in obs:
+            groups.setdefault((model_id, year), []).append(float(price))
+
+        rows = []
+        for (model_id, year), prices in groups.items():
+            st = _compute_stats(prices)
+            if not st or st["n"] < MIN_PUBLISH_SAMPLE:
+                skipped += 1
+                continue
+            rows.append((model_id, year, st["n"], st["p50"], st["p10"], st["p90"]))
 
         for r in rows:
             model_id, year, cnt, avg_p, min_p, max_p = r
@@ -386,7 +388,7 @@ def _refresh_market_price_stats(db: Session) -> dict:
         db.rollback()
         return {"error": str(e)}
 
-    return {"upserted": upserted}
+    return {"upserted": upserted, "skipped_thin_or_noisy": skipped}
 
 
 def get_price_band_for_listing(

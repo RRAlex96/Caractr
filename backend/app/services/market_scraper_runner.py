@@ -19,6 +19,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from app.scrapers.model_match import listing_matches_generation
+
 logger = logging.getLogger(__name__)
 
 # Top Portuguese market models — prioritised for first run.
@@ -78,45 +80,6 @@ def _detect_source(url: str) -> str:
     return "other"
 
 
-def _already_stored(db: Session, source: str, external_id: str) -> Optional[int]:
-    """Return existing raw_listing.id if this (source, external_id) pair exists."""
-    row = db.execute(text("""
-        SELECT id FROM raw_listings
-        WHERE source = :source AND external_id = :ext_id
-        LIMIT 1
-    """), {"source": source, "ext_id": external_id}).fetchone()
-    return row[0] if row else None
-
-
-def _insert_raw_listing(db: Session, listing: dict, source: str, external_id: str) -> int:
-    """Insert into raw_listings and return the new id."""
-    row = db.execute(text("""
-        INSERT INTO raw_listings
-            (source, external_id, url, raw_data, seller_type, photo_count,
-             description, scraped_at)
-        VALUES
-            (:source, :ext_id, :url, CAST(:raw AS jsonb), :seller_type, :photo_count,
-             :description, now())
-        RETURNING id
-    """), {
-        "source":      source,
-        "ext_id":      external_id,
-        "url":         listing.get("source_url", ""),
-        "raw":         json.dumps({
-            "title":     listing.get("title", ""),
-            "price":     listing.get("price"),
-            "year":      listing.get("year"),
-            "km":        listing.get("km"),
-            "fuel_type": listing.get("fuel_type"),
-            "location":  listing.get("location", ""),
-        }),
-        "seller_type":  listing.get("seller_type", "desconhecido"),
-        "photo_count":  listing.get("photo_count", 0),
-        "description":  listing.get("description", ""),
-    }).fetchone()
-    return row[0]
-
-
 def _normalise_fuel(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
@@ -134,86 +97,6 @@ def _normalise_fuel(raw: Optional[str]) -> Optional[str]:
     return None
 
 
-def _compute_km_per_year(km: Optional[int], year: Optional[int]) -> Optional[float]:
-    if not km or not year:
-        return None
-    age = max(1, date.today().year - year)
-    return round(km / age, 1)
-
-
-def _insert_normalized(
-    db: Session,
-    raw_id: int,
-    model_id: int,
-    generation_id: int,
-    listing: dict,
-    avg_price: Optional[float],
-) -> None:
-    """Insert a row into normalized_listings."""
-    price = listing.get("price")
-    km    = listing.get("km")
-    year  = listing.get("year")
-    km_py = _compute_km_per_year(km, year)
-
-    # Price vs market using existing avg_price from market_price_stats (seed)
-    price_vs_market = 0.0
-    price_delta = 0.0
-    if price and avg_price and avg_price > 0:
-        price_vs_market = round((price - avg_price) / avg_price, 4)
-        raw_delta = (avg_price - price) / avg_price
-        price_delta = round(max(-1.0, min(1.0, raw_delta / 0.20)), 4)
-
-    # Simple deal tier
-    deal_tier = "razoavel"
-    if price and avg_price:
-        if price < avg_price * 0.75:
-            deal_tier = "evitar"  # suspiciously cheap
-        elif price_delta >= 0.5:
-            deal_tier = "forte"
-        elif price_delta >= 0.0:
-            deal_tier = "razoavel"
-        elif price_delta >= -0.5:
-            deal_tier = "cuidado"
-        else:
-            deal_tier = "evitar"
-    if km_py and km_py > 25000:
-        deal_tier = "evitar"
-
-    deal_score = round(max(0.0, min(1.0,
-        ((price_delta + 1.0) / 2.0) - (0.35 if km_py and km_py > 25000 else
-                                        0.20 if km_py and km_py > 20000 else
-                                        0.08 if km_py and km_py > 15000 else 0.0)
-    )), 4)
-
-    db.execute(text("""
-        INSERT INTO normalized_listings
-            (raw_listing_id, model_id, generation_id, year, km, price,
-             seller_type, location, price_vs_market, price_delta, km_per_year,
-             photo_count, deal_tier, deal_score, description, created_at)
-        VALUES
-            (:raw_id, :model_id, :gen_id, :year, :km, :price,
-             :seller_type, :location, :pvm, :pdelta, :kmpy,
-             :photos, :tier, :score, :desc, now())
-        ON CONFLICT DO NOTHING
-    """), {
-        "raw_id":      raw_id,
-        "model_id":    model_id,
-        "gen_id":      generation_id,
-        "year":        year,
-        "km":          km,
-        "price":       price,
-        "seller_type": listing.get("seller_type", "desconhecido"),
-        "location":    listing.get("location", ""),
-        "pvm":         price_vs_market,
-        "pdelta":      price_delta,
-        "kmpy":        km_py,
-        "photos":      listing.get("photo_count", 0),
-        "tier":        deal_tier,
-        "score":       deal_score,
-        "desc":        listing.get("description", ""),
-    })
-
-
 def _record_batch_observation(
     db: Session,
     model_id: int,
@@ -221,11 +104,13 @@ def _record_batch_observation(
     listing: dict,
     source: str,
     url: str,
-) -> None:
-    """Record a batch-scraped listing as a price observation."""
+) -> bool:
+    """Record a batch-scraped listing as a price observation (upsert by URL).
+    Runs in a SAVEPOINT so one bad row can't abort the whole refresh.
+    Returns True if written."""
     price = listing.get("price")
     if not price or price < 500 or price > 500_000:
-        return
+        return False
 
     domain = ""
     if "standvirtual" in url:
@@ -236,32 +121,39 @@ def _record_batch_observation(
         domain = "custojusto.pt"
 
     try:
-        db.execute(text("""
-            INSERT INTO price_observations
-                (model_id, generation_id, vehicle_year, km, price, fuel_type,
-                 seller_type, source_type, source_domain, source_url,
-                 extraction_method, data_quality, observation_type, observed_at)
-            VALUES
-                (:model_id, :gen_id, :year, :km, :price, :fuel,
-                 :seller, 'marketplace', :domain, :url,
-                 'batch_scraper', NULL, 'batch', now())
-            ON CONFLICT (source_url) DO UPDATE SET
-                price       = EXCLUDED.price,
-                km          = COALESCE(EXCLUDED.km, price_observations.km),
-                observed_at = now()
-        """), {
-            "model_id": model_id,
-            "gen_id":   generation_id,
-            "year":     listing.get("year"),
-            "km":       listing.get("km"),
-            "price":    price,
-            "fuel":     _normalise_fuel(listing.get("fuel_type")),
-            "seller":   listing.get("seller_type", "desconhecido"),
-            "domain":   domain,
-            "url":      url,
-        })
+        with db.begin_nested():
+            _upsert_observation(db, model_id, generation_id, listing, price, domain, url)
+        return True
     except Exception as e:
-        logger.warning(f"Price observation insert error: {e}")
+        logger.warning(f"Price observation insert error {url}: {e}")
+        return False
+
+
+def _upsert_observation(db, model_id, generation_id, listing, price, domain, url) -> None:
+    db.execute(text("""
+        INSERT INTO price_observations
+            (model_id, generation_id, vehicle_year, km, price, fuel_type,
+             seller_type, source_type, source_domain, source_url,
+             extraction_method, data_quality, observation_type, observed_at)
+        VALUES
+            (:model_id, :gen_id, :year, :km, :price, :fuel,
+             :seller, 'marketplace', :domain, :url,
+             'batch_scraper', NULL, 'batch', now())
+        ON CONFLICT (source_url) DO UPDATE SET
+            price       = EXCLUDED.price,
+            km          = COALESCE(EXCLUDED.km, price_observations.km),
+            observed_at = now()
+    """), {
+        "model_id": model_id,
+        "gen_id":   generation_id,
+        "year":     listing.get("year"),
+        "km":       listing.get("km"),
+        "price":    price,
+        "fuel":     _normalise_fuel(listing.get("fuel_type")),
+        "seller":   listing.get("seller_type", "desconhecido"),
+        "domain":   domain,
+        "url":      url,
+    })
 
 
 async def _scrape_generation(
@@ -288,12 +180,13 @@ async def _scrape_generation(
         return []
 
 
-def run_market_scraper(db: Session) -> dict:
+def run_market_scraper(db: Session, only_generation_ids: list[int] | None = None) -> dict:
     """
     Synchronous entry point for the background scheduler.
 
-    Fetches listings for all generations, stores raw + normalized rows,
-    and returns a stats dict.
+    Fetches listings for all generations (or just `only_generation_ids`, for a
+    quick smoke test), upserts them into price_observations, and returns a
+    stats dict. Aggregation (market_aggregator) turns those into prices.
     """
     stats = {
         "generations_scraped": 0,
@@ -317,19 +210,17 @@ def run_market_scraper(db: Session) -> dict:
         JOIN brands b ON vm.brand_id = b.id
         ORDER BY b.name, vm.name, g.year_start
     """)).mappings().fetchall()
-
-    # Load existing seed market_price_stats for price delta reference
-    mps_rows = db.execute(text("""
-        SELECT model_id, year, avg_price
-        FROM market_price_stats
-        WHERE avg_price IS NOT NULL
-    """)).fetchall()
-    market_lookup: dict[tuple, float] = {}
-    for r in mps_rows:
-        market_lookup[(r[0], r[1])] = r[2]
-        # Also store model-level average (year=None)
-        if (r[0], None) not in market_lookup:
-            market_lookup[(r[0], None)] = r[2]
+    # Sibling model names per brand, so "Corolla Cross" listings never count
+    # as "Corolla" (see model_match.listing_matches_generation).
+    siblings: dict[str, list[str]] = {}
+    for r in gen_rows:
+        siblings.setdefault(r["brand_name"], [])
+        if r["model_name"] not in siblings[r["brand_name"]]:
+            siblings[r["brand_name"]].append(r["model_name"])
+    if only_generation_ids:
+        wanted = set(only_generation_ids)
+        gen_rows = [r for r in gen_rows if r["generation_id"] in wanted]
+    stats["listings_rejected_wrong_car"] = 0
 
     for row in gen_rows:
         gen_id     = row["generation_id"]
@@ -356,41 +247,26 @@ def run_market_scraper(db: Session) -> dict:
                     stats["listings_no_price"] += 1
                     continue
 
-                if not price:
+                if not price or price < 500 or price > 500_000:
                     stats["listings_no_price"] += 1
                     continue
 
-                # Check duplicate
-                existing_id = _already_stored(db, lsource, ext_id)
-                if existing_id:
-                    stats["listings_duplicate"] += 1
+                if not listing_matches_generation(listing, brand, model, row["year_start"],
+                                                  row["year_end"], siblings.get(brand, [])):
+                    stats["listings_rejected_wrong_car"] += 1
                     continue
 
-                try:
-                    raw_id = _insert_raw_listing(db, listing, lsource, ext_id)
-
-                    # Find avg_price reference for this model+year
-                    yr = listing.get("year")
-                    avg_price = (
-                        market_lookup.get((model_id, yr)) or
-                        market_lookup.get((model_id, None))
-                    )
-
-                    _insert_normalized(
-                        db, raw_id, model_id, gen_id, listing, avg_price
-                    )
-
-                    # Feed the price intelligence flywheel
-                    _record_batch_observation(
-                        db, model_id, gen_id, listing, lsource, url
-                    )
-                    stats["listings_new"] += 1
-
-                except Exception as e:
-                    logger.error(f"Insert error {url}: {e}")
-                    db.rollback()
+                # Scraped listings feed price_observations (the aggregator's
+                # primary input), upserted by URL. raw_listings /
+                # normalized_listings now belong to the ad-analysis cache and
+                # have a different schema — writing there broke every refresh.
+                seen = db.execute(
+                    text("SELECT 1 FROM price_observations WHERE source_url = :u"), {"u": url}
+                ).fetchone() is not None
+                if _record_batch_observation(db, model_id, gen_id, listing, lsource, url):
+                    stats["listings_duplicate" if seen else "listings_new"] += 1
+                else:
                     stats["errors"] += 1
-                    continue
 
             if listings:
                 db.commit()
@@ -401,16 +277,10 @@ def run_market_scraper(db: Session) -> dict:
             db.rollback()
             stats["errors"] += 1
 
-    # NLP pass: extract problem-signal evidence from listing descriptions
-    try:
-        from app.services.listing_nlp import run_nlp_pass
-        nlp_stats = run_nlp_pass(db)
-        stats["nlp_evidence_rows"] = nlp_stats["evidence_rows_written"]
-        stats["nlp_signals_found"] = nlp_stats["signals_found"]
-        logger.info(f"NLP pass: {nlp_stats}")
-    except Exception as e:
-        logger.error(f"NLP pass error: {e}")
-        stats["nlp_evidence_rows"] = 0
+    # The batch NLP pass (listing_nlp.run_nlp_pass) mined descriptions stored in
+    # normalized_listings with a generation_id. The batch scraper no longer
+    # stores descriptions there (that table is the ad-analysis cache, without
+    # generation_id), so the pass is not run here.
 
     logger.info(f"Market scraper complete: {stats}")
     return stats
