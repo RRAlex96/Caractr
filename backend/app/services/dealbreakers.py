@@ -128,10 +128,12 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         lo, hi = _recall_years(p, r["year_start"], r["year_end"])
         if not _applies(year, lo, hi):
             continue
-        title = (p.get("title") or p.get("component") or p.get("model_raw")
-                 or "Recall de segurança")
-        desc = (p.get("description") or p.get("summary") or p.get("consequence")
-                or p.get("issue") or p.get("risk") or "")
+        # Portuguese first (Safety Gate publishes official translations), then
+        # the English original, then whatever the source provides.
+        title = (p.get("title_pt") or p.get("title") or p.get("component")
+                 or p.get("model_raw") or "Recall de segurança")
+        desc = (p.get("description_pt") or p.get("description") or p.get("summary")
+                or p.get("consequence") or p.get("issue") or p.get("risk") or "")
         date_ = (p.get("pub_date") or p.get("report_date")
                  or (r["observed_month"].isoformat() if r["observed_month"] else None))
         key = (str(title)[:80], str(desc)[:80])

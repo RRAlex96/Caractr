@@ -136,7 +136,7 @@ def _find_generation(
 ) -> int | None:
     """Match a KBA recall to a generation (rules in model_match)."""
     rows = db.execute(text("""
-        SELECT g.id, g.year_start, g.year_end, vm.name AS model_name
+        SELECT g.id, g.year_start, g.year_end, vm.name AS model_name, g.name AS gen_name
         FROM generations g
         JOIN vehicle_models vm ON g.model_id = vm.id
         JOIN brands b ON vm.brand_id = b.id

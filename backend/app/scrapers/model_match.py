@@ -111,12 +111,33 @@ def years_overlap(gen_start: int | None, gen_end: int | None, years: list[int]) 
     return None if n is None else n > 0
 
 
-def best_generation(rows, model_raw: str, years: list[int]) -> int | None:
-    """rows: mappings with id, model_name, year_start, year_end (one brand).
+_ROMAN = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6",
+          "vii": "7", "viii": "8", "ix": "9", "x": "10"}
 
-    Ranking among name matches with any overlap: most production years inside
-    the generation, then the generation where production started, then the
-    most specific model name."""
+
+def designators(text_: str, model_name: str) -> set[str]:
+    """Generation designators left after removing the model's own words:
+    'Astra L' → {'l'}, 'Octavia III' → {'3'}, 'Golf Mk7' / 'Golf VII' → {'7'},
+    '3 Series (F30)' → {'f30'}. Roman numerals and MkN normalise to digits."""
+    model_tokens = set(re.findall(r"[a-z0-9]+", norm_model(model_name)))
+    out = set()
+    for t in re.findall(r"[a-z0-9]+", norm_model(text_)):
+        if t in model_tokens:
+            continue
+        t = _ROMAN.get(t, t)
+        m = re.fullmatch(r"mk(\d+)", t)
+        out.add(m.group(1) if m else t)
+    return out
+
+
+def best_generation(rows, model_raw: str, years: list[int]) -> int | None:
+    """rows: mappings with id, model_name, year_start, year_end and optionally
+    gen_name (one brand).
+
+    Ranking among name matches with any year overlap: an explicit generation
+    designator shared with the generation's name ("Astra L" ↔ "Astra L"),
+    then most production years inside the generation, then the generation
+    where production started, then the most specific model name."""
     first_year = min(years) if years else None
     best_id, best_key = None, None
     for r in rows:
@@ -127,7 +148,10 @@ def best_generation(rows, model_raw: str, years: list[int]) -> int | None:
             continue
         starts_here = bool(first_year and r["year_start"]
                            and r["year_start"] <= first_year <= (r["year_end"] or date.today().year))
-        key = (n is not None, n or 0, starts_here, len(norm_model(r["model_name"])))
+        gen_name = r.get("gen_name") if hasattr(r, "get") else None
+        desig = bool(gen_name) and bool(
+            designators(model_raw, r["model_name"]) & designators(gen_name, r["model_name"]))
+        key = (desig, n is not None, n or 0, starts_here, len(norm_model(r["model_name"])))
         if best_key is None or key > best_key:
             best_id, best_key = r["id"], key
     return best_id

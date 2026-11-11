@@ -83,3 +83,18 @@ def test_years_attributed_per_model_from_labelled_batches():
 def test_unlabelled_batch_is_shared_by_all_models():
     from app.scrapers.safety_gate import _years_for_model
     assert _years_for_model(DETAIL, "Touran") == list(range(2013, 2025))
+
+
+def test_risk_types_are_labelled_in_portuguese():
+    from app.scrapers.safety_gate import _risk_types_pt
+    d = {"risk": {"riskType": [{"key": "riskType.injuries", "name": "INJURIES"},
+                               {"key": "riskType.fire", "name": "FIRE"}]}}
+    assert _risk_types_pt(d) == ["Risco de ferimentos", "Risco de incêndio"]
+    assert _risk_types_pt({"risk": {"riskType": [{"key": "riskType.electric_shock"}]}}) == ["Risco de choque elétrico"]
+
+
+def test_portuguese_description_selected_by_language():
+    from app.scrapers.safety_gate import _risk_description_lang
+    d = {"risk": {"versions": [{"language": {"key": "PT"}, "riskDescription": "Perda de direção."}]}}
+    assert _risk_description_lang(d, "pt") == "Perda de direção."
+    assert _risk_description_lang(DETAIL, "pt") == ""

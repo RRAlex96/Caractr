@@ -86,3 +86,31 @@ def test_shared_range_picks_generation_with_most_production_years():
 def test_no_tolerance_on_exact_production_dates():
     # Astra H built until March 2014 is not a 2015+ Astra K.
     assert best_generation(_rows(("Astra", 2015, 2021)), "Astra H", list(range(2005, 2015))) is None
+
+
+def _grows(*gens):
+    return [{"id": i, "model_name": m, "gen_name": g, "year_start": s, "year_end": e}
+            for i, (m, g, s, e) in enumerate(gens, 1)]
+
+
+def test_designator_beats_year_count():
+    # 'Astra L' recall with a shared 2017-2023 range must go to the Astra L, not the K.
+    rows = _grows(("Astra", "Astra K", 2015, 2021), ("Astra", "Astra L", 2021, None))
+    assert best_generation(rows, "Astra L", list(range(2017, 2024))) == 2
+
+
+def test_designators_normalise_roman_and_mk():
+    from app.scrapers.model_match import designators
+    assert designators("Golf VII", "Golf") == designators("Mk7", "Golf") == {"7"}
+    assert designators("Octavia III", "Octavia") == {"3"}
+    assert designators("3 Series (F30)", "Série 3") >= {"f30"}
+
+
+def test_designator_still_needs_year_overlap():
+    rows = _grows(("Astra", "Astra L", 2021, None))
+    assert best_generation(rows, "Astra L", [2010, 2011]) is None
+
+
+def test_no_designator_falls_back_to_years():
+    rows = _grows(("Golf", "Mk7", 2012, 2019), ("Golf", "Mk8", 2020, None))
+    assert best_generation(rows, "Golf", [2021, 2022]) == 2

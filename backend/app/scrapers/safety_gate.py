@@ -187,6 +187,31 @@ def _risk_types(detail: dict) -> list[str]:
     return [r.get("name") for r in ((detail.get("risk") or {}).get("riskType") or []) if r.get("name")]
 
 
+# Safety Gate only returns risk types as enum keys; label them for PT readers.
+RISK_PT = {
+    "injuries": "Risco de ferimentos", "fire": "Risco de incêndio",
+    "environment": "Risco ambiental", "burns": "Risco de queimaduras",
+    "electricshock": "Risco de choque elétrico", "electric.shock": "Risco de choque elétrico",
+    "chemical": "Risco químico", "damage.to.sight": "Risco para a visão",
+    "suffocation": "Risco de asfixia", "cuts": "Risco de cortes", "other": "Outro risco",
+}
+
+
+def _risk_types_pt(detail: dict) -> list[str]:
+    out = []
+    for r in ((detail.get("risk") or {}).get("riskType") or []):
+        key = (r.get("key") or "").replace("riskType.", "").lower()
+        out.append(RISK_PT.get(key) or RISK_PT.get(key.replace("_", ".")) or (r.get("name") or "").title())
+    return [o for o in out if o]
+
+
+def _risk_description_lang(detail: dict, lang: str) -> str:
+    for v in ((detail.get("risk") or {}).get("versions") or []):
+        if (v.get("language") or {}).get("key") == lang.upper() and v.get("riskDescription"):
+            return v["riskDescription"]
+    return ""
+
+
 def _measures(detail: dict) -> str:
     ms = ((detail.get("measureTaken") or {}).get("measures") or [])
     names = [((m.get("measureCategory") or {}).get("name") or "").replace("_", " ").lower() for m in ms]
@@ -202,7 +227,7 @@ def _find_generation(db: Session, brand_name: str, model_name_raw: str,
                      years: list[int]) -> int | None:
     """Match one alert model string to a generation (rules in model_match)."""
     rows = db.execute(text("""
-        SELECT g.id, g.year_start, g.year_end, vm.name as model_name
+        SELECT g.id, g.year_start, g.year_end, vm.name as model_name, g.name AS gen_name
         FROM generations g
         JOIN vehicle_models vm ON g.model_id = vm.id
         JOIN brands b ON vm.brand_id = b.id
@@ -244,11 +269,26 @@ def _fetch_archive_page(page: int) -> dict:
     return r.json()
 
 
-def _fetch_detail(alert_id) -> dict:
-    r = requests.get(API_BASE + f"notification/{alert_id}", params={"language": "en"},
+def _fetch_detail(alert_id, language: str = "en") -> dict:
+    r = requests.get(API_BASE + f"notification/{alert_id}", params={"language": language},
                      headers=HEADERS, timeout=30)
     r.raise_for_status()
     return r.json()
+
+
+def _pt_texts(alert_id, brand: str, model_raw: str, detail_en: dict) -> dict:
+    """Portuguese title/description (the EU's own translation). Best-effort:
+    on any failure the English text is still shown."""
+    try:
+        d = _fetch_detail(alert_id, "pt")
+    except Exception:
+        d = {}
+    desc = _risk_description_lang(d, "PT")
+    risks = _risk_types_pt(detail_en)
+    return {
+        "title_pt": f"{brand} {model_raw}: " + (", ".join(risks) or "Recall"),
+        "description_pt": desc[:500],
+    }
 
 
 def _is_candidate(item: dict) -> str | None:
@@ -281,6 +321,7 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
     risk_types = _risk_types(detail)
 
     matched = set()
+    pt_cache: dict | None = None  # fetched once, only if a model matches
     for model_raw in models:
         years = _years_for_model(detail, model_raw)
         gen_id = _find_generation(db, brand, model_raw, years)
@@ -291,6 +332,10 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
             stats["skipped_duplicate"] += 1
             continue
         title = f"{brand} {model_raw}: " + (", ".join(t.title() for t in risk_types) or "Recall")
+        if pt_cache is None:
+            pt_cache = _pt_texts(alert_id, brand, "{model}", detail)
+        pt = {"title_pt": pt_cache["title_pt"].replace("{model}", model_raw),
+              "description_pt": pt_cache["description_pt"]}
         db.execute(text("""
             INSERT INTO reliability_evidence
                 (generation_id, evidence_type, source, source_url,
@@ -309,6 +354,8 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
                 "models_all":  models,
                 "title":       title[:200],
                 "description": risk_desc[:500],
+                "title_pt":    pt["title_pt"][:200],
+                "description_pt": pt["description_pt"],
                 "risk":        ", ".join(risk_types)[:300],
                 "measures":    _measures(detail)[:300],
                 "severity":    severity,
@@ -379,4 +426,73 @@ def ingest_safety_gate(db: Session, max_pages: int | None = 10,
             break
         time.sleep(sleep_seconds)
 
+    return stats
+
+
+def backfill_portuguese(db: Session, sleep_seconds: float = 0.5) -> dict:
+    """Add title_pt/description_pt to Safety Gate rows stored without them.
+    One PT detail request per distinct alert. Idempotent."""
+    rows = db.execute(text("""
+        SELECT id, source_url, payload FROM reliability_evidence
+        WHERE source = 'eu_safety_gate' AND NOT (payload ? 'description_pt')
+    """)).mappings().fetchall()
+    stats = {"rows": len(rows), "alerts": 0, "updated": 0, "errors": 0}
+    by_url: dict[str, list] = {}
+    for r in rows:
+        by_url.setdefault(r["source_url"], []).append(r)
+    for url, group in by_url.items():
+        stats["alerts"] += 1
+        try:
+            alert_id = url.split("alertDetail/")[1].split("?")[0]
+            desc = _risk_description_lang(_fetch_detail(alert_id, "pt"), "PT")[:500]
+        except Exception:
+            stats["errors"] += 1
+            desc = ""
+        for r in group:
+            p = r["payload"] if isinstance(r["payload"], dict) else json.loads(r["payload"] or "{}")
+            fake = {"risk": {"riskType": [{"key": f"riskType.{t.strip().lower()}", "name": t.strip()}
+                                          for t in (p.get("risk") or "").split(",") if t.strip()]}}
+            risks = _risk_types_pt(fake)
+            title_pt = f"{p.get('brand_raw', '')} {p.get('model_raw', '')}: " + (", ".join(risks) or "Recall")
+            db.execute(text("""
+                UPDATE reliability_evidence
+                SET payload = payload || CAST(:extra AS jsonb)
+                WHERE id = :id
+            """), {"id": r["id"], "extra": json.dumps({"title_pt": title_pt.strip()[:200],
+                                                         "description_pt": desc})})
+            stats["updated"] += 1
+        db.commit()
+        time.sleep(sleep_seconds)
+    return stats
+
+
+def rematch_safety_gate(db: Session) -> dict:
+    """Re-run generation matching for stored Safety Gate rows using their saved
+    brand / model string / production years — no network. Moves rows whose
+    best generation changed under newer matching rules and removes rows that
+    no longer match at all. Idempotent."""
+    rows = db.execute(text("""
+        SELECT id, generation_id, source_url, payload FROM reliability_evidence
+        WHERE source = 'eu_safety_gate'
+    """)).mappings().fetchall()
+    stats = {"rows": len(rows), "moved": 0, "removed": 0, "unchanged": 0, "duplicates_removed": 0}
+    for r in rows:
+        p = r["payload"] if isinstance(r["payload"], dict) else json.loads(r["payload"] or "{}")
+        brand, model_raw = p.get("brand_raw"), p.get("model_raw")
+        years = [int(y) for y in (p.get("years") or []) if str(y).isdigit()]
+        new_gen = _find_generation(db, brand, model_raw, years) if brand and model_raw else None
+        if new_gen == r["generation_id"]:
+            stats["unchanged"] += 1
+            continue
+        if new_gen is None:
+            db.execute(text("DELETE FROM reliability_evidence WHERE id = :id"), {"id": r["id"]})
+            stats["removed"] += 1
+        elif _already_ingested(db, new_gen, r["source_url"]):
+            db.execute(text("DELETE FROM reliability_evidence WHERE id = :id"), {"id": r["id"]})
+            stats["duplicates_removed"] += 1
+        else:
+            db.execute(text("UPDATE reliability_evidence SET generation_id = :g WHERE id = :id"),
+                       {"g": new_gen, "id": r["id"]})
+            stats["moved"] += 1
+    db.commit()
     return stats
