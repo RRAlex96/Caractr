@@ -353,7 +353,8 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
     return None
 
 
-def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
+def _get_model_info(db: Session, brand_name: str, model_name: str,
+                    year: int | None = None) -> dict:
     """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data."""
     # Strip accents so 'Citroën' matches 'Citroen' in DB, 'Série 3' matches 'Serie 3'
     brand_norm = _strip_accents(brand_name).lower()
@@ -407,7 +408,7 @@ def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
             info["bayesian_reliability_quality"] = trust_row["data_quality"] or "prior_only"
 
         # Loud "would this put a buyer off?" signal: recalls + critical failures.
-        info["dealbreakers"] = get_dealbreakers(db, model_id)
+        info["dealbreakers"] = get_dealbreakers(db, model_id, year=year)
 
     return info
 
@@ -1503,7 +1504,7 @@ async def _analyse_listing_inner(
         brand_n = cached.get("brand_name", "")
         model_n = cached.get("model_name", "")
         if brand_n and model_n:
-            cached_model_info = _get_model_info(db, brand_n, model_n) or {}
+            cached_model_info = _get_model_info(db, brand_n, model_n, year=cached.get("year")) or {}
         # Pull market stats from DB (no live scrape on cache hit)
         cached_market: dict = {}
         cached_model_id = cached_model_info.get("id") if cached_model_info else None
@@ -1618,7 +1619,7 @@ async def _analyse_listing_inner(
             market_stats["source"] = "db"
 
     if model_id:
-        model_info = _get_model_info(db, brand_name, model_name)
+        model_info = _get_model_info(db, brand_name, model_name, year=year)
 
     # ── 3a. Compute deal metrics ──
     # Use the MEDIAN as the market reference, not the average. The average is

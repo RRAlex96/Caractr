@@ -16,6 +16,8 @@ lets the buyer decide. Recall matching upstream is deliberately high-precision,
 so a shown recall is one we're confident belongs to this model.
 """
 import json
+import re
+from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -55,9 +57,51 @@ def _as_dict(payload) -> dict:
     return {}
 
 
-def get_dealbreakers(db: Session, model_id: int | None) -> dict:
+def _recall_years(payload: dict, gen_start, gen_end) -> tuple[int | None, int | None]:
+    """Production years a recall applies to. Safety Gate stores the real
+    per-model production range ("years"); NHTSA rows are de-duplicated per
+    campaign, so their single "year" is just the first one seen — for those,
+    and anything else, fall back to the matched generation's range."""
+    ys = payload.get("years")
+    if isinstance(ys, list) and ys:
+        ys = [int(y) for y in ys if str(y).isdigit()]
+        if ys:
+            return min(ys), max(ys)
+    return gen_start, gen_end
+
+
+def _parse_affected_years(s) -> tuple[int | None, int | None] | None:
+    """'2010-2014' → (2010, 2014); '2020+' → (2020, None); unparseable → None."""
+    ys = [int(y) for y in re.findall(r"\b(19[89]\d|20[0-3]\d)\b", s or "")]
+    if not ys:
+        return None
+    if "+" in (s or "") and len(ys) == 1:
+        return ys[0], None
+    return min(ys), max(ys)
+
+
+def _applies(year: int | None, lo: int | None, hi: int | None) -> bool:
+    """Does a car from `year` fall in [lo, hi]? Unknown bounds never exclude."""
+    if year is None or lo is None:
+        return True
+    return lo <= year <= (hi or date.today().year)
+
+
+def _years_label(lo, hi) -> str | None:
+    if lo is None:
+        return None
+    if hi is None or hi >= date.today().year:
+        return f"{lo}+"
+    return f"{lo}-{hi}" if hi != lo else str(lo)
+
+
+def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None) -> dict:
     """Return the structured deal-breaker payload for a model (recalls + critical
-    known failures). Always returns the full shape, empty when nothing serious."""
+    known failures). Always returns the full shape, empty when nothing serious.
+
+    `year` (the listing's model year, when known) filters out recalls and
+    failures for other production periods — a 2020 car must not be warned
+    about a recall that only affects 2024-2026 builds."""
     if not model_id:
         return dict(_EMPTY)
 
@@ -68,24 +112,28 @@ def get_dealbreakers(db: Session, model_id: int | None) -> dict:
     # IN-list is a plain SQL literal, no bind-expansion needed.
     sev_list = ", ".join(f"'{s}'" for s in _DEALBREAKER_RECALL_SEVERITIES)
     rows = db.execute(text(f"""
-        SELECT re.source, re.source_url, re.severity, re.observed_month, re.payload
+        SELECT re.source, re.source_url, re.severity, re.observed_month, re.payload,
+               g.year_start, g.year_end
         FROM reliability_evidence re
         JOIN generations g ON g.id = re.generation_id
         WHERE g.model_id = :mid
           AND re.evidence_type IN ('recall', 'safety_gate')
           AND lower(coalesce(re.severity, '')) IN ({sev_list})
         ORDER BY (lower(re.severity) = 'serious') DESC, re.observed_month DESC NULLS LAST
-        LIMIT 12
+        LIMIT 80
     """), {"mid": model_id}).mappings().fetchall()
 
     for r in rows:
         p = _as_dict(r["payload"])
+        lo, hi = _recall_years(p, r["year_start"], r["year_end"])
+        if not _applies(year, lo, hi):
+            continue
         title = (p.get("title") or p.get("component") or p.get("model_raw")
                  or "Recall de segurança")
         desc = (p.get("description") or p.get("summary") or p.get("consequence")
                 or p.get("issue") or p.get("risk") or "")
-        date = (p.get("pub_date") or p.get("report_date")
-                or (r["observed_month"].isoformat() if r["observed_month"] else None))
+        date_ = (p.get("pub_date") or p.get("report_date")
+                 or (r["observed_month"].isoformat() if r["observed_month"] else None))
         key = (str(title)[:80], str(desc)[:80])
         if key in seen:
             continue
@@ -97,7 +145,8 @@ def get_dealbreakers(db: Session, model_id: int | None) -> dict:
             "severity": (r["severity"] or "").lower(),
             "source": _source_label(r["source"]),
             "source_url": url if isinstance(url, str) and url.startswith("http") else None,
-            "date": date,
+            "date": date_,
+            "affected_years": _years_label(lo, hi),
         })
         if len(recalls) >= 6:
             break
@@ -110,11 +159,14 @@ def get_dealbreakers(db: Session, model_id: int | None) -> dict:
         FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
         WHERE e.model_id = :mid AND lower(ei.severity) = 'critico'
-        LIMIT 6
+        LIMIT 30
     """), {"mid": model_id}).mappings().fetchall()
 
     for c in crows:
         if not c["description"]:
+            continue
+        span = _parse_affected_years(c["affected_years"])
+        if span and not _applies(year, *span):
             continue
         critical.append({
             "description": str(c["description"])[:400],
@@ -122,6 +174,8 @@ def get_dealbreakers(db: Session, model_id: int | None) -> dict:
             "fix_cost_estimate": c["fix_cost_estimate"],
             "source": c["source"] or "Investigação",
         })
+        if len(critical) >= 6:
+            break
 
     count = len(recalls) + len(critical)
     return {

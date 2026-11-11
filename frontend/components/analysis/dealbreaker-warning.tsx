@@ -56,6 +56,7 @@ export function DealbreakerWarning({ data, className }: DealbreakerWarningProps)
                 </p>
               )}
               <p className="mt-1.5 font-mono text-[10px] text-muted-foreground/60">
+                {r.affected_years ? `Produção ${r.affected_years} · ` : ""}
                 {r.source}
                 {r.date ? ` · ${r.date}` : ""}
                 {r.source_url && (

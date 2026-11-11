@@ -78,3 +78,43 @@ def test_non_critico_severities_unaffected_by_grounding():
 def test_issue_source_label_states_provenance():
     assert "sem fontes" in _issue_source_label(False)
     assert "pesquisa web" in _issue_source_label(True)
+
+
+# ── year-aware deal-breakers ────────────────────────────────────────────────
+
+from datetime import date
+
+from app.services.dealbreakers import (
+    _applies, _parse_affected_years, _recall_years, _years_label,
+)
+
+
+def test_recall_years_prefer_production_range_over_generation():
+    assert _recall_years({"years": [2024, 2025, 2026]}, 2019, None) == (2024, 2026)
+    # NHTSA: single de-duplicated "year" is not a range → use the generation.
+    assert _recall_years({"year": 2021}, 2019, None) == (2019, None)
+
+
+def test_kuga_2020_is_not_warned_about_2024_only_recall():
+    lo, hi = _recall_years({"years": [2024, 2025, 2026]}, 2019, None)
+    assert not _applies(2020, lo, hi)
+    assert _applies(2025, lo, hi)
+
+
+def test_unknown_year_or_bounds_never_exclude():
+    assert _applies(None, 2024, 2026)          # recommendation view: no year
+    assert _applies(2020, None, None)          # recall with no known period
+
+
+def test_affected_years_parsing():
+    assert _parse_affected_years("2010-2014") == (2010, 2014)
+    assert _parse_affected_years("2020+") == (2020, None)
+    assert _parse_affected_years("variável") is None
+    assert _parse_affected_years("20101") is None
+
+
+def test_years_label():
+    assert _years_label(2013, 2024) == "2013-2024"
+    assert _years_label(2024, None) == "2024+"
+    assert _years_label(2019, date.today().year) == "2019+"
+    assert _years_label(None, None) is None

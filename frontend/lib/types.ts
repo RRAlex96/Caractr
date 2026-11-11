@@ -100,6 +100,8 @@ export interface DealbreakerRecall {
   source: string
   source_url: string | null
   date: string | null
+  /** Production period the recall covers, e.g. "2013-2024" or "2024+". */
+  affected_years?: string | null
 }
 
 export interface DealbreakerIssue {
