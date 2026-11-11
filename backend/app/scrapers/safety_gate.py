@@ -369,14 +369,16 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
 
 
 def ingest_safety_gate(db: Session, max_pages: int | None = 10,
-                       sleep_seconds: float = 1.0, mode: str = "recent") -> dict:
+                       sleep_seconds: float = 1.0, mode: str = "recent",
+                       start_page: int = 0) -> dict:
     """
     Fetch Safety Gate vehicle alerts and write evidence rows. Idempotent.
 
     mode="recent"  — the ~350 newest alerts (monthly incremental).
     mode="archive" — page through the full archive (one-off backfill; ~5,300
                      pages of 9). Re-runnable: already-stored alerts are skipped
-                     without fetching their detail.
+                     without fetching their detail. start_page resumes an
+                     interrupted backfill (progress is logged every 200 pages).
 
     Returns {ingested, skipped_no_match, skipped_duplicate, candidates, pages, errors}.
     """
@@ -384,8 +386,8 @@ def ingest_safety_gate(db: Session, max_pages: int | None = 10,
              "candidates": 0, "pages": 0, "errors": 0}
     fetch = _fetch_recent_page if mode == "recent" else _fetch_archive_page
 
-    page, total_pages = 0, None
-    while max_pages is None or page < max_pages:
+    page, total_pages = start_page, None
+    while max_pages is None or page < start_page + max_pages:
         try:
             data = fetch(page)
         except Exception as e:

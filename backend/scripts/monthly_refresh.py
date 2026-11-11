@@ -25,10 +25,15 @@ Steps (each isolated — one failing never skips the others; all idempotent):
 Not included:
   - KBA via car-recalls.eu — the site was restructured (brand/year pages now
     404). German recalls also reach EU Safety Gate, which is covered.
-  - Safety Gate full history — one-off backfill, re-runnable any time:
+  - Safety Gate full history — one-off backfill (~5,300 pages, roughly 12 h
+    at a polite rate), safe to interrupt and resume with start_page (progress
+    is logged every 200 pages; the Nov 2026 run stopped after page 1000):
         python -c "from app.db.database import SessionLocal; \\
-          from app.scrapers.safety_gate import ingest_safety_gate; \\
-          print(ingest_safety_gate(SessionLocal(), max_pages=None, mode='archive'))"
+          from app.scrapers import safety_gate as sg; db = SessionLocal(); \\
+          print(sg.ingest_safety_gate(db, max_pages=None, mode='archive', start_page=1000)); \\
+          print(sg.rematch_safety_gate(db)); print(sg.backfill_portuguese(db))"
+    then run the scorer step:  python -m scripts.monthly_refresh --skip \\
+        market,aggregate,depreciation,safety_gate,nhtsa,curator,retention
 
 Exit code is non-zero if any step failed.
 """
