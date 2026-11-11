@@ -65,7 +65,7 @@ export function AdAnalysisPanel({
           className
         )}
       >
-        <span className="text-sm">↗</span> Analisar anuncio
+        <span className="text-sm">↗</span> Analisar anúncio
       </button>
     )
   }
@@ -76,7 +76,7 @@ export function AdAnalysisPanel({
   return (
     <div className={cn("mt-5 border-t border-border pt-5", className)}>
       <p className="mb-3 font-mono text-[10px] uppercase tracking-[1.5px] text-gold">
-        Colar URL do anuncio
+        Colar URL do anúncio
         <span className="ml-2.5 tracking-[0.5px] text-muted-foreground/50">
           Standvirtual · OLX · qualquer dealer
         </span>
@@ -180,7 +180,7 @@ export function AdAnalysisPanel({
             {result.deal?.price_delta_pct != null && (
               <div>
                 <p className="mb-0.5 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground">
-                  Preco vs. mercado
+                  Preço vs. mercado
                 </p>
                 <p
                   className={cn(
@@ -208,7 +208,7 @@ export function AdAnalysisPanel({
                 <p className="mb-0.5 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground">
                   Referencia mercado
                   <span className="ml-1.5 text-[8px] normal-case opacity-40">
-                    {result.deal.market_data_source === "live" ? "tempo real" : "historico"}
+                    {result.deal.market_data_source === "live" ? "tempo real" : "histórico"}
                   </span>
                 </p>
                 <p className="font-mono text-[13px] font-semibold">
@@ -381,7 +381,7 @@ export function AdAnalysisPanel({
             }}
             className="mt-3 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground transition-colors hover:text-gold"
           >
-            Analisar outro anuncio ↩
+            Analisar outro anúncio ↩
           </button>
         </div>
       )}

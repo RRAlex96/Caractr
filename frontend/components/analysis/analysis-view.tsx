@@ -50,7 +50,7 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
         <div className="mb-2 h-0.5 w-10 rounded-full bg-gold" />
         <p className="mb-1 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-          Analise #{analysisId}
+          Análise #{analysisId}
         </p>
         <h1 className="mb-8 font-display text-[clamp(28px,5vw,44px)] font-extrabold leading-[0.95] tracking-tight text-foreground">
           {brand} {model} {year}

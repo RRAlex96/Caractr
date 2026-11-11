@@ -23,7 +23,7 @@ export default function ResultadosError({
         ERRO NOS RESULTADOS
       </h2>
       <p className="mb-9 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Nao conseguimos carregar as tuas recomendacoes. O teu perfil esta
+        Não conseguimos carregar as tuas recomendações. O teu perfil está
         guardado — tenta novamente.
       </p>
       <div className="flex flex-wrap justify-center gap-3">

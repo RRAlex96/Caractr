@@ -4,12 +4,12 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 
 const DISMISS_REASONS = [
-  "Nao gosto da marca",
+  "Não gosto da marca",
   "Quero algo mais desportivo",
   "Quero algo mais luxuoso",
-  "Quero algo mais pratico",
-  "Acima do meu orcamento",
-  "Nao e o estilo certo",
+  "Quero algo mais prático",
+  "Acima do meu orçamento",
+  "Não é o estilo certo",
 ]
 
 interface InterestActionsProps {
@@ -76,7 +76,7 @@ export function InterestActions({
           onClick={() => setShowReasons(!showReasons)}
           className="text-xs text-muted-foreground/50 transition-opacity hover:text-muted-foreground"
         >
-          Nao e para mim
+          Não é para mim
         </button>
       </div>
       {showReasons && (

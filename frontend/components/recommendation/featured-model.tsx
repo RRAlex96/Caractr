@@ -24,7 +24,7 @@ export function FeaturedModel({
       )}
     >
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[1.5px] text-gold/80">
-        A tua melhor correspondencia
+        A tua melhor correspondência
       </p>
 
       {/* Rank + Name + Price */}

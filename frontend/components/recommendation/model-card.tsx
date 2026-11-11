@@ -35,7 +35,7 @@ export function ModelCard({
           {tag
             ? tag
             : rec.is_stretch
-              ? "Acima do orcamento — mas vale considerar"
+              ? "Acima do orçamento — mas vale considerar"
               : "Fora do esperado — mas ouve-nos"}
         </p>
       )}

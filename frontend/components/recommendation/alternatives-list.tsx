@@ -74,7 +74,7 @@ export function AlternativesList({
       {/* Error */}
       {alternativesFetched && alternativesError && (
         <p className="py-6 text-center text-[13px] text-muted-foreground/50">
-          Nao encontramos alternativas suficientemente diferentes. Tenta refinar o perfil.
+          Não encontrámos alternativas suficientemente diferentes. Tenta refinar o perfil.
         </p>
       )}
 

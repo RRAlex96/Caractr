@@ -22,7 +22,7 @@ const QUESTIONS = [
       { value: "cidade",  label: "Cidade",   desc: "Transito, estacionamento, trajetos curtos" },
       { value: "misto",   label: "Misto",    desc: "Um pouco de tudo — cidade e estrada" },
       { value: "estrada", label: "Estrada",  desc: "Autoestrada, viagens longas, muitos km" },
-      { value: "familia", label: "Familia",  desc: "Escola, compras, logistica familiar" },
+      { value: "familia", label: "Família",  desc: "Escola, compras, logística familiar" },
     ],
   },
   {
@@ -31,7 +31,7 @@ const QUESTIONS = [
     question: "Como ves o teu carro?",
     options: [
       { value: "apenas_transporte", label: "Apenas transporte",  desc: "Leva-me do A ao B, sem drama" },
-      { value: "gosto_conduzir",    label: "Gosto de conduzir",  desc: "Aprecio uma boa viagem, mas nao e obsessao" },
+      { value: "gosto_conduzir",    label: "Gosto de conduzir",  desc: "Aprecio uma boa viagem, mas não é obsessão" },
       { value: "adoro_conduzir",    label: "Adoro conduzir",     desc: "O carro e uma extensao de mim" },
     ],
   },
@@ -40,29 +40,29 @@ const QUESTIONS = [
     label: "03 — Ao volante",
     question: "O que preferes sentir ao volante?",
     options: [
-      { value: "suave_previsivel",     label: "Suave e previsivel",    desc: "Conforto acima de tudo, zero surpresas" },
-      { value: "confortavel_com_alma", label: "Confortavel com alma",  desc: "Suavidade no dia a dia, capaz quando preciso" },
-      { value: "dinamico_envolvente",  label: "Dinamico e envolvente", desc: "Quero sentir a estrada — chassis, resposta, emocao" },
+      { value: "suave_previsivel",     label: "Suave e previsível",    desc: "Conforto acima de tudo, zero surpresas" },
+      { value: "confortavel_com_alma", label: "Confortável com alma",  desc: "Suavidade no dia a dia, capaz quando preciso" },
+      { value: "dinamico_envolvente",  label: "Dinâmico e envolvente", desc: "Quero sentir a estrada — chassis, resposta, emoção" },
     ],
   },
   {
     id: "p5_presence",
-    label: "04 — Presenca",
+    label: "04 — Presença",
     question: "O que queres que o carro comunique?",
     options: [
-      { value: "discreto",     label: "Discreto",          desc: "Nao preciso de atencao — so de um bom carro" },
+      { value: "discreto",     label: "Discreto",          desc: "Não preciso de atenção — só de um bom carro" },
       { value: "bom_aspeto",   label: "Bom aspeto",        desc: "Elegante, sem ser ostentacao" },
-      { value: "vire_cabecas", label: "Que vire cabecas",  desc: "Presenca forte — gosto de ser notado" },
+      { value: "vire_cabecas", label: "Que vire cabeças",  desc: "Presença forte — gosto de ser notado" },
     ],
   },
   {
     id: "p6_aversion",
     label: "05 — Limites",
-    question: "O que seria inaceitavel no teu proximo carro?",
+    question: "O que seria inaceitável no teu próximo carro?",
     options: [
-      { value: "fiabilidade", label: "Problemas mecanicos", desc: "Avarias, custos inesperados, falta de confianca" },
+      { value: "fiabilidade", label: "Problemas mecânicos", desc: "Avarias, custos inesperados, falta de confiança" },
       { value: "conforto",    label: "Desconforto",         desc: "Barulho, suspensao dura, viagens longas a sofrer" },
-      { value: "espaco",      label: "Falta de espaco",     desc: "Pouco espaco para passageiros ou bagagem" },
+      { value: "espaco",      label: "Falta de espaço",     desc: "Pouco espaço para passageiros ou bagagem" },
       { value: "potencia",    label: "Falta de resposta",   desc: "Motor fraco, aceleracao lenta, sem dinamismo" },
     ],
   },
@@ -78,7 +78,7 @@ const DREAM_BRANDS_FALLBACK = [
 ]
 
 const DIM_LABELS: Record<string, string> = {
-  economy: "economia", comfort: "conforto", driving: "conducao",
+  economy: "economia", comfort: "conforto", driving: "condução",
   practical: "praticidade", status: "imagem", reliability: "fiabilidade",
 }
 
@@ -98,10 +98,10 @@ function buildFallbackNarrative(data: any): { summary: string; lines: string[] }
     lines.push(`${cap(top2[0])} e ${top2[1]} estao no topo das tuas prioridades.`)
   if (data.answers?.p6_aversion && data.answers.p6_aversion !== "nenhuma") {
     const map: Record<string, string> = {
-      fiabilidade: "Ficou claro: problemas mecanicos sao inaceitaveis para ti.",
-      conforto: "Ficou claro: desconforto e inaceitavel para ti.",
-      espaco: "Ficou claro: falta de espaco e inaceitavel para ti.",
-      potencia: "Ficou claro: falta de resposta do motor e inaceitavel para ti.",
+      fiabilidade: "Ficou claro: problemas mecânicos são inaceitáveis para ti.",
+      conforto: "Ficou claro: desconforto é inaceitável para ti.",
+      espaco: "Ficou claro: falta de espaço é inaceitável para ti.",
+      potencia: "Ficou claro: falta de resposta do motor é inaceitável para ti.",
     }
     if (map[data.answers.p6_aversion]) lines.push(map[data.answers.p6_aversion])
   }
@@ -276,7 +276,7 @@ export default function EscolherPage() {
             onClick={() => router.push("/resultados")}
             className="rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
           >
-            Ver as tuas recomendacoes
+            Ver as tuas recomendações
           </button>
         </div>
       </div>

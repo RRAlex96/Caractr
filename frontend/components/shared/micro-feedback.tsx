@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 import { Analytics } from "@/lib/analytics"
 
 const FEEDBACK_REASONS = [
-  "Preco parece errado",
+  "Preço parece errado",
   "Informacao incompleta",
-  "Nao concordo com veredicto",
+  "Não concordo com o veredicto",
 ]
 
 interface MicroFeedbackProps {
@@ -40,12 +40,12 @@ export function MicroFeedback({ listingUrl, className }: MicroFeedbackProps) {
       {vote === null && (
         <div className="flex items-center gap-2.5">
           <p className="text-[11px] text-muted-foreground/55">
-            Esta analise foi util?
+            Esta análise foi útil?
           </p>
           {(["up", "down"] as const).map((v) => (
             <button
               key={v}
-              aria-label={v === "up" ? "Analise util" : "Analise nao util"}
+              aria-label={v === "up" ? "Análise útil" : "Análise não útil"}
               onClick={() => handleVote(v)}
               className="p-0.5 text-sm opacity-50 transition-opacity hover:opacity-100"
             >

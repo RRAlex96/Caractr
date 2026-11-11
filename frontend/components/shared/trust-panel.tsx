@@ -24,7 +24,7 @@ function freshnessLabel(asOf: string | null | undefined): string {
     const d = new Date(asOf)
     const now = new Date()
     const days = Math.round((now.getTime() - d.getTime()) / 86400000)
-    if (days <= 35) return `dados de ${days < 7 ? "esta semana" : "este mes"}`
+    if (days <= 35) return `dados de ${days < 7 ? "esta semana" : "este mês"}`
     const months = Math.round(days / 30)
     return `dados de ha ${months} ${months === 1 ? "mes" : "meses"}`
   } catch {
@@ -93,7 +93,7 @@ function MarketBlock({ market }: { market: MarketData }) {
         <span className="font-mono text-[10px] text-muted-foreground/60">mediana</span>
         {sampleCount && (
           <span className="ml-auto font-mono text-[10px] text-gold">
-            {sampleCount} anuncios
+            {sampleCount} anúncios
           </span>
         )}
       </div>
@@ -194,7 +194,7 @@ export function TrustPanel({ reliability, market, modelName, reliabilityLimited,
   return (
     <div className={cn("mt-5 border-t border-border pt-5", className)}>
       <span className="mb-4 block font-mono text-[10px] uppercase tracking-[0.15em] text-gold/80">
-        Dados de confianca
+        Dados de confiança
       </span>
 
       {reliability && (
@@ -221,7 +221,7 @@ export function TrustPanel({ reliability, market, modelName, reliabilityLimited,
       {market && (
         <div className="mt-4 border-t border-border pt-4">
           <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
-            Preco de mercado
+            Preço de mercado
           </span>
           <MarketBlock market={market} />
         </div>
