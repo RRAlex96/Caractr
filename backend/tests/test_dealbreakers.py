@@ -160,3 +160,9 @@ def test_eu_recall_is_loud_and_us_listed_separately():
     assert d["has_dealbreaker"] is True
     assert [r["title"] for r in d["recalls"]] == ["EU steering bolt"]
     assert [r["title"] for r in d["us_recalls"]] == ["US fuel pump"]
+
+
+def test_nhtsa_component_code_becomes_readable_title():
+    from app.services.dealbreakers import _component_title
+    assert _component_title("SERVICE BRAKES, HYDRAULIC:POWER ASSIST:ELECTRIC") == "Recall: service brakes"
+    assert _component_title(None) is None

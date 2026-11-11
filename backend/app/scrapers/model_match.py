@@ -34,9 +34,17 @@ def norm_model(s: str) -> str:
 _BMW_SERIES = re.compile(r"^s[ée]rie (\d)(?: (.+))?$")
 
 
+_CONVERTIBLE = re.compile(r"\b(cabrio|cabriolet|convertible|roadster|spider|spyder|volante)\b")
+
+
 def name_match(db_model: str, raw_model: str) -> bool:
     db, raw = norm_model(db_model), norm_model(raw_model)
     if not db or not raw:
+        return False
+    # Convertibles run on their own life cycle (an "A4 Cabrio" recall is the
+    # older B7 cabrio, not the B8 saloon; a Golf Cabrio Mk6 sold alongside the
+    # Mk7), so a convertible never matches a model that isn't one.
+    if _CONVERTIBLE.search(raw) and not _CONVERTIBLE.search(db):
         return False
     if re.search(r"(?<![\w.\-])" + re.escape(db) + r"(?![\w\-])", raw):
         return True

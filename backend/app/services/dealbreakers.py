@@ -65,6 +65,15 @@ def _as_dict(payload) -> dict:
     return {}
 
 
+def _component_title(component) -> str | None:
+    """NHTSA component codes ('SERVICE BRAKES, HYDRAULIC:POWER ASSIST:...') →
+    a readable title ('Recall: service brakes')."""
+    if not component:
+        return None
+    first = str(component).split(":")[0].split(",")[0].strip().lower()
+    return f"Recall: {first}" if first else None
+
+
 def _recall_years(payload: dict, gen_start, gen_end) -> tuple[int | None, int | None]:
     """Production years a recall applies to. Safety Gate stores the real
     per-model production range ("years"); NHTSA rows are de-duplicated per
@@ -139,7 +148,7 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
             continue
         # Portuguese first (Safety Gate publishes official translations), then
         # the English original, then whatever the source provides.
-        title = (p.get("title_pt") or p.get("title") or p.get("component")
+        title = (p.get("title_pt") or p.get("title") or _component_title(p.get("component"))
                  or p.get("model_raw") or "Recall de segurança")
         desc = (p.get("description_pt") or p.get("description") or p.get("summary")
                 or p.get("consequence") or p.get("issue") or p.get("risk") or "")

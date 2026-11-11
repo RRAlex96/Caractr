@@ -114,3 +114,11 @@ def test_designator_still_needs_year_overlap():
 def test_no_designator_falls_back_to_years():
     rows = _grows(("Golf", "Mk7", 2012, 2019), ("Golf", "Mk8", 2020, None))
     assert best_generation(rows, "Golf", [2021, 2022]) == 2
+
+
+def test_convertible_variants_do_not_match_non_convertible_models():
+    assert not name_match("A4", "A4 Cabrio")
+    assert not name_match("Golf", "Golf Cabriolet")
+    assert name_match("Golf", "Golf Variant 7")          # estates share the generation
+    assert name_match("Tiguan", "Tiguan Allspace")
+    assert name_match("MX-5 Roadster", "MX-5 Roadster")  # a convertible model still matches itself
