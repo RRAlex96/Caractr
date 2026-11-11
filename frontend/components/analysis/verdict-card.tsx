@@ -4,10 +4,10 @@ import { SourceBadge } from "@/components/shared/source-badge"
 import type { AnalysisListing, AnalysisDeal, AnalysisDetails, FitData } from "@/lib/types"
 
 const VERDICT_EMOTION: Record<string, string> = {
-  forte:    "Este tipo de negocio nao dura muito.",
-  razoavel: "Um negocio justo — avanca com confianca.",
-  cuidado:  "Ha melhores opcoes no mercado neste momento.",
-  evitar:   "Nao vale o risco. Continua a procurar.",
+  forte:    "Este tipo de negócio não dura muito.",
+  razoavel: "Um negócio justo — avança com confiança.",
+  cuidado:  "Há melhores opções no mercado neste momento.",
+  evitar:   "Não vale o risco. Continua a procurar.",
 }
 
 interface VerdictCardProps {

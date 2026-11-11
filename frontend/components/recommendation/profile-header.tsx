@@ -5,7 +5,7 @@ import type { UserProfile, ProfileNarrative } from "@/lib/types"
 const PROFILE_LABELS: Record<string, string> = {
   economy: "Economia",
   comfort: "Conforto",
-  driving: "Conducao",
+  driving: "Condução",
   practical: "Praticidade",
   status: "Imagem",
   reliability: "Fiabilidade",

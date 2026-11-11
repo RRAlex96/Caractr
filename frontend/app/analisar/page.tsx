@@ -11,6 +11,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
+import { EngineWatchList, KnownFailureAlert, RecallChecklist } from "@/components/analysis/dealbreaker-warning"
 import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
@@ -121,8 +122,8 @@ function AnalisarContent() {
         ANALISAR<br />ANUNCIO
       </h1>
       <p className="mb-10 max-w-[460px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Cola o link de qualquer anuncio — Standvirtual, OLX ou qualquer dealer.
-        Dizemos-te se o preco e justo, o que preocupa e o que valoriza.
+        Cola o link de qualquer anúncio — Standvirtual, OLX ou qualquer stand.
+        Dizemos-te se o preço é justo, o que preocupa e o que valoriza.
       </p>
 
       {/* ── Checks grid (pre-analysis) ── */}
@@ -157,6 +158,8 @@ function AnalisarContent() {
       {/* ── Result ── */}
       {result && !loading && (
         <div className="mt-12 space-y-5">
+          <KnownFailureAlert data={result.dealbreakers} />
+
           <AnomalyBadge anomaly={result.anomaly} />
 
           <VerdictCard
@@ -203,6 +206,10 @@ function AnalisarContent() {
               {result.analysis.extras_analysis}
             </TextPanel>
           )}
+
+          <EngineWatchList data={result.dealbreakers} />
+
+          <RecallChecklist data={result.dealbreakers} year={result.listing?.year} />
 
           <InspectionChecklist items={result.inspection_checklist || []} />
 
@@ -270,7 +277,7 @@ function AnalisarContent() {
             onClick={handleReset}
             className="font-mono text-[10px] uppercase tracking-[1.5px] text-muted-foreground/45 transition-colors hover:text-muted-foreground"
           >
-            Analisar outro anuncio
+            Analisar outro anúncio
           </button>
 
           {/* Quick Profile — shown when no wizard profile */}
@@ -309,7 +316,7 @@ function AnalisarContent() {
       {!result && !loading && (
         <div className="mt-18 border-t border-border pt-10">
           <p className="mb-4 font-mono text-[9px] uppercase tracking-[2px] text-muted-foreground/50">
-            Ainda nao tens um anuncio?
+            Ainda não tens um anúncio?
           </p>
           <p className="mb-5 max-w-[400px] text-sm font-light leading-relaxed text-muted-foreground">
             Responde a algumas perguntas sobre o teu estilo de vida e encontramos

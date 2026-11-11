@@ -93,6 +93,53 @@ export interface ReliabilityData {
   data_quality: "prior_only" | "limited" | "robust" | "strong_data"
 }
 
+export interface DealbreakerRecall {
+  title: string
+  description: string
+  severity: string
+  source: string
+  source_url: string | null
+  date: string | null
+  /** Production period the recall covers, e.g. "2013-2024" or "2024+". */
+  affected_years?: string | null
+  /** Risk tag from the source, e.g. "Risco de ferimentos". */
+  risk?: string | null
+  /** Airbag-inflator campaign: stressed on the checklist. */
+  priority?: boolean
+}
+
+export interface DealbreakerIssue {
+  /** Engine/gearbox the failure belongs to, e.g. "1.2 PureTech 130 EAT8". */
+  engine?: string | null
+  description: string
+  affected_years: string | null
+  fix_cost_estimate: string | null
+  source: string
+  /** Curated (hand-reviewed, sourced) entry matched to this listing's engine and year. */
+  curated?: boolean
+  id?: string
+  severity?: "critico" | "alto"
+  component?: "motor" | "caixa"
+  /** One-line title, e.g. "Correia de distribuição em banho de óleo degrada-se cedo". */
+  problem?: string
+  /** What the buyer should ask or verify before buying. */
+  check?: string
+  mitigation?: string | null
+  sources?: { label: string; url: string }[]
+}
+
+export interface Dealbreakers {
+  /** True only for critical known failures — recalls never set it. */
+  has_dealbreaker: boolean
+  /** EU recalls for the checklist (empty on recommendation cards). */
+  recall_count: number
+  critical_issue_count: number
+  recalls: DealbreakerRecall[]
+  critical_issues: DealbreakerIssue[]
+  /** Curated amber weak points of this engine/gearbox — what to check, never red. */
+  watch_items?: DealbreakerIssue[]
+}
+
 export interface MarketBand {
   p10?: number
   p90?: number
@@ -165,6 +212,7 @@ export interface AnalysisResult {
   cost_of_ownership?: CostOfOwnership | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null
+  dealbreakers?: Dealbreakers | null
   depreciation: DepreciationData | null
   fit: FitData | null
   caveat: string | null
@@ -194,6 +242,7 @@ export interface Recommendation {
   is_wildcard: boolean
   reliability: ReliabilityData | null
   market: MarketData | null
+  dealbreakers?: Dealbreakers | null
 }
 
 export interface ProfileNarrative {

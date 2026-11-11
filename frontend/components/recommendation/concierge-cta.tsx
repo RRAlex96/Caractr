@@ -27,7 +27,7 @@ export function ConciergeCTA({
             </span>
           </h2>
           <p className="mb-2 max-w-[480px] text-[15px] font-light leading-relaxed text-muted-foreground">
-            Durante o lancamento, a pesquisa e gratuita para um numero limitado de utilizadores.
+            Durante o lançamento, a pesquisa é gratuita para um número limitado de utilizadores.
             Deixa o teu contacto e tratamos do resto.
           </p>
           {interestedRecs.length > 1 && (
@@ -55,7 +55,7 @@ export function ConciergeCTA({
             Nenhuma sugestao acertou.
           </h2>
           <p className="mb-7 max-w-[480px] text-[15px] font-light leading-relaxed text-muted-foreground">
-            O teu feedback ja foi registado — vamos usar para melhorar.
+            O teu feedback já foi registado — vamos usar para melhorar.
             Podes refinar o teu perfil e tentar de novo, ou pedir-nos que facamos a pesquisa por ti.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
@@ -76,11 +76,11 @@ export function ConciergeCTA({
       ) : (
         <>
           <h2 className="mb-3 font-display text-[clamp(24px,3.5vw,40px)] font-extrabold tracking-tight">
-            Queres uma shortlist de anuncios reais?
+            Queres uma shortlist de anúncios reais?
           </h2>
           <p className="mb-7 max-w-[480px] text-[15px] font-light leading-relaxed text-muted-foreground">
-            Pesquisamos o mercado com base no teu perfil e enviamos-te os melhores anuncios encontrados.
-            Gratuito durante o lancamento.
+            Pesquisamos o mercado com base no teu perfil e enviamos-te os melhores anúncios encontrados.
+            Gratuito durante o lançamento.
           </p>
           <Link
             href={`/concierge?session=${sessionId}`}

@@ -4,9 +4,9 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 
 const STATS = [
-  { value: "354", label: "perfis detalhados", sub: "conducao, fiabilidade e versao" },
+  { value: "354", label: "perfis detalhados", sub: "condução, fiabilidade e versão" },
   { value: "200+", label: "modelos analisados", sub: "desde 2010, em expansao" },
-  { value: "tempo real", label: "dados de mercado", sub: "precos de anuncios reais" },
+  { value: "tempo real", label: "dados de mercado", sub: "preços de anúncios reais" },
 ]
 
 const STEPS = [
@@ -23,8 +23,8 @@ const STEPS = [
   {
     n: "03",
     title: "Analisa",
-    desc: "Encontraste um anuncio? Cruzamos o preco com o mercado, verificamos quilometros e avaliamos o vendedor.",
-    link: { href: "/analisar", label: "analisar anuncio" },
+    desc: "Encontraste um anúncio? Cruzamos o preço com o mercado, verificamos quilómetros e avaliamos o vendedor.",
+    link: { href: "/analisar", label: "analisar anúncio" },
   },
   {
     n: "04",
@@ -116,11 +116,11 @@ export default function LandingPage() {
               href="/analisar"
               className="rounded-full border border-foreground/20 px-6 py-3.5 text-[13px] font-medium text-foreground/70 transition-colors hover:border-gold/40 hover:text-gold"
             >
-              analisar anuncio
+              analisar anúncio
             </Link>
           </div>
           <p className="mt-4 font-mono text-[10px] tracking-[1px] text-muted-foreground/30">
-            Gratuito durante o lancamento
+            Gratuito durante o lançamento
           </p>
         </div>
 
@@ -150,7 +150,7 @@ export default function LandingPage() {
           <h2 className="font-display text-[clamp(32px,5vw,72px)] font-extrabold leading-[0.92] tracking-tight">
             O teu proximo
             <br />
-            carro ja sabe
+            carro já sabe
             <br />
             <span className="text-gold-dark">quem es.</span>
           </h2>
@@ -170,7 +170,7 @@ export default function LandingPage() {
           </div>
           <div className="mt-10 border-t border-border pt-6">
             <p className="text-sm text-muted-foreground">
-              Tens um anuncio?{" "}
+              Tens um anúncio?{" "}
               <Link
                 href="/analisar"
                 className="border-b border-gold pb-px font-semibold text-gold-dark transition-colors hover:text-gold"

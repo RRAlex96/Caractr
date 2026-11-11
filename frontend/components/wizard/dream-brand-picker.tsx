@@ -32,7 +32,7 @@ export function DreamBrandPicker({
         06 — Opcional
       </p>
       <h2 className="mb-3 font-display text-[clamp(28px,4vw,44px)] font-extrabold leading-[0.95] tracking-tight">
-        Se dinheiro nao fosse problema?
+        Se dinheiro não fosse problema?
       </h2>
       <p className="mb-9 text-sm font-light leading-relaxed text-muted-foreground">
         A marca de sonho diz muito sobre ti. Escolhe uma — ou salta este passo.

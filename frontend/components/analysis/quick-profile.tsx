@@ -7,14 +7,14 @@ import { Analytics } from "@/lib/analytics"
 const QUICK_DIMS = [
   { value: "reliability", label: "Fiabilidade" },
   { value: "comfort",     label: "Conforto" },
-  { value: "driving",     label: "Conducao" },
+  { value: "driving",     label: "Condução" },
   { value: "economy",     label: "Economia" },
 ]
 
 const QUICK_AVERSIONS = [
   { value: "fiabilidade", label: "Pouca fiabilidade" },
   { value: "conforto",    label: "Pouco conforto" },
-  { value: "espaco",      label: "Pouco espaco" },
+  { value: "espaco",      label: "Pouco espaço" },
   { value: "potencia",    label: "Pouca potencia" },
 ]
 
@@ -93,7 +93,7 @@ export function QuickProfile({ onComplete, className }: QuickProfileProps) {
 
       {/* Aversion */}
       <div className="mb-5">
-        <p className="mb-2.5 text-xs text-muted-foreground">O que e inaceitavel?</p>
+        <p className="mb-2.5 text-xs text-muted-foreground">O que é inaceitável?</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_AVERSIONS.map((a) => (
             <button
@@ -114,7 +114,7 @@ export function QuickProfile({ onComplete, className }: QuickProfileProps) {
 
       {/* Budget */}
       <div className="mb-6">
-        <p className="mb-2.5 text-xs text-muted-foreground">Orcamento maximo?</p>
+        <p className="mb-2.5 text-xs text-muted-foreground">Orçamento máximo?</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_BUDGETS.map((b) => (
             <button

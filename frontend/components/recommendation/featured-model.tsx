@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
+import { DealbreakerCardAlert } from "@/components/shared/dealbreaker-badge"
 
 interface FeaturedModelProps {
   rec: Recommendation
@@ -23,7 +24,7 @@ export function FeaturedModel({
       )}
     >
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[1.5px] text-gold/80">
-        A tua melhor correspondencia
+        A tua melhor correspondência
       </p>
 
       {/* Rank + Name + Price */}
@@ -71,6 +72,9 @@ export function FeaturedModel({
           </p>
         </div>
       )}
+
+      {/* Deal-breaker alert (expands to the full warning) */}
+      <DealbreakerCardAlert data={rec.dealbreakers} />
 
       {/* Badges */}
       <div className="mb-1 flex flex-wrap gap-2">

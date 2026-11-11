@@ -142,6 +142,14 @@ def run_reliability_scorer(db: Session) -> dict:
                 GROUP BY generation_id
             ) sub
             WHERE g.id = sub.generation_id
+              -- A prior-only result (no real evidence) must never overwrite a
+              -- real estimate already on the generation (e.g. curator research).
+              -- Real evidence (recalls, complaints) always takes precedence.
+              AND (
+                    sub.quality <> 'prior_only'
+                 OR g.reliability_score IS NULL
+                 OR COALESCE(g.reliability_data_quality, 'prior_only') = 'prior_only'
+              )
         """), {"month": as_of_month})
 
         db.commit()

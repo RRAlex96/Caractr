@@ -18,6 +18,7 @@ Run it on demand (cheap, no always-on infra):
 from typing import Optional
 
 import json
+import os
 import re
 
 from sqlalchemy import text
@@ -31,11 +32,29 @@ from app.services.llm_client import (
 # model is left in the pending list for one-click review in the admin.
 AUTOSAVE_CONFIDENCE = 0.75
 
+# Deal-breaker severity tier. Anything that normalises to "critico" is what the
+# product surfaces as a loud "major known failure" warning (alongside recalls).
+_SEVERITY_ALIASES = {
+    "critico": "critico", "crítico": "critico", "critical": "critico",
+    "dealbreaker": "critico", "deal-breaker": "critico", "grave": "critico",
+    "alto": "alto", "high": "alto", "serio": "alto", "sério": "alto",
+    "baixo": "baixo", "low": "baixo", "minor": "baixo",
+    "medio": "medio", "médio": "medio", "medium": "medio", "moderado": "medio",
+}
+
+
+def normalize_severity(raw: str) -> str:
+    """Collapse free-form LLM severity to one of critico|alto|medio|baixo."""
+    return _SEVERITY_ALIASES.get((raw or "").strip().lower(), "medio")
+
 
 # ── TOOL 1 · perceive: which models still need reliability data ──────────────
 def find_gaps(db: Session, limit: int = 10) -> list[dict]:
-    """Return models with no reliability score yet, most-analysed first — so the
-    agent spends its effort where real users actually land."""
+    """Return models with no real reliability estimate yet, most-analysed first —
+    so the agent spends its effort where real users actually land. A bare
+    Bayesian prior (data_quality 'prior_only', i.e. no evidence at all) still
+    counts as a gap; otherwise the scorer filling every generation with a prior
+    would leave the curator nothing to do."""
     rows = db.execute(text("""
         SELECT vm.id, b.name AS brand, vm.name AS model
         FROM vehicle_models vm
@@ -43,6 +62,7 @@ def find_gaps(db: Session, limit: int = 10) -> list[dict]:
         WHERE NOT EXISTS (
             SELECT 1 FROM generations g
             WHERE g.model_id = vm.id AND g.reliability_score IS NOT NULL
+              AND COALESCE(g.reliability_data_quality, 'prior_only') <> 'prior_only'
         )
         ORDER BY (SELECT COUNT(*) FROM normalized_listings n WHERE n.model_id = vm.id) DESC,
                  vm.id DESC
@@ -91,13 +111,19 @@ Responde APENAS com JSON válido:
   "displacement_cc": cilindrada típica em cm3 (inteiro) ou null,
   "power_hp": potência típica em cv (inteiro) ou null,
   "known_issues": [
-    {{"severity": "alto|medio|baixo", "description": "problema concreto", "affected_years": "ex: '2015-2018'", "fix_cost_estimate": "ex: '€800-1500'"}}
+    {{"severity": "critico|alto|medio|baixo", "description": "problema concreto", "affected_years": "ex: '2015-2018'", "fix_cost_estimate": "ex: '€800-1500'"}}
   ],
   "confidence": número 0-1 — quão SEGURO estás desta informação para ESTE modelo
                 específico (alto só para modelos que conheces bem; baixo se é raro
                 ou estás a adivinhar)
 }}
-known_issues: máximo 5, só problemas REAIS e conhecidos. Sê específico e honesto."""
+known_issues: máximo 5, só problemas REAIS e conhecidos. Sê específico e honesto.
+severity "critico" = DEAL-BREAKER: falha grave, cara e recorrente que faria um
+comprador informado desistir do carro (ex: falha de corrente de distribuição,
+mecatrónica DSG, consumo de óleo do motor, FAP/EGR entupidos em uso urbano,
+falhas estruturais ou de segurança). Usa "critico" APENAS quando for mesmo ao
+nível de recall/catastrófico e bem documentado — não exageres. "alto" = problema
+sério mas gerível; "medio"/"baixo" = incómodos menores."""
 
     grounded, sources = False, []
     try:
@@ -133,6 +159,22 @@ def validate_draft(draft: dict) -> tuple[bool, list[str]]:
     return (len(issues) == 0, issues)
 
 
+def effective_severity(raw, grounded: bool) -> str:
+    """The trust rule for deal-breakers. `critico` raises a loud red warning, so
+    it must be backed by sources: an unsourced (closed-book, model-memory) draft
+    can never write `critico` — it is capped at `alto` and still shown as a
+    normal known issue. Recalls stay the high-trust signal; the curator only
+    adds a deal-breaker when it can cite evidence."""
+    sev = normalize_severity(raw)
+    if sev == "critico" and not grounded:
+        return "alto"
+    return sev
+
+
+def _issue_source_label(grounded: bool) -> str:
+    return "IA (curator · pesquisa web)" if grounded else "IA (curator · sem fontes)"
+
+
 # ── TOOL 4 · act: write a validated draft into the catalogue ─────────────────
 def save_reliability(db: Session, model_id: int, draft: dict) -> None:
     """Persist the reviewed/validated draft: a generation score + an engine row +
@@ -155,14 +197,14 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
                 (model_id, name, year_start, year_end,
                  reliability_score, reliability_ci_low, reliability_ci_high,
                  reliability_data_quality, reliability_sources)
-            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited', :src::jsonb)
+            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited', CAST(:src AS jsonb))
         """), params)
     else:
         params["g"] = gen_id
         db.execute(text("""
             UPDATE generations SET reliability_score = :sc, reliability_ci_low = :lo,
                 reliability_ci_high = :hi, reliability_data_quality = 'limited',
-                reliability_sources = :src::jsonb,
+                reliability_sources = CAST(:src AS jsonb),
                 year_start = COALESCE(year_start, :ys), year_end = COALESCE(year_end, :ye)
             WHERE id = :g
         """), params)
@@ -178,14 +220,16 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
         "sc": score, "maint": draft.get("maintenance_cost_year"),
     }).scalar()
 
+    grounded = bool(draft.get("_grounded")) and bool(draft.get("_sources"))
     for iss in (draft.get("known_issues") or [])[:6]:
         if not isinstance(iss, dict) or not iss.get("description"):
             continue
         db.execute(text("""
             INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
-            VALUES (:e, :sev, :desc, :ay, :fc, 'IA (curator)')
+            VALUES (:e, :sev, :desc, :ay, :fc, :src)
         """), {
-            "e": eng_id, "sev": (iss.get("severity") or "medio")[:20],
+            "e": eng_id, "sev": effective_severity(iss.get("severity"), grounded),
+            "src": _issue_source_label(grounded),
             "desc": str(iss["description"])[:500],
             "ay": (iss.get("affected_years") or "")[:50] or None,
             "fc": (iss.get("fix_cost_estimate") or "")[:50] or None,
@@ -195,18 +239,27 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
 
 # ── THE AGENT LOOP ───────────────────────────────────────────────────────────
 def run_curator(db: Session, limit: int = 10,
-                autosave_confidence: float = AUTOSAVE_CONFIDENCE) -> dict:
+                autosave_confidence: float = AUTOSAVE_CONFIDENCE,
+                pause_seconds: float | None = None) -> dict:
     """
     Work toward the goal (fill reliability gaps), one model at a time, deciding
     what to do with each result. Returns a report of what it did.
+
+    pause_seconds (default env CURATOR_PAUSE, else 0) spaces out models so a
+    free-tier per-minute LLM quota isn't tripped mid-run.
     """
+    import time
+    if pause_seconds is None:
+        pause_seconds = float(os.getenv("CURATOR_PAUSE", "0"))
     if not llm_available():
         return {"error": "LLM unavailable — set GEMINI_API_KEY"}
 
     gaps = find_gaps(db, limit)
     report = {"gaps": len(gaps), "researched": 0, "saved": 0, "queued": 0, "errors": 0, "log": []}
 
-    for m in gaps:
+    for i, m in enumerate(gaps):
+        if i and pause_seconds > 0:
+            time.sleep(pause_seconds)
         label = f"{m['brand']} {m['model']}"
         try:
             draft = research_model(m["brand"], m["model"])          # TOOL: reason

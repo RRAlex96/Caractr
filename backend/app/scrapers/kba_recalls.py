@@ -27,6 +27,8 @@ from difflib import SequenceMatcher
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
+
+from app.scrapers.model_match import best_generation, name_match
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
@@ -120,6 +122,11 @@ def _similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
 
+def _name_match_score(db_model: str, raw_model: str) -> float:
+    """1.0 for a strict whole-word match (see model_match), else 0.0."""
+    return 1.0 if name_match(db_model, raw_model) else 0.0
+
+
 def _find_generation(
     db: Session,
     brand_name: str,
@@ -127,47 +134,18 @@ def _find_generation(
     prod_year_start: int | None,
     prod_year_end: int | None,
 ) -> int | None:
-    """
-    Match a KBA recall to a generation in the DB.
-    Strategy: exact brand match → fuzzy model name → year overlap bonus.
-    """
+    """Match a KBA recall to a generation (rules in model_match)."""
     rows = db.execute(text("""
-        SELECT g.id, g.year_start, g.year_end, vm.name AS model_name
+        SELECT g.id, g.year_start, g.year_end, vm.name AS model_name, g.name AS gen_name
         FROM generations g
         JOIN vehicle_models vm ON g.model_id = vm.id
         JOIN brands b ON vm.brand_id = b.id
         WHERE b.name = :brand
     """), {"brand": brand_name}).mappings().fetchall()
-
-    if not rows:
-        return None
-
-    best_score = 0.0
-    best_gen_id = None
-
-    for row in rows:
-        sim = _similarity(model_raw, row["model_name"])
-        if sim < 0.35:
-            continue
-
-        # Boost score when production years overlap with generation years
-        if (prod_year_start and prod_year_end and
-                row["year_start"] and row["year_end"]):
-            # Check overlap: [prod_start, prod_end] ∩ [gen_start, gen_end]
-            overlap = (
-                prod_year_start <= row["year_end"] and
-                prod_year_end >= row["year_start"]
-            )
-            if overlap:
-                sim *= 1.3
-            else:
-                sim *= 0.5  # penalise non-overlapping
-
-        if sim > best_score:
-            best_score = sim
-            best_gen_id = row["id"]
-
-    return best_gen_id if best_score >= 0.40 else None
+    years = (list(range(prod_year_start, prod_year_end + 1))
+             if prod_year_start and prod_year_end and prod_year_end >= prod_year_start
+             else [y for y in (prod_year_start, prod_year_end) if y])
+    return best_generation(rows, model_raw, years)
 
 
 def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:
@@ -272,27 +250,30 @@ def _scrape_brand_year(
                         continue
 
                     if _is_safety_critical(issue_text):
-                        fail_eff, weight = 6.0, 1.0
+                        fail_eff, weight, severity = 6.0, 1.0, "high"
                     else:
-                        fail_eff, weight = 3.0, 0.6
+                        fail_eff, weight, severity = 3.0, 0.6, "medium"
 
                     db.execute(text("""
                         INSERT INTO reliability_evidence
                             (generation_id, evidence_type, source, source_url,
-                             observed_month, fail_eff, succ_eff, weight, payload)
+                             observed_month, severity, fail_eff, succ_eff, weight, payload)
                         VALUES
                             (:gen_id, 'recall', 'kba_de', :url,
-                             :month, :fail_eff, 0, :weight, :payload::jsonb)
+                             :month, :severity, :fail_eff, 0, :weight, CAST(:payload AS jsonb))
                         ON CONFLICT DO NOTHING
                     """), {
                         "gen_id":   gen_id,
                         "url":      recall_url,
                         "month":    observed_month,
+                        "severity": severity,
                         "fail_eff": fail_eff,
                         "weight":   weight,
                         "payload":  json.dumps({
                             "brand":       brand_db,
                             "model_raw":   current_model,
+                            "title":       f"{brand_db} {current_model}"[:200],
+                            "description": issue_text[:500],
                             "issue":       issue_text[:500],
                             "production":  prod_text,
                             "recall_year": year,

@@ -8,7 +8,7 @@ export default function NotFound() {
         404
       </h1>
       <p className="mb-8 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Esta pagina nao existe ou foi movida. Volta ao inicio e tenta novamente.
+        Esta página não existe ou foi movida. Volta ao início e tenta novamente.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         <Link
@@ -21,7 +21,7 @@ export default function NotFound() {
           href="/analisar"
           className="rounded-full border border-border px-6 py-3.5 text-[13px] font-medium text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
         >
-          Analisar anuncio
+          Analisar anúncio
         </Link>
       </div>
     </div>

@@ -37,13 +37,13 @@ export function BudgetPicker({
     <div className={className}>
       <div className="mb-5 h-0.5 w-12 rounded-full bg-gold" />
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        07 — Orcamento
+        07 — Orçamento
       </p>
       <h2 className="mb-3 font-display text-[clamp(28px,4vw,44px)] font-extrabold leading-[0.95] tracking-tight">
         Quanto queres investir?
       </h2>
       <p className="mb-10 text-sm font-light leading-relaxed text-muted-foreground">
-        O orcamento e o ultimo filtro — nao o ponto de partida.
+        O orçamento é o último filtro — não o ponto de partida.
       </p>
 
       <div className="mb-10 border-t border-border">
@@ -53,7 +53,7 @@ export function BudgetPicker({
           return (
             <button
               key={preset.value}
-              aria-label={`Orcamento ${preset.label}`}
+              aria-label={`Orçamento ${preset.label}`}
               onClick={() => onSelect(preset.value, preset.min, preset.max)}
               className="group flex w-full items-center gap-5 border-b border-border py-[clamp(18px,3vw,28px)] text-left"
             >
@@ -87,7 +87,7 @@ export function BudgetPicker({
       </div>
 
       <button
-        aria-label="Ver as minhas recomendacoes"
+        aria-label="Ver as minhas recomendações"
         onClick={onSubmit}
         disabled={submitting || !selected}
         className={cn(

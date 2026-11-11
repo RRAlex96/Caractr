@@ -7,15 +7,15 @@ interface AnalysisErrorProps {
 
 function categorizeError(error: string): string {
   const lower = error.toLowerCase()
-  if (lower.includes("aceder") || lower.includes("anuncio")) return "Anuncio inacessivel"
-  if (lower.includes("modelo")) return "Modelo nao registado"
+  if (lower.includes("aceder") || lower.includes("anuncio") || lower.includes("anúncio")) return "Anúncio inacessível"
+  if (lower.includes("modelo")) return "Modelo não registado"
   if (lower.includes("dados")) return "Dados de mercado limitados"
-  return "Erro na analise"
+  return "Erro na análise"
 }
 
 export function AnalysisError({ error, className }: AnalysisErrorProps) {
   const category = categorizeError(error)
-  const isAccess = category === "Anuncio inacessivel"
+  const isAccess = category === "Anúncio inacessível"
 
   return (
     <div
@@ -32,7 +32,7 @@ export function AnalysisError({ error, className }: AnalysisErrorProps) {
       </p>
       {isAccess && (
         <p className="mt-2 text-xs text-muted-foreground/60">
-          Tenta outro URL ou verifica se o anuncio ainda esta publicado.
+          Tenta outro URL ou verifica se o anúncio ainda está publicado.
         </p>
       )}
     </div>

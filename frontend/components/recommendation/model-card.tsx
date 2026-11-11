@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
+import { DealbreakerCardAlert } from "@/components/shared/dealbreaker-badge"
 
 interface ModelCardProps {
   rec: Recommendation
@@ -34,7 +35,7 @@ export function ModelCard({
           {tag
             ? tag
             : rec.is_stretch
-              ? "Acima do orcamento — mas vale considerar"
+              ? "Acima do orçamento — mas vale considerar"
               : "Fora do esperado — mas ouve-nos"}
         </p>
       )}
@@ -87,6 +88,9 @@ export function ModelCard({
           </p>
         </div>
       )}
+
+      {/* Deal-breaker alert (expands to the full warning) */}
+      <DealbreakerCardAlert data={rec.dealbreakers} />
 
       {/* Badges */}
       <div className="mb-1 flex flex-wrap gap-2">

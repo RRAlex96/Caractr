@@ -27,7 +27,7 @@ export function WizardBridge({ listingUrl, tier, className }: WizardBridgeProps)
       </h2>
       <p className="mt-3 max-w-[400px] text-sm font-light leading-relaxed text-background/60">
         Responde a algumas perguntas sobre o teu estilo de vida. Encontramos os
-        modelos que se adequam a ti — com analise detalhada de cada opcao.
+        modelos que se adequam a ti — com análise detalhada de cada opção.
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link

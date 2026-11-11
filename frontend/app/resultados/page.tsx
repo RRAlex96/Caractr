@@ -216,7 +216,7 @@ export default function ResultadosPage() {
       {data.suggestions && (
         <section className="mx-[clamp(24px,5vw,80px)] rounded-xl bg-card p-[clamp(24px,4vw,32px)]">
           <p className="text-sm font-light leading-relaxed text-muted-foreground">
-            Encontramos {data.suggestions.models_available} opcoes no teu orcamento. Se alargares ate{" "}
+            Encontrámos {data.suggestions.models_available} opções no teu orçamento. Se alargares até{" "}
             <span className="text-gold">
               {data.suggestions.stretch_budget?.toLocaleString("pt-PT")} EUR
             </span>

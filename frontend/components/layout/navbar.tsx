@@ -64,7 +64,7 @@ export function Navbar() {
               href="/analisar"
               className="hidden h-7 items-center justify-center rounded-full bg-gold px-5 text-xs font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark sm:inline-flex"
             >
-              Analisar anuncio
+              Analisar anúncio
             </Link>
 
             {/* Hamburger — mobile */}
@@ -111,7 +111,7 @@ export function Navbar() {
               href="/analisar"
               className="mt-2 rounded-full bg-gold px-8 py-3 text-sm font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
             >
-              Analisar anuncio
+              Analisar anúncio
             </Link>
           </div>
           <div className="pb-8 text-center">

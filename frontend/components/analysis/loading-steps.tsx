@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
 const STEPS = [
-  "A recolher dados do anuncio",
+  "A recolher dados do anúncio",
   "A consultar referencias de mercado",
   "A calcular km/ano e desgaste",
-  "A compor a analise",
+  "A compor a análise",
 ]
 
 export function LoadingSteps() {
