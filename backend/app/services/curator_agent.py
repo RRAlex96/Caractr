@@ -176,14 +176,14 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
                 (model_id, name, year_start, year_end,
                  reliability_score, reliability_ci_low, reliability_ci_high,
                  reliability_data_quality, reliability_sources)
-            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited', :src::jsonb)
+            VALUES (:m, 'Geração principal', :ys, :ye, :sc, :lo, :hi, 'limited', CAST(:src AS jsonb))
         """), params)
     else:
         params["g"] = gen_id
         db.execute(text("""
             UPDATE generations SET reliability_score = :sc, reliability_ci_low = :lo,
                 reliability_ci_high = :hi, reliability_data_quality = 'limited',
-                reliability_sources = :src::jsonb,
+                reliability_sources = CAST(:src AS jsonb),
                 year_start = COALESCE(year_start, :ys), year_end = COALESCE(year_end, :ye)
             WHERE id = :g
         """), params)

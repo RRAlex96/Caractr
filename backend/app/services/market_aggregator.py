@@ -258,7 +258,7 @@ def run_aggregation(db: Session) -> dict:
                 VALUES
                     (:gen_id, :ctx, :year, :month,
                      :p10, :p50, :p90, :mean, :n,
-                     :mad, :sources::jsonb)
+                     :mad, CAST(:sources AS jsonb))
             """), {
                 "gen_id":  gen_id,
                 "ctx":     price_context,

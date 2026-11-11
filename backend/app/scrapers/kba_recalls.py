@@ -296,7 +296,7 @@ def _scrape_brand_year(
                              observed_month, severity, fail_eff, succ_eff, weight, payload)
                         VALUES
                             (:gen_id, 'recall', 'kba_de', :url,
-                             :month, :severity, :fail_eff, 0, :weight, :payload::jsonb)
+                             :month, :severity, :fail_eff, 0, :weight, CAST(:payload AS jsonb))
                         ON CONFLICT DO NOTHING
                     """), {
                         "gen_id":   gen_id,

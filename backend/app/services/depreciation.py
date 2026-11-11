@@ -172,7 +172,7 @@ def run_depreciation_curves(db: Session) -> dict:
             db.execute(text("""
                 UPDATE generations
                 SET depreciation_pct_year = :pct,
-                    depreciation_curve    = :curve::jsonb,
+                    depreciation_curve    = CAST(:curve AS jsonb),
                     depreciation_as_of    = :as_of
                 WHERE id = :gen_id
             """), {

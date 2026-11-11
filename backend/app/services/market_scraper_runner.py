@@ -95,7 +95,7 @@ def _insert_raw_listing(db: Session, listing: dict, source: str, external_id: st
             (source, external_id, url, raw_data, seller_type, photo_count,
              description, scraped_at)
         VALUES
-            (:source, :ext_id, :url, :raw::jsonb, :seller_type, :photo_count,
+            (:source, :ext_id, :url, CAST(:raw AS jsonb), :seller_type, :photo_count,
              :description, now())
         RETURNING id
     """), {

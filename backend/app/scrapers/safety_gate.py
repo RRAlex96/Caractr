@@ -274,7 +274,7 @@ def ingest_safety_gate(db: Session, max_pages: int = 10,
                          observed_month, severity, fail_eff, succ_eff, weight, payload)
                     VALUES
                         (:gen_id, 'safety_gate', 'eu_safety_gate', :url,
-                         :month, :severity, :fail_eff, 0, :weight, :payload::jsonb)
+                         :month, :severity, :fail_eff, 0, :weight, CAST(:payload AS jsonb))
                     ON CONFLICT DO NOTHING
                 """), {
                     "gen_id":    gen_id,

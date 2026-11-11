@@ -212,7 +212,7 @@ def _upsert_evidence(db: Session, generation_id: int, engine_id, evidence_type: 
              observed_month, severity, fail_eff, succ_eff, weight, payload)
         VALUES
             (:gen_id, :eng_id, :ev_type, 'nhtsa', :url,
-             :month, :severity, :fail_eff, 0, :weight, :payload::jsonb)
+             :month, :severity, :fail_eff, 0, :weight, CAST(:payload AS jsonb))
         ON CONFLICT DO NOTHING
     """), {
         "gen_id":   generation_id,

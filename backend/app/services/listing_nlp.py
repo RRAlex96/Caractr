@@ -229,7 +229,7 @@ def run_nlp_pass(db: Session, observed_month: Optional[date] = None) -> dict:
                          observed_month, fail_eff, succ_eff, weight, payload)
                     VALUES
                         (:gen_id, 'nlp_complaint', 'standvirtual_nlp', :url,
-                         :month, :fail_eff, 0, 0.15, :payload::jsonb)
+                         :month, :fail_eff, 0, 0.15, CAST(:payload AS jsonb))
                     ON CONFLICT DO NOTHING
                 """), {
                     "gen_id":   gen_id,
