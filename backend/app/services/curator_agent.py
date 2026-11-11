@@ -49,8 +49,11 @@ def normalize_severity(raw: str) -> str:
 
 # ── TOOL 1 · perceive: which models still need reliability data ──────────────
 def find_gaps(db: Session, limit: int = 10) -> list[dict]:
-    """Return models with no reliability score yet, most-analysed first — so the
-    agent spends its effort where real users actually land."""
+    """Return models with no real reliability estimate yet, most-analysed first —
+    so the agent spends its effort where real users actually land. A bare
+    Bayesian prior (data_quality 'prior_only', i.e. no evidence at all) still
+    counts as a gap; otherwise the scorer filling every generation with a prior
+    would leave the curator nothing to do."""
     rows = db.execute(text("""
         SELECT vm.id, b.name AS brand, vm.name AS model
         FROM vehicle_models vm
@@ -58,6 +61,7 @@ def find_gaps(db: Session, limit: int = 10) -> list[dict]:
         WHERE NOT EXISTS (
             SELECT 1 FROM generations g
             WHERE g.model_id = vm.id AND g.reliability_score IS NOT NULL
+              AND COALESCE(g.reliability_data_quality, 'prior_only') <> 'prior_only'
         )
         ORDER BY (SELECT COUNT(*) FROM normalized_listings n WHERE n.model_id = vm.id) DESC,
                  vm.id DESC
