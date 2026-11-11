@@ -154,6 +154,22 @@ def validate_draft(draft: dict) -> tuple[bool, list[str]]:
     return (len(issues) == 0, issues)
 
 
+def effective_severity(raw, grounded: bool) -> str:
+    """The trust rule for deal-breakers. `critico` raises a loud red warning, so
+    it must be backed by sources: an unsourced (closed-book, model-memory) draft
+    can never write `critico` — it is capped at `alto` and still shown as a
+    normal known issue. Recalls stay the high-trust signal; the curator only
+    adds a deal-breaker when it can cite evidence."""
+    sev = normalize_severity(raw)
+    if sev == "critico" and not grounded:
+        return "alto"
+    return sev
+
+
+def _issue_source_label(grounded: bool) -> str:
+    return "IA (curator · pesquisa web)" if grounded else "IA (curator · sem fontes)"
+
+
 # ── TOOL 4 · act: write a validated draft into the catalogue ─────────────────
 def save_reliability(db: Session, model_id: int, draft: dict) -> None:
     """Persist the reviewed/validated draft: a generation score + an engine row +
@@ -199,14 +215,16 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
         "sc": score, "maint": draft.get("maintenance_cost_year"),
     }).scalar()
 
+    grounded = bool(draft.get("_grounded")) and bool(draft.get("_sources"))
     for iss in (draft.get("known_issues") or [])[:6]:
         if not isinstance(iss, dict) or not iss.get("description"):
             continue
         db.execute(text("""
             INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
-            VALUES (:e, :sev, :desc, :ay, :fc, 'IA (curator)')
+            VALUES (:e, :sev, :desc, :ay, :fc, :src)
         """), {
-            "e": eng_id, "sev": normalize_severity(iss.get("severity")),
+            "e": eng_id, "sev": effective_severity(iss.get("severity"), grounded),
+            "src": _issue_source_label(grounded),
             "desc": str(iss["description"])[:500],
             "ay": (iss.get("affected_years") or "")[:50] or None,
             "fc": (iss.get("fix_cost_estimate") or "")[:50] or None,

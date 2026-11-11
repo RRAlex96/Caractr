@@ -53,3 +53,28 @@ def test_curator_severity_other_tiers():
     assert normalize_severity("low") == "baixo"
     assert normalize_severity("weird") == "medio"   # safe default
     assert normalize_severity(None) == "medio"
+
+
+# ── trust rule: unsourced critico can't become a deal-breaker ──────────────
+
+from app.services.curator_agent import effective_severity, _issue_source_label
+
+
+def test_closed_book_critico_is_capped_at_alto():
+    assert effective_severity("critico", grounded=False) == "alto"
+    assert effective_severity("deal-breaker", grounded=False) == "alto"
+
+
+def test_grounded_critico_is_kept():
+    assert effective_severity("critico", grounded=True) == "critico"
+
+
+def test_non_critico_severities_unaffected_by_grounding():
+    for raw, expect in [("alto", "alto"), ("medio", "medio"), ("baixo", "baixo")]:
+        assert effective_severity(raw, grounded=False) == expect
+        assert effective_severity(raw, grounded=True) == expect
+
+
+def test_issue_source_label_states_provenance():
+    assert "sem fontes" in _issue_source_label(False)
+    assert "pesquisa web" in _issue_source_label(True)
