@@ -132,7 +132,7 @@ def get_analysis_by_id(
     model_n = row["model_name"] or ""
     if brand_n and model_n:
         # year → recalls/failures filtered to this car's production year
-        model_info = _get_model_info(db, brand_n, model_n, year=row["year"]) or {}
+        model_info = _get_model_info(db, brand_n, model_n, year=row["year"], fuel=row["fuel_type"]) or {}
 
     # Market stats
     market_stats = {}

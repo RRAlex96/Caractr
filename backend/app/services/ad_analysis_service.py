@@ -355,9 +355,48 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
     return None
 
 
+_SEVERITY_RANK = {"critico": 0, "alto": 1, "medio": 2}
+# Diesel vs petrol-family. Hybrids and LPG run petrol engines, so they're never
+# split from petrol on fuel alone — only a clear diesel/petrol mismatch drops.
+_FUEL_FAMILY = {"diesel": "diesel", "gasolina": "petrol", "gpl": "petrol",
+                "hibrido": "petrol", "eletrico": "electric"}
+
+
+def _filter_model_issues(rows, year: Optional[int], fuel: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Model-level engine_issues → the text shown/fed to the LLM, keeping only
+    issues that can apply to THIS car: its production year inside the issue's
+    affected_years, and no diesel/petrol mismatch. Unknown or unparseable
+    years/fuels never exclude. Most serious first (the rule engine quotes the
+    first one). Returns (known_issues, fix_cost_estimates)."""
+    from app.services.dealbreakers import _applies, _parse_affected_years
+    from app.services.known_issues import normalize_fuel
+
+    car_family = _FUEL_FAMILY.get(normalize_fuel(fuel))
+    kept = []
+    for r in rows:
+        desc = (r.get("description") or "").strip()
+        if not desc:
+            continue
+        span = _parse_affected_years(r.get("affected_years"))
+        if span and not _applies(year, *span):
+            continue
+        engine_family = _FUEL_FAMILY.get(normalize_fuel(r.get("fuel_type")))
+        if car_family and engine_family and car_family != engine_family:
+            continue
+        kept.append(r)
+    kept.sort(key=lambda r: (_SEVERITY_RANK.get((r.get("severity") or "").lower(), 9), r["description"]))
+
+    descs = list(dict.fromkeys(r["description"].strip() for r in kept))
+    costs = list(dict.fromkeys(str(r["fix_cost_estimate"]).strip() for r in kept if r.get("fix_cost_estimate")))
+    return ("; ".join(descs) or None), ("; ".join(costs) or None)
+
+
 def _get_model_info(db: Session, brand_name: str, model_name: str,
-                    year: int | None = None) -> dict:
-    """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data."""
+                    year: int | None = None, fuel: str | None = None) -> dict:
+    """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data.
+
+    `year`/`fuel` (the listing's, when known) filter the known issues and
+    recalls to ones that can apply to this car."""
     # Strip accents so 'Citroën' matches 'Citroen' in DB, 'Série 3' matches 'Serie 3'
     brand_norm = _strip_accents(brand_name).lower()
     model_norm = _strip_accents(model_name).lower()
@@ -370,14 +409,11 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
                MAX(dc.family_score)                      AS family_score,
                (SELECT ROUND(AVG(g.reliability_score)::numeric, 2)
                 FROM generations g WHERE g.model_id = vm.id
-                AND g.reliability_score IS NOT NULL)     AS reliability_score,
-               STRING_AGG(DISTINCT ei.description, '; ') AS known_issues,
-               STRING_AGG(DISTINCT ei.fix_cost_estimate::text, '; ') AS fix_cost_estimates
+                AND g.reliability_score IS NOT NULL)     AS reliability_score
         FROM vehicle_models vm
         JOIN brands b ON b.id = vm.brand_id
         LEFT JOIN engines e ON e.model_id = vm.id
         LEFT JOIN driving_character dc ON dc.model_id = vm.id
-        LEFT JOIN engine_issues ei ON ei.engine_id = e.id AND ei.severity IN ('alto', 'critico', 'medio')
         WHERE LOWER(b.name) = LOWER(:brand) AND LOWER(vm.name) = LOWER(:model)
         GROUP BY vm.id
         LIMIT 1
@@ -388,6 +424,17 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
 
     info = dict(row)
     model_id = info.get("id")
+
+    # Known issues, filtered to this car's year and fuel (they used to be
+    # aggregated model-wide: a 2024 208 was told about a 2021 PureTech recall).
+    issue_rows = db.execute(text("""
+        SELECT DISTINCT ei.description, ei.affected_years, ei.fix_cost_estimate,
+               ei.severity, e.fuel_type
+        FROM engine_issues ei
+        JOIN engines e ON e.id = ei.engine_id
+        WHERE e.model_id = :mid AND ei.severity IN ('alto', 'critico', 'medio')
+    """), {"mid": model_id}).mappings().fetchall()
+    info["known_issues"], info["fix_cost_estimates"] = _filter_model_issues(issue_rows, year, fuel)
 
     # Enrich with Bayesian reliability data from generations
     if model_id:
@@ -1547,7 +1594,8 @@ async def _analyse_listing_inner(
         brand_n = cached.get("brand_name", "")
         model_n = cached.get("model_name", "")
         if brand_n and model_n:
-            cached_model_info = _get_model_info(db, brand_n, model_n, year=cached.get("year")) or {}
+            cached_model_info = _get_model_info(db, brand_n, model_n, year=cached.get("year"),
+                                                fuel=cached.get("fuel_type")) or {}
         # Pull market stats from DB (no live scrape on cache hit)
         cached_market: dict = {}
         cached_model_id = cached_model_info.get("id") if cached_model_info else None
@@ -1664,7 +1712,7 @@ async def _analyse_listing_inner(
             market_stats["source"] = "db"
 
     if model_id:
-        model_info = _get_model_info(db, brand_name, model_name, year=year)
+        model_info = _get_model_info(db, brand_name, model_name, year=year, fuel=fuel_type)
 
     # Curated known engine/gearbox failures for THIS car (year + engine).
     # Matched on the listing itself, so it works even when the model isn't
