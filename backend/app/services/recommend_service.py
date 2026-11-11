@@ -22,11 +22,12 @@ from app.services.dealbreakers import get_dealbreakers
 
 
 def _attach_dealbreakers(db: Session, results: list) -> None:
-    """Enrich each recommendation in place with its recall/critical-failure
-    warning. Runs only for the handful of shortlisted models, not the whole
-    catalogue — a few cheap indexed lookups per request."""
+    """Enrich each recommendation in place with its critical known failures.
+    Recalls are left out: the card doesn't know the car's year, so a
+    model-wide recall list would flag most of the catalogue — they belong on
+    the listing-level checklist. Runs only for the shortlisted models."""
     for r in results:
-        r["dealbreakers"] = get_dealbreakers(db, r.get("model_id"))
+        r["dealbreakers"] = get_dealbreakers(db, r.get("model_id"), include_recalls=False)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,19 +1,25 @@
 """
-Deal-breakers — the loud "would this car put a buyer off?" signal.
+Deal-breakers and the "before you buy" checklist.
 
-Two authoritative inputs, surfaced together but always honest about where each
-came from (every item carries its source, recalls carry a citation URL):
+Two inputs, deliberately treated differently:
 
-  1. Official recalls  — reliability_evidence rows from EU Safety Gate / NHTSA /
-     KBA, high-severity only. The defect text is persisted by the scrapers
-     (Phase A) so we can show *why*, not just that something exists.
-  2. Critical known failures — engine_issues with severity 'critico', the
-     deal-breaker tier the curator agent researches (timing chains, DSG
-     mechatronics, oil consumption, DPF/EGR, structural/safety).
+  1. Critical known failures — engine_issues with severity 'critico' (timing
+     belts in oil, DSG mechatronics, chronic oil consumption...). These are the
+     only thing that raises the loud deal-breaker (`has_dealbreaker`): a chronic,
+     expensive weakness of a specific engine or gearbox is a reason to pick a
+     different version.
+  2. Official EU recalls (Safety Gate), high-severity only. A recall is the
+     manufacturer fixing a defect for free, often for one production batch —
+     a checklist item ("confirm it was done"), not a verdict on the model. They
+     are returned for the listing-level checklist and never raise the alarm.
+     Airbag-inflator recalls are flagged `priority`: on an older car that
+     missed the campaign they are genuinely dangerous.
 
-This never excludes a car — the product shows it as a prominent warning and
-lets the buyer decide. Recall matching upstream is deliberately high-precision,
-so a shown recall is one we're confident belongs to this model.
+US (NHTSA) recalls are not returned at all: they cover US-spec cars and we
+can't say whether they apply in Europe. They still feed the reliability score.
+
+This never excludes a car. Recall matching upstream is deliberately
+high-precision, so a shown recall is one we're confident belongs to this model.
 """
 import json
 import re
@@ -38,15 +44,38 @@ _EMPTY = {
     "critical_issue_count": 0,
     "recalls": [],
     "critical_issues": [],
-    "us_recall_count": 0,
-    "us_recalls": [],
 }
 
-# US recalls (NHTSA) cover US-spec cars — engines, emissions kit and suppliers
-# often differ from the European version — so they never drive the loud
-# deal-breaker on their own. They're listed separately, with that caveat, and
-# still feed the reliability score.
-_US_SOURCES = {"nhtsa"}
+# Sources shown to buyers. NHTSA (US-spec cars) is left out on purpose — see
+# the module docstring; it still feeds the reliability score.
+_SHOWN_RECALL_SOURCES = ("eu_safety_gate", "kba_de")
+
+# Airbag inflators that degrade with age (the Takata/ARC family of defects):
+# the one recall type worth stressing on an older car.
+_AIRBAG = re.compile(r"airbag", re.I)
+_INFLATOR = re.compile(r"insufl|propuls|inflat|gerador de g[aá]s|deterior|degrad", re.I)
+
+
+def _clip(s: str, n: int) -> str:
+    """Cut at a word boundary with an ellipsis — never mid-word."""
+    s = s.strip()
+    if len(s) <= n:
+        return s
+    return s[:n].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+
+
+def _is_priority(title: str, desc: str) -> bool:
+    text_ = f"{title} {desc}"
+    return bool(_AIRBAG.search(text_) and _INFLATOR.search(text_))
+
+
+def _risk_label(title: str) -> str | None:
+    """Safety Gate titles read '<Model>: Risco de ferimentos, Risco de incêndio'.
+    The model is redundant on the page; the risk part is a useful tag."""
+    if ":" not in title:
+        return None
+    risk = title.split(":", 1)[1].strip()
+    return risk or None
 
 
 def _source_label(source: str) -> str:
@@ -112,23 +141,26 @@ def _years_label(lo, hi) -> str | None:
     return f"{lo}-{hi}" if hi != lo else str(lo)
 
 
-def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None) -> dict:
-    """Return the structured deal-breaker payload for a model (recalls + critical
-    known failures). Always returns the full shape, empty when nothing serious.
+def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None,
+                     include_recalls: bool = True) -> dict:
+    """Return the deal-breaker payload for a model: critical known failures
+    (the only thing that sets `has_dealbreaker`) and, for the checklist, EU
+    recalls. Always returns the full shape, empty when nothing applies.
 
     `year` (the listing's model year, when known) filters out recalls and
-    failures for other production periods — a 2020 car must not be warned
-    about a recall that only affects 2024-2026 builds."""
+    failures for other production periods — a 2020 car must not be told about
+    a recall that only affects 2024-2026 builds. `include_recalls=False` skips
+    them (recommendation cards: the year is unknown, so a model-wide recall
+    list would be noise)."""
     if not model_id:
         return dict(_EMPTY)
 
-    # ── Official recalls (high-severity only) ────────────────────────────────
-    recalls: list[dict] = []      # EU-official (Safety Gate / KBA): the loud tier
-    us_recalls: list[dict] = []   # NHTSA: shown separately, never loud on its own
+    recalls: list[dict] = []
     seen: set = set()
-    # Severities are fixed internal constants (not user input) — inlined so the
-    # IN-list is a plain SQL literal, no bind-expansion needed.
+    # Severities/sources are fixed internal constants (not user input) — inlined
+    # so the IN-lists are plain SQL literals, no bind-expansion needed.
     sev_list = ", ".join(f"'{s}'" for s in _DEALBREAKER_RECALL_SEVERITIES)
+    src_list = ", ".join(f"'{s}'" for s in _SHOWN_RECALL_SOURCES)
     rows = db.execute(text(f"""
         SELECT re.source, re.source_url, re.severity, re.observed_month, re.payload,
                g.year_start, g.year_end
@@ -136,10 +168,11 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         JOIN generations g ON g.id = re.generation_id
         WHERE g.model_id = :mid
           AND re.evidence_type IN ('recall', 'safety_gate')
+          AND lower(coalesce(re.source, '')) IN ({src_list})
           AND lower(coalesce(re.severity, '')) IN ({sev_list})
         ORDER BY (lower(re.severity) = 'serious') DESC, re.observed_month DESC NULLS LAST
         LIMIT 80
-    """), {"mid": model_id}).mappings().fetchall()
+    """), {"mid": model_id}).mappings().fetchall() if include_recalls else []
 
     for r in rows:
         p = _as_dict(r["payload"])
@@ -158,27 +191,28 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         if key in seen:
             continue
         seen.add(key)
-        is_us = (r["source"] or "").lower() in _US_SOURCES
-        target, cap = (us_recalls, 4) if is_us else (recalls, 6)
-        if len(target) >= cap:
-            continue
         url = r["source_url"]
-        target.append({
-            "title": str(title)[:160],
-            "description": str(desc)[:400],
+        title, desc = str(title), str(desc)
+        recalls.append({
+            "title": _clip(title, 160),
+            "description": _clip(desc, 420),
+            "risk": _risk_label(title),
+            "priority": _is_priority(title, desc),
             "severity": (r["severity"] or "").lower(),
             "source": _source_label(r["source"]),
             "source_url": url if isinstance(url, str) and url.startswith("http") else None,
             "date": date_,
             "affected_years": _years_label(lo, hi),
         })
-        if len(recalls) >= 6 and len(us_recalls) >= 4:
-            break
+    # Airbag-inflator campaigns first (the ones that matter on an older car),
+    # then cap — sorting before the cap so one is never cut by newer rows.
+    recalls.sort(key=lambda x: not x["priority"])
+    recalls = recalls[:6]
 
-    # ── Critical known failures (curator deal-breaker tier) ──────────────────
+    # ── Critical known failures (the deal-breaker tier) ──────────────────────
     critical: list[dict] = []
     crows = db.execute(text("""
-        SELECT DISTINCT ei.description, ei.affected_years,
+        SELECT DISTINCT e.code AS engine, ei.description, ei.affected_years,
                ei.fix_cost_estimate, ei.source
         FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
@@ -193,7 +227,8 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         if span and not _applies(year, *span):
             continue
         critical.append({
-            "description": str(c["description"])[:400],
+            "engine": c["engine"],
+            "description": _clip(str(c["description"]), 420),
             "affected_years": c["affected_years"],
             "fix_cost_estimate": c["fix_cost_estimate"],
             "source": c["source"] or "Investigação",
@@ -201,13 +236,12 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         if len(critical) >= 6:
             break
 
-    count = len(recalls) + len(critical)
     return {
-        "has_dealbreaker": count > 0,
+        # Only a chronic, expensive known failure is a deal-breaker. Recalls
+        # are free fixes — they go on the checklist, never the alarm.
+        "has_dealbreaker": len(critical) > 0,
         "recall_count": len(recalls),
         "critical_issue_count": len(critical),
         "recalls": recalls,
         "critical_issues": critical,
-        "us_recall_count": len(us_recalls),
-        "us_recalls": us_recalls,
     }

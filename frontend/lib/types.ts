@@ -102,9 +102,15 @@ export interface DealbreakerRecall {
   date: string | null
   /** Production period the recall covers, e.g. "2013-2024" or "2024+". */
   affected_years?: string | null
+  /** Risk tag from the source, e.g. "Risco de ferimentos". */
+  risk?: string | null
+  /** Airbag-inflator campaign: stressed on the checklist. */
+  priority?: boolean
 }
 
 export interface DealbreakerIssue {
+  /** Engine/gearbox the failure belongs to, e.g. "1.2 PureTech 130 EAT8". */
+  engine?: string | null
   description: string
   affected_years: string | null
   fix_cost_estimate: string | null
@@ -112,14 +118,13 @@ export interface DealbreakerIssue {
 }
 
 export interface Dealbreakers {
+  /** True only for critical known failures — recalls never set it. */
   has_dealbreaker: boolean
+  /** EU recalls for the checklist (empty on recommendation cards). */
   recall_count: number
   critical_issue_count: number
   recalls: DealbreakerRecall[]
   critical_issues: DealbreakerIssue[]
-  /** US (NHTSA) recalls — US-spec cars, may not apply in Europe; never loud on their own. */
-  us_recall_count?: number
-  us_recalls?: DealbreakerRecall[]
 }
 
 export interface MarketBand {

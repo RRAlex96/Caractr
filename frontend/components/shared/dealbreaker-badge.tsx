@@ -4,7 +4,7 @@ import { useId, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import type { Dealbreakers } from "@/lib/types"
-import { DealbreakerWarning } from "@/components/analysis/dealbreaker-warning"
+import { CriticalIssueList } from "@/components/analysis/dealbreaker-warning"
 
 interface DealbreakerCardAlertProps {
   data?: Dealbreakers | null
@@ -12,18 +12,18 @@ interface DealbreakerCardAlertProps {
 }
 
 /**
- * Deal-breaker alert for recommendation cards. A loud red pill that expands,
- * on tap, into the full warning (what the recall is, production period,
- * source link). A hover tooltip alone didn't work on phones — a warning the
- * buyer can't read scares without informing.
+ * Recommendation-card alert — only for critical known failures of a specific
+ * engine or gearbox (recalls are a listing-level checklist, not a model
+ * verdict). Expands on tap to name the engine, so the buyer can choose a
+ * different version instead of dropping the car.
  */
 export function DealbreakerCardAlert({ data, className }: DealbreakerCardAlertProps) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
-  if (!data || !data.has_dealbreaker) return null
+  const issues = data?.critical_issues ?? []
+  if (!issues.length) return null
 
-  const total = data.recall_count + data.critical_issue_count
-  const label = total === 1 ? "1 alerta sério" : `${total} alertas sérios`
+  const label = issues.length === 1 ? "Uma versão a evitar" : `${issues.length} versões a evitar`
 
   return (
     <div className={cn("mb-3", className)}>
@@ -36,11 +36,14 @@ export function DealbreakerCardAlert({ data, className }: DealbreakerCardAlertPr
       >
         <span aria-hidden>⚠</span>
         {label.toUpperCase()}
-        <span className="tracking-normal text-danger/70">· {open ? "esconder" : "ver porquê"}</span>
+        <span className="tracking-normal text-danger/70">· {open ? "esconder" : "ver qual"}</span>
       </button>
       {open && (
-        <div id={panelId} className="mt-3">
-          <DealbreakerWarning data={data} />
+        <div id={panelId} className="mt-3 rounded-xl border border-danger/30 bg-danger/[0.05] p-4">
+          <p className="mb-3 text-[12px] font-light leading-relaxed text-muted-foreground">
+            Falha crónica e cara de uma motorização específica — vê se o modelo tem outra que te sirva.
+          </p>
+          <CriticalIssueList issues={issues} />
         </div>
       )}
     </div>

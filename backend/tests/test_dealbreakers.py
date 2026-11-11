@@ -120,7 +120,7 @@ def test_years_label():
     assert _years_label(None, None) is None
 
 
-# ── US recalls never drive the loud banner on their own ─────────────────────
+# ── Recalls are a checklist, not a deal-breaker ─────────────────────────────
 
 from datetime import date as _date
 
@@ -134,32 +134,82 @@ class _Res:
 
 
 class _FakeDB:
-    def __init__(self, recall_rows):
-        self.calls = 0
+    """First execute() → recall rows, second → critical-issue rows."""
+    def __init__(self, recall_rows, critical_rows=()):
+        self.sql: list[str] = []
         self.recall_rows = recall_rows
-    def execute(self, *_a, **_k):
-        self.calls += 1
-        return _Res(self.recall_rows if self.calls == 1 else [])
+        self.critical_rows = list(critical_rows)
+    def execute(self, stmt, *_a, **_k):
+        self.sql.append(str(stmt))
+        is_recall_query = "reliability_evidence" in self.sql[-1]
+        return _Res(self.recall_rows if is_recall_query else self.critical_rows)
 
 
-def _recall(source, title):
+def _recall(source, title, desc=None, month=1):
     return {"source": source, "source_url": "https://example.test/" + title, "severity": "serious",
-            "observed_month": _date(2026, 1, 1), "payload": {"title": title, "description": title},
+            "observed_month": _date(2026, month, 1),
+            "payload": {"title": title, "description": desc or title},
             "year_start": 2015, "year_end": None}
 
 
-def test_us_only_recalls_are_not_a_dealbreaker():
-    d = get_dealbreakers(_FakeDB([_recall("nhtsa", "US fuel pump")]), model_id=1)
+_CRIT = {"engine": "1.2 PureTech 130", "description": "Correia de distribuição em óleo degrada-se",
+         "affected_years": "2014-2022", "fix_cost_estimate": "€900-1500", "source": "Stellantis"}
+
+
+def test_eu_recall_alone_is_not_a_dealbreaker():
+    d = get_dealbreakers(_FakeDB([_recall("eu_safety_gate", "X1: Risco de ferimentos")]), model_id=1)
     assert d["has_dealbreaker"] is False
-    assert d["us_recall_count"] == 1 and d["recall_count"] == 0
+    assert d["recall_count"] == 1
+    assert d["recalls"][0]["risk"] == "Risco de ferimentos"
 
 
-def test_eu_recall_is_loud_and_us_listed_separately():
-    d = get_dealbreakers(_FakeDB([_recall("eu_safety_gate", "EU steering bolt"),
-                                  _recall("nhtsa", "US fuel pump")]), model_id=1)
+def test_us_recalls_are_never_shown():
+    db = _FakeDB([])
+    d = get_dealbreakers(db, model_id=1)
+    assert "us_recalls" not in d
+    # Filtered in SQL: only EU sources are selected.
+    assert "'eu_safety_gate'" in db.sql[0] and "nhtsa" not in db.sql[0]
+
+
+def test_critical_known_failure_is_the_dealbreaker():
+    d = get_dealbreakers(_FakeDB([], [_CRIT]), model_id=1)
     assert d["has_dealbreaker"] is True
-    assert [r["title"] for r in d["recalls"]] == ["EU steering bolt"]
-    assert [r["title"] for r in d["us_recalls"]] == ["US fuel pump"]
+    assert d["critical_issues"][0]["engine"] == "1.2 PureTech 130"
+
+
+def test_critical_failure_filtered_by_listing_year():
+    d = get_dealbreakers(_FakeDB([], [_CRIT]), model_id=1, year=2023)
+    assert d["has_dealbreaker"] is False
+
+
+def test_airbag_inflator_recall_is_priority_and_first():
+    rows = [_recall("eu_safety_gate", f"Golf: Risco de ferimentos {i}", month=12) for i in range(7)]
+    rows.append(_recall("eu_safety_gate", "Golf: Risco de ferimentos",
+                        "O propulsor no airbag do condutor pode deteriorar-se ao longo do tempo.", month=1))
+    d = get_dealbreakers(_FakeDB(rows), model_id=1)
+    assert d["recall_count"] == 6                # capped
+    assert d["recalls"][0]["priority"] is True   # sorted before the cap, never cut
+    assert all(not r["priority"] for r in d["recalls"][1:])
+
+
+def test_airbag_sensor_recall_is_not_priority():
+    from app.services.dealbreakers import _is_priority
+    assert not _is_priority("Golf: Risco de ferimentos", "O sensor do airbag do passageiro pode falhar.")
+    assert _is_priority("X1", "O insuflador do airbag do condutor pode funcionar mal")
+
+
+def test_long_text_is_clipped_at_a_word():
+    from app.services.dealbreakers import _clip
+    out = _clip("palavra " * 100, 50)
+    assert out.endswith("…") and len(out) <= 51 and "palav…" not in out
+    assert _clip("curto", 50) == "curto"
+
+
+def test_cards_skip_recalls():
+    db = _FakeDB([_recall("eu_safety_gate", "anything")], [_CRIT])
+    d = get_dealbreakers(db, model_id=1, include_recalls=False)
+    assert d["recall_count"] == 0 and d["has_dealbreaker"] is True
+    assert not any("reliability_evidence" in s for s in db.sql)
 
 
 def test_nhtsa_component_code_becomes_readable_title():
