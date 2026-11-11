@@ -35,6 +35,10 @@ def _attach_dealbreakers(db: Session, results: list) -> None:
 
 DIMENSIONS = ["economy", "comfort", "driving", "practical", "status", "reliability"]
 
+# Ranking cost of a critical known failure (see score_model Stage F).
+CRITICAL_ISSUE_FACTOR = 0.88
+CRITICAL_ISSUE_FACTOR_AVERSE = 0.75
+
 BODY_TYPE_ADJACENCY = {
     "citadino":  ["compacto"],
     "compacto":  ["citadino", "suv", "berlina"],
@@ -500,6 +504,14 @@ LOAD_MODELS_SQL = text("""
 def load_models(db: Session) -> list:
     """Load all models with aggregated data, grouped by model."""
     rows = db.execute(LOAD_MODELS_SQL).fetchall()
+    # Models with a critical known failure (the deal-breaker tier — only sourced
+    # research or a human can set it). Recalls are deliberately NOT here: they
+    # are normally fixed free at the dealer, so they warn but never demote.
+    critical_ids = {r[0] for r in db.execute(text("""
+        SELECT DISTINCT e.model_id FROM engine_issues ei
+        JOIN engines e ON e.id = ei.engine_id
+        WHERE lower(ei.severity) = 'critico'
+    """)).fetchall()}
     models = []
     for row in rows:
         avg_price = int(row.avg_price) if row.avg_price else None
@@ -535,6 +547,7 @@ def load_models(db: Session) -> list:
             "market_p50":               int(row.market_p50) if row.market_p50 else None,
             "market_band":              dict(row.market_band) if row.market_band else None,
             "market_as_of":             str(row.market_as_of) if row.market_as_of else None,
+            "has_critical_issue":       row.id in critical_ids,
         }
         m["vector"] = _build_model_vector(m)
         models.append(m)
@@ -688,7 +701,15 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
     aversion = answers.get("p6_aversion", "nenhuma")
     aversion_multiplier = _apply_aversion_penalty(model, aversion, ctx)
 
-    return round(base_score * aversion_multiplier, 4)
+    # ── Stage F: Deal-breaker demotion — a critical known failure (design flaw,
+    # not fixed by a recall) costs ranking but never removes the car; the
+    # warning banner still explains why. Stronger when the user is averse to
+    # unreliability.
+    critical = 1.0
+    if model.get("has_critical_issue"):
+        critical = CRITICAL_ISSUE_FACTOR_AVERSE if aversion == "fiabilidade" else CRITICAL_ISSUE_FACTOR
+
+    return round(base_score * aversion_multiplier * critical, 4)
 
 
 def _apply_aversion_penalty(model: dict, aversion: str, ctx: str) -> float:
@@ -1133,6 +1154,17 @@ def _pick_headline(model: dict, prof_top1: str, prof_top2: str,
     return f"O {name} encaixa no teu perfil de formas que vao surpreender-te."
 
 
+def _fmt_score(x) -> str:
+    """8.333333 → '8.3', 9.0 → '9' — never leak raw floats into copy."""
+    v = round(float(x), 1)
+    return str(int(v)) if v == int(v) else f"{v}"
+
+
+def _fmt_eur(n) -> str:
+    """16000 → '16 000 €' (Portuguese thousands separator)."""
+    return f"{int(n):,}".replace(",", " ") + " €"
+
+
 def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: dict) -> list:
     """Build 2-3 concrete reasons from templates with variation."""
     reasons = []
@@ -1152,67 +1184,71 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
                 reasons.append(t[mid % 2])
             elif m["avg_maintenance"]:
                 t = [
-                    f"Manutencao media de {int(m['avg_maintenance'])} EUR/ano.",
-                    f"Custa {int(m['avg_maintenance'])} EUR/ano a manter — sem surpresas.",
+                    f"Manutenção média de {_fmt_eur(m['avg_maintenance'])}/ano.",
+                    f"Custa {_fmt_eur(m['avg_maintenance'])}/ano a manter — sem surpresas.",
                 ]
                 reasons.append(t[mid % 2])
 
         elif dim == "comfort":
             if m["comfort_score"] >= 7:
                 t = [
-                    f"Nota {m['comfort_score']}/10 em conforto — referencia no segmento.",
-                    f"Conforto {m['comfort_score']}/10 — quilometros longos passam a voar.",
+                    f"Nota {m['comfort_score']}/10 em conforto — referência no segmento.",
+                    f"Conforto {m['comfort_score']}/10 — quilómetros longos passam a voar.",
                 ]
                 reasons.append(t[mid % 2])
 
         elif dim == "driving":
             if m["driving_fun_score"] >= 7:
                 t = [
-                    f"Nota {m['driving_fun_score']}/10 em prazer de conducao.",
+                    f"Nota {m['driving_fun_score']}/10 em prazer de condução.",
                     f"Chassis com {m['driving_fun_score']}/10 — sentes a estrada, controlas tudo.",
                 ]
                 reasons.append(t[mid % 2])
+            # max_power is the most powerful version of the model (e.g. a Giulia
+            # Quadrifoglio), not what this budget buys — say so honestly.
             if m["max_power"] and m["max_power"] >= 150 and len(reasons) < 3:
-                reasons.append(f"Ate {m['max_power']}cv disponiveis quando a estrada pede.")
+                reasons.append(f"Versões até {m['max_power']} cv, para quando a estrada pede.")
 
         elif dim == "practical":
             if m["family_score"] >= 6:
                 t = [
-                    f"Nota {m['family_score']}/10 para familias — espaco real.",
-                    f"Score familiar de {m['family_score']}/10 — cabe tudo e todos.",
+                    f"Nota {m['family_score']}/10 para famílias — espaço real.",
+                    f"Nota familiar de {m['family_score']}/10 — cabe tudo e todos.",
                 ]
                 reasons.append(t[mid % 2])
             if m["city_score"] >= 8 and len(reasons) < 3:
                 t = [
-                    f"Nota {m['city_score']}/10 em cidade — agil e facil de estacionar.",
-                    f"City score {m['city_score']}/10 — pensado para o urbano.",
+                    f"Nota {m['city_score']}/10 em cidade — ágil e fácil de estacionar.",
+                    f"Nota {m['city_score']}/10 em cidade — pensado para o dia a dia urbano.",
                 ]
                 reasons.append(t[mid % 2])
 
         elif dim == "reliability":
             if m["avg_reliability"] >= 7.0:
+                rel = _fmt_score(m["avg_reliability"])
                 t = [
-                    f"Fiabilidade {m['avg_reliability']}/10 — historico impecavel.",
-                    f"{m['brand_name']} e sinonimo de fiabilidade: {m['avg_reliability']}/10.",
+                    f"Fiabilidade {rel}/10 — historial sólido.",
+                    f"A {m['brand_name']} é sinónimo de fiabilidade: {rel}/10.",
                 ]
                 reasons.append(t[mid % 2])
 
         elif dim == "status":
-            reasons.append(f"{m['brand_name']} — uma marca que dispensa apresentacoes neste segmento.")
+            reasons.append(f"{m['brand_name']} — uma marca que dispensa apresentações neste segmento.")
 
     # Fill with price context if < 3 reasons
     if len(reasons) < 3 and m["avg_price"]:
         budget_max = int(answers.get("p8_budget_max", 25000))
+        price = _fmt_eur(m["avg_price"])
         if m["avg_price"] <= budget_max * 0.85:
             t = [
-                f"Preco medio de {m['avg_price']} EUR — bem abaixo do teu limite.",
-                f"A {m['avg_price']} EUR, sobra margem no orcamento.",
+                f"Preço médio de {price} — bem abaixo do teu limite.",
+                f"A {price}, sobra margem no orçamento.",
             ]
             reasons.append(t[mid % 2])
         elif m["avg_price"] <= budget_max:
             t = [
-                f"Preco medio de {m['avg_price']} EUR — dentro do teu orcamento.",
-                f"A {m['avg_price']} EUR, encaixa no que definiste.",
+                f"Preço médio de {price} — dentro do teu orçamento.",
+                f"A {price}, encaixa no que definiste.",
             ]
             reasons.append(t[mid % 2])
 
@@ -1235,7 +1271,7 @@ def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_
     if m.get("is_stretch"):
         budget_max = int(answers.get("p8_budget_max", 25000))
         over = m["avg_price"] - budget_max
-        return f"Ultrapassa o teu orcamento em ~{over} EUR — mas o que oferece justifica olhar."
+        return f"Ultrapassa o teu orçamento em ~{_fmt_eur(over)} — mas o que oferece justifica olhar."
 
     # Rank all dimensions by gap (profile need minus model offer)
     # Include ALL dimensions, even small profile weights
@@ -1260,7 +1296,7 @@ def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_
         chosen_gap = gaps[0][1]
 
     if not chosen_dim:
-        return "Compromissos minimos para o teu perfil."
+        return "Compromissos mínimos para o teu perfil."
 
     used_dims.add(chosen_dim)
 
@@ -1276,22 +1312,22 @@ def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_
             best_in_dim = other
 
     dim_pt = {
-        "economy": "economico", "comfort": "confortavel", "driving": "emocionante",
-        "practical": "espacoso", "status": "vistoso", "reliability": "fiavel",
+        "economy": "económico", "comfort": "confortável", "driving": "emocionante",
+        "practical": "espaçoso", "status": "vistoso", "reliability": "fiável",
     }.get(chosen_dim, "forte")
 
     # If there's a meaningfully better model, do comparative
     if best_in_dim and best_val > mv.get(chosen_dim, 0) + 0.08:
         model_best_dim = max(mv, key=mv.get)
         comp_pt = {
-            "economy": "economia", "comfort": "conforto", "driving": "conducao",
-            "practical": "espaco", "status": "presenca", "reliability": "fiabilidade",
-        }.get(model_best_dim, "outras areas")
-        return f"Nao e tao {dim_pt} como o {best_in_dim['full_name']}, mas compensa em {comp_pt}."
+            "economy": "economia", "comfort": "conforto", "driving": "condução",
+            "practical": "espaço", "status": "presença", "reliability": "fiabilidade",
+        }.get(model_best_dim, "outras áreas")
+        return f"Não é tão {dim_pt} como o {best_in_dim['full_name']}, mas compensa em {comp_pt}."
 
     # Generic tradeoff for this dimension
     templates = TRADEOFF_TEMPLATES.get(chosen_dim, [
-        "Como todos os carros, tem compromissos — mas os que importam para ti estao cobertos."
+        "Como todos os carros, tem compromissos — mas os que importam para ti estão cobertos."
     ])
     return templates[model["id"] % len(templates)]
 

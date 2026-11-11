@@ -276,3 +276,60 @@ def test_ev_consumption_converted_not_penalized_as_thirsty():
     ev = _build_model_vector(_model(avg_consumption=18.0))
     gas = _build_model_vector(_model(avg_consumption=9.0))
     assert ev["economy"] > gas["economy"]
+
+
+# ── template copy quality (what users see when the LLM is unavailable) ──
+
+from app.services.recommend_service import _build_reasons, _fmt_eur, _fmt_score
+
+
+def test_scores_never_leak_raw_floats():
+    assert _fmt_score(8.333333333333334) == "8.3"
+    assert _fmt_score(9.0) == "9"
+
+
+def test_prices_use_portuguese_formatting():
+    assert _fmt_eur(16000) == "16 000 €"
+
+
+def test_reliability_reason_is_formatted():
+    m = _model(id=2, brand_name="Suzuki", avg_reliability=8.333333333333334)
+    reasons = _build_reasons(m, {}, "reliability", "economy", {"p8_budget_max": 15000})
+    joined = " ".join(reasons)
+    assert "8.333" not in joined and "8.3/10" in joined
+
+
+def test_power_claim_is_framed_as_top_version():
+    m = _model(id=1, driving_fun_score=9, max_power=510)
+    reasons = _build_reasons(m, {}, "driving", "status", {"p8_budget_max": 35000})
+    assert any("Versões até 510 cv" in r for r in reasons)
+
+
+# ── Stage F: deal-breaker demotion ──────────────────────────────────────
+
+from app.services.recommend_service import CRITICAL_ISSUE_FACTOR, CRITICAL_ISSUE_FACTOR_AVERSE
+
+
+def test_critical_issue_demotes_but_never_zeroes():
+    profile, _ = build_profile({"p1_context": "misto"})
+    answers = {"p1_context": "misto"}
+    clean = score_model(_model(id=1), profile, answers)
+    flawed = score_model(_model(id=1, has_critical_issue=True), profile, answers)
+    assert flawed == pytest.approx(clean * CRITICAL_ISSUE_FACTOR, rel=1e-3)
+    assert flawed > 0
+
+
+def test_critical_issue_hurts_more_when_user_hates_unreliability():
+    profile, _ = build_profile({"p1_context": "misto"})
+    averse = {"p1_context": "misto", "p6_aversion": "fiabilidade"}
+    clean = score_model(_model(id=1, avg_reliability=8.0), profile, averse)
+    flawed = score_model(_model(id=1, avg_reliability=8.0, has_critical_issue=True), profile, averse)
+    assert flawed == pytest.approx(clean * CRITICAL_ISSUE_FACTOR_AVERSE, rel=1e-3)
+
+
+def test_recalls_alone_do_not_affect_score():
+    profile, _ = build_profile({"p1_context": "misto"})
+    answers = {"p1_context": "misto"}
+    base = score_model(_model(id=1), profile, answers)
+    with_recall = score_model(_model(id=1, dealbreakers={"recall_count": 3}), profile, answers)
+    assert with_recall == base
