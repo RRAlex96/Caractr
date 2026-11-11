@@ -11,6 +11,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
+import { DealbreakerWarning } from "@/components/analysis/dealbreaker-warning"
 import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
@@ -157,6 +158,8 @@ function AnalisarContent() {
       {/* ── Result ── */}
       {result && !loading && (
         <div className="mt-12 space-y-5">
+          <DealbreakerWarning data={result.dealbreakers} />
+
           <AnomalyBadge anomaly={result.anomaly} />
 
           <VerdictCard

@@ -120,6 +120,20 @@ def _similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
 
+def _name_match_score(db_model: str, raw_model: str) -> float:
+    """High-precision model match: a whole-word hit of the DB model name inside
+    the scraped model text is a confident match (1.0), else a similarity ratio.
+    Precision over recall — a recall pinned to the wrong car is worse than a
+    miss (the curator agent fills breadth; recalls stay high-trust)."""
+    db = (db_model or "").lower().strip()
+    raw = (raw_model or "").lower().strip()
+    if not db or not raw:
+        return 0.0
+    if re.search(r"\b" + re.escape(db) + r"\b", raw):
+        return 1.0
+    return SequenceMatcher(None, db, raw).ratio()
+
+
 def _find_generation(
     db: Session,
     brand_name: str,
@@ -142,32 +156,32 @@ def _find_generation(
     if not rows:
         return None
 
-    best_score = 0.0
+    # Acceptance is decided on the NAME score alone (>= 0.6); the year overlap
+    # only re-ranks candidates, it never promotes a weak name into a match.
+    best_name = 0.0
+    best_rank = 0.0
     best_gen_id = None
 
     for row in rows:
-        sim = _similarity(model_raw, row["model_name"])
-        if sim < 0.35:
+        name = _name_match_score(row["model_name"], model_raw)
+        if name < 0.6:
             continue
 
-        # Boost score when production years overlap with generation years
+        rank = name
         if (prod_year_start and prod_year_end and
                 row["year_start"] and row["year_end"]):
-            # Check overlap: [prod_start, prod_end] ∩ [gen_start, gen_end]
             overlap = (
                 prod_year_start <= row["year_end"] and
                 prod_year_end >= row["year_start"]
             )
-            if overlap:
-                sim *= 1.3
-            else:
-                sim *= 0.5  # penalise non-overlapping
+            rank *= 1.3 if overlap else 0.5
 
-        if sim > best_score:
-            best_score = sim
+        if rank > best_rank:
+            best_rank = rank
             best_gen_id = row["id"]
+            best_name = name
 
-    return best_gen_id if best_score >= 0.40 else None
+    return best_gen_id if best_name >= 0.6 else None
 
 
 def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:
@@ -272,27 +286,30 @@ def _scrape_brand_year(
                         continue
 
                     if _is_safety_critical(issue_text):
-                        fail_eff, weight = 6.0, 1.0
+                        fail_eff, weight, severity = 6.0, 1.0, "high"
                     else:
-                        fail_eff, weight = 3.0, 0.6
+                        fail_eff, weight, severity = 3.0, 0.6, "medium"
 
                     db.execute(text("""
                         INSERT INTO reliability_evidence
                             (generation_id, evidence_type, source, source_url,
-                             observed_month, fail_eff, succ_eff, weight, payload)
+                             observed_month, severity, fail_eff, succ_eff, weight, payload)
                         VALUES
                             (:gen_id, 'recall', 'kba_de', :url,
-                             :month, :fail_eff, 0, :weight, :payload::jsonb)
+                             :month, :severity, :fail_eff, 0, :weight, :payload::jsonb)
                         ON CONFLICT DO NOTHING
                     """), {
                         "gen_id":   gen_id,
                         "url":      recall_url,
                         "month":    observed_month,
+                        "severity": severity,
                         "fail_eff": fail_eff,
                         "weight":   weight,
                         "payload":  json.dumps({
                             "brand":       brand_db,
                             "model_raw":   current_model,
+                            "title":       f"{brand_db} {current_model}"[:200],
+                            "description": issue_text[:500],
                             "issue":       issue_text[:500],
                             "production":  prod_text,
                             "recall_year": year,

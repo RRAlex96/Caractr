@@ -93,6 +93,30 @@ export interface ReliabilityData {
   data_quality: "prior_only" | "limited" | "robust" | "strong_data"
 }
 
+export interface DealbreakerRecall {
+  title: string
+  description: string
+  severity: string
+  source: string
+  source_url: string | null
+  date: string | null
+}
+
+export interface DealbreakerIssue {
+  description: string
+  affected_years: string | null
+  fix_cost_estimate: string | null
+  source: string
+}
+
+export interface Dealbreakers {
+  has_dealbreaker: boolean
+  recall_count: number
+  critical_issue_count: number
+  recalls: DealbreakerRecall[]
+  critical_issues: DealbreakerIssue[]
+}
+
 export interface MarketBand {
   p10?: number
   p90?: number
@@ -165,6 +189,7 @@ export interface AnalysisResult {
   cost_of_ownership?: CostOfOwnership | null
   maintenance_estimate: number | null
   reliability: ReliabilityData | null
+  dealbreakers?: Dealbreakers | null
   depreciation: DepreciationData | null
   fit: FitData | null
   caveat: string | null
@@ -194,6 +219,7 @@ export interface Recommendation {
   is_wildcard: boolean
   reliability: ReliabilityData | null
   market: MarketData | null
+  dealbreakers?: Dealbreakers | null
 }
 
 export interface ProfileNarrative {

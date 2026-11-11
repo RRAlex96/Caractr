@@ -18,6 +18,16 @@ import uuid
 import json
 import math
 
+from app.services.dealbreakers import get_dealbreakers
+
+
+def _attach_dealbreakers(db: Session, results: list) -> None:
+    """Enrich each recommendation in place with its recall/critical-failure
+    warning. Runs only for the handful of shortlisted models, not the whole
+    catalogue — a few cheap indexed lookups per request."""
+    for r in results:
+        r["dealbreakers"] = get_dealbreakers(db, r.get("model_id"))
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CONSTANTS
@@ -1388,6 +1398,7 @@ def get_recommendations(db: Session, answers: dict) -> dict:
     # Phase 6: Explanations (LLM-first, template fallback)
     llm_result = _generate_explanations_llm(top5, profile, answers)
     results = generate_all_explanations(top5, profile, answers, llm_result=llm_result)
+    _attach_dealbreakers(db, results)
 
     # Phase 7: Log session
     log_session(db, session_id, answers, profile, top5, pool_size)
@@ -1544,6 +1555,7 @@ def get_alternative_recommendations(
             _logging.getLogger(__name__).warning(f"LLM explanations failed in refresh: {e}")
 
         results = generate_all_explanations(alternatives, profile, answers, llm_result=llm_result)
+        _attach_dealbreakers(db, results)
 
         return {
             "alternatives": results,

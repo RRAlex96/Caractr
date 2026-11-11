@@ -31,6 +31,21 @@ from app.services.llm_client import (
 # model is left in the pending list for one-click review in the admin.
 AUTOSAVE_CONFIDENCE = 0.75
 
+# Deal-breaker severity tier. Anything that normalises to "critico" is what the
+# product surfaces as a loud "major known failure" warning (alongside recalls).
+_SEVERITY_ALIASES = {
+    "critico": "critico", "crítico": "critico", "critical": "critico",
+    "dealbreaker": "critico", "deal-breaker": "critico", "grave": "critico",
+    "alto": "alto", "high": "alto", "serio": "alto", "sério": "alto",
+    "baixo": "baixo", "low": "baixo", "minor": "baixo",
+    "medio": "medio", "médio": "medio", "medium": "medio", "moderado": "medio",
+}
+
+
+def normalize_severity(raw: str) -> str:
+    """Collapse free-form LLM severity to one of critico|alto|medio|baixo."""
+    return _SEVERITY_ALIASES.get((raw or "").strip().lower(), "medio")
+
 
 # ── TOOL 1 · perceive: which models still need reliability data ──────────────
 def find_gaps(db: Session, limit: int = 10) -> list[dict]:
@@ -91,13 +106,19 @@ Responde APENAS com JSON válido:
   "displacement_cc": cilindrada típica em cm3 (inteiro) ou null,
   "power_hp": potência típica em cv (inteiro) ou null,
   "known_issues": [
-    {{"severity": "alto|medio|baixo", "description": "problema concreto", "affected_years": "ex: '2015-2018'", "fix_cost_estimate": "ex: '€800-1500'"}}
+    {{"severity": "critico|alto|medio|baixo", "description": "problema concreto", "affected_years": "ex: '2015-2018'", "fix_cost_estimate": "ex: '€800-1500'"}}
   ],
   "confidence": número 0-1 — quão SEGURO estás desta informação para ESTE modelo
                 específico (alto só para modelos que conheces bem; baixo se é raro
                 ou estás a adivinhar)
 }}
-known_issues: máximo 5, só problemas REAIS e conhecidos. Sê específico e honesto."""
+known_issues: máximo 5, só problemas REAIS e conhecidos. Sê específico e honesto.
+severity "critico" = DEAL-BREAKER: falha grave, cara e recorrente que faria um
+comprador informado desistir do carro (ex: falha de corrente de distribuição,
+mecatrónica DSG, consumo de óleo do motor, FAP/EGR entupidos em uso urbano,
+falhas estruturais ou de segurança). Usa "critico" APENAS quando for mesmo ao
+nível de recall/catastrófico e bem documentado — não exageres. "alto" = problema
+sério mas gerível; "medio"/"baixo" = incómodos menores."""
 
     grounded, sources = False, []
     try:
@@ -185,7 +206,7 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
             INSERT INTO engine_issues (engine_id, severity, description, affected_years, fix_cost_estimate, source)
             VALUES (:e, :sev, :desc, :ay, :fc, 'IA (curator)')
         """), {
-            "e": eng_id, "sev": (iss.get("severity") or "medio")[:20],
+            "e": eng_id, "sev": normalize_severity(iss.get("severity")),
             "desc": str(iss["description"])[:500],
             "ay": (iss.get("affected_years") or "")[:50] or None,
             "fc": (iss.get("fix_cost_estimate") or "")[:50] or None,

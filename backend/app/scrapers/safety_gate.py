@@ -30,14 +30,45 @@ SAFETY_GATE_API = "https://ec.europa.eu/safety-gate-alerts/screen/webService/get
 
 CATEGORY_FILTER = "Motor vehicles"
 
+# Canonical severity → evidence weight. The API returns risk strings in many
+# shapes ("Serious risk", "SERIOUS_RISK", "High", …), so we normalise to a
+# canonical token first (_canonical_severity) and key everything off that.
+# (Before, the raw string never matched these keys and every alert fell through
+#  to the lowest weight — serious recalls were being under-counted.)
 SEVERITY_MAP = {
-    "SERIOUS_RISK": {"fail_eff": 6.0, "weight": 1.0},
-    "HIGH":         {"fail_eff": 3.0, "weight": 0.6},
-    "MEDIUM":       {"fail_eff": 1.5, "weight": 0.3},
-    "LOW":          {"fail_eff": 0.5, "weight": 0.1},
+    "serious": {"fail_eff": 6.0, "weight": 1.0},
+    "high":    {"fail_eff": 3.0, "weight": 0.6},
+    "medium":  {"fail_eff": 1.5, "weight": 0.3},
+    "low":     {"fail_eff": 0.5, "weight": 0.1},
 }
 
 DEFAULT_SEVERITY = {"fail_eff": 0.5, "weight": 0.1}
+
+
+def _canonical_severity(raw: str) -> str:
+    """Normalise any Safety Gate risk string to serious|high|medium|low."""
+    s = (raw or "").lower()
+    if "serious" in s:
+        return "serious"
+    if "high" in s:
+        return "high"
+    if "medium" in s or "moderate" in s:
+        return "medium"
+    return "low"
+
+
+def _name_match_score(db_model: str, raw_product: str) -> float:
+    """High-precision model match. A whole-word hit of the DB model name inside
+    the (often verbose) alert product text is a confident match (1.0); otherwise
+    fall back to a string-similarity ratio. Precision over recall on purpose —
+    a recall wrongly pinned to the wrong car is a worse failure than a miss."""
+    db = (db_model or "").lower().strip()
+    raw = (raw_product or "").lower()
+    if not db or not raw:
+        return 0.0
+    if re.search(r"\b" + re.escape(db) + r"\b", raw):
+        return 1.0
+    return SequenceMatcher(None, db, raw).ratio()
 
 # Brand name normalisation map (Safety Gate uses English names)
 BRAND_NORM = {
@@ -143,26 +174,28 @@ def _find_generation(db: Session, brand_name: str, model_name_raw: str,
     if not rows:
         return None
 
-    # Fuzzy model name match
-    best_score = 0.0
+    # High-precision model match. Acceptance is decided on the NAME score alone
+    # (>= 0.6); year overlap only re-ranks candidates, it never creates a match.
+    best_name = 0.0
+    best_rank = 0.0
     best_gen_id = None
 
     for row in rows:
-        sim = _similarity(model_name_raw, row["model_name"])
-        if sim < 0.45:
+        name = _name_match_score(row["model_name"], model_name_raw)
+        if name < 0.6:
             continue
 
-        # If years are available, prefer matching generation
+        rank = name
         if years and row["year_start"] and row["year_end"]:
-            year_overlap = any(row["year_start"] <= y <= row["year_end"] for y in years)
-            if not year_overlap:
-                sim *= 0.5  # penalise non-overlapping years
+            if not any(row["year_start"] <= y <= row["year_end"] for y in years):
+                rank *= 0.5  # de-prioritise non-overlapping years
 
-        if sim > best_score:
-            best_score = sim
+        if rank > best_rank:
+            best_rank = rank
             best_gen_id = row["id"]
+            best_name = name
 
-    return best_gen_id if best_score >= 0.45 else None
+    return best_gen_id if best_name >= 0.6 else None
 
 
 def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:
@@ -202,10 +235,19 @@ def ingest_safety_gate(db: Session, max_pages: int = 10,
             try:
                 brand_raw = alert.get("brand", "") or alert.get("manufacturer", "")
                 model_raw = alert.get("productName", "") or alert.get("product", "")
-                severity  = alert.get("riskLevel", alert.get("riskType", "")).upper()
+                severity  = _canonical_severity(
+                    alert.get("riskLevel") or alert.get("riskType") or ""
+                )
                 pub_date  = alert.get("publicationDate", "")
                 alert_url = alert.get("url", alert.get("link", ""))
                 alert_ref = alert.get("reference", alert.get("id", ""))
+                # The human-readable "why" — this is what we show the user as a
+                # warning. Previously read only for year-extraction, then dropped.
+                risk_desc = (alert.get("risk") or alert.get("riskDescription")
+                             or alert.get("riskType") or "")
+                defect    = (alert.get("description") or alert.get("productDescription")
+                             or risk_desc or "")
+                measures  = alert.get("measures") or ""
 
                 brand_norm = _normalise_brand(brand_raw)
                 if not brand_norm or not model_raw:
@@ -242,11 +284,16 @@ def ingest_safety_gate(db: Session, max_pages: int = 10,
                     "fail_eff":  sev_data["fail_eff"],
                     "weight":    sev_data["weight"],
                     "payload":   __import__("json").dumps({
-                        "reference": alert_ref,
-                        "brand_raw": brand_raw,
-                        "model_raw": model_raw,
-                        "pub_date":  pub_date,
-                        "years":     years,
+                        "reference":   alert_ref,
+                        "brand_raw":   brand_raw,
+                        "model_raw":   model_raw,
+                        "title":       str(model_raw)[:200],
+                        "description": str(defect)[:500],
+                        "risk":        str(risk_desc)[:300],
+                        "measures":    str(measures)[:300],
+                        "severity":    severity,
+                        "pub_date":    pub_date,
+                        "years":       years,
                     }),
                 })
                 stats["ingested"] += 1

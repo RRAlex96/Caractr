@@ -34,6 +34,7 @@ def _strip_accents(s: str) -> str:
     )
 
 from app.scrapers.dispatcher import fetch_detail_for_url, detect_source, extract_slugs_from_url, is_supported_url, source_label
+from app.services.dealbreakers import get_dealbreakers
 from app.scrapers.normalizer import (
     _compute_price_delta,
     _compute_km_per_year,
@@ -404,6 +405,9 @@ def _get_model_info(db: Session, brand_name: str, model_name: str) -> dict:
             info["bayesian_reliability_ci_low"]  = float(trust_row["ci_low"]) if trust_row["ci_low"] else None
             info["bayesian_reliability_ci_high"] = float(trust_row["ci_high"]) if trust_row["ci_high"] else None
             info["bayesian_reliability_quality"] = trust_row["data_quality"] or "prior_only"
+
+        # Loud "would this put a buyer off?" signal: recalls + critical failures.
+        info["dealbreakers"] = get_dealbreakers(db, model_id)
 
     return info
 
@@ -2213,6 +2217,7 @@ def _build_response(
             "ci_high":      (model_info or {}).get("bayesian_reliability_ci_high"),
             "data_quality": (model_info or {}).get("bayesian_reliability_quality"),
         } if model_info and model_info.get("bayesian_reliability_score") else None,
+        "dealbreakers": (model_info or {}).get("dealbreakers"),
         "depreciation": depreciation,
     }
 

@@ -7,6 +7,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
+import { DealbreakerWarning } from "@/components/analysis/dealbreaker-warning"
 import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
@@ -57,6 +58,8 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
 
         {/* Analysis components — same as /analisar */}
         <div className="space-y-5">
+          <DealbreakerWarning data={data.dealbreakers} />
+
           <AnomalyBadge anomaly={data.anomaly} />
 
           <VerdictCard

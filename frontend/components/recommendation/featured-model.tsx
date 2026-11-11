@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
+import { DealbreakerBadge } from "@/components/shared/dealbreaker-badge"
 
 interface FeaturedModelProps {
   rec: Recommendation
@@ -74,6 +75,7 @@ export function FeaturedModel({
 
       {/* Badges */}
       <div className="mb-1 flex flex-wrap gap-2">
+        <DealbreakerBadge data={rec.dealbreakers} />
         {rec.is_stretch && (
           <span className="rounded-full bg-gold/10 px-3.5 py-1 font-mono text-[10px] tracking-[1px] text-gold">
             STRETCH

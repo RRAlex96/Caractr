@@ -205,14 +205,14 @@ def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:
 
 def _upsert_evidence(db: Session, generation_id: int, engine_id, evidence_type: str,
                      source_url: str, observed_month: date, fail_eff: float,
-                     weight: float, payload: dict) -> None:
+                     weight: float, payload: dict, severity: str | None = None) -> None:
     db.execute(text("""
         INSERT INTO reliability_evidence
             (generation_id, engine_id, evidence_type, source, source_url,
-             observed_month, fail_eff, succ_eff, weight, payload)
+             observed_month, severity, fail_eff, succ_eff, weight, payload)
         VALUES
             (:gen_id, :eng_id, :ev_type, 'nhtsa', :url,
-             :month, :fail_eff, 0, :weight, :payload::jsonb)
+             :month, :severity, :fail_eff, 0, :weight, :payload::jsonb)
         ON CONFLICT DO NOTHING
     """), {
         "gen_id":   generation_id,
@@ -220,6 +220,7 @@ def _upsert_evidence(db: Session, generation_id: int, engine_id, evidence_type: 
         "ev_type":  evidence_type,
         "url":      source_url,
         "month":    observed_month,
+        "severity": severity,
         "fail_eff": fail_eff,
         "weight":   weight,
         "payload":  json.dumps(payload),
@@ -278,9 +279,9 @@ def ingest_nhtsa_for_generation(
 
                     text_blob = f"{component} {summary} {consequence}"
                     if _is_safety_critical(text_blob):
-                        fail_eff, weight = 6.0, 1.0
+                        fail_eff, weight, severity = 6.0, 1.0, "high"
                     else:
-                        fail_eff, weight = 3.0, 0.6
+                        fail_eff, weight, severity = 3.0, 0.6, "medium"
 
                     _upsert_evidence(
                         db, generation_id, engine_id,
@@ -289,6 +290,7 @@ def ingest_nhtsa_for_generation(
                         observed_month=observed_month,
                         fail_eff=fail_eff,
                         weight=weight,
+                        severity=severity,
                         payload={
                             "campaign": campaign_number,
                             "component": component,
