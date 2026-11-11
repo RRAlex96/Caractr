@@ -27,6 +27,8 @@ from difflib import SequenceMatcher
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
+
+from app.scrapers.model_match import best_generation, name_match
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
@@ -121,17 +123,8 @@ def _similarity(a: str, b: str) -> float:
 
 
 def _name_match_score(db_model: str, raw_model: str) -> float:
-    """High-precision model match: a whole-word hit of the DB model name inside
-    the scraped model text is a confident match (1.0), else a similarity ratio.
-    Precision over recall — a recall pinned to the wrong car is worse than a
-    miss (the curator agent fills breadth; recalls stay high-trust)."""
-    db = (db_model or "").lower().strip()
-    raw = (raw_model or "").lower().strip()
-    if not db or not raw:
-        return 0.0
-    if re.search(r"\b" + re.escape(db) + r"\b", raw):
-        return 1.0
-    return SequenceMatcher(None, db, raw).ratio()
+    """1.0 for a strict whole-word match (see model_match), else 0.0."""
+    return 1.0 if name_match(db_model, raw_model) else 0.0
 
 
 def _find_generation(
@@ -141,10 +134,7 @@ def _find_generation(
     prod_year_start: int | None,
     prod_year_end: int | None,
 ) -> int | None:
-    """
-    Match a KBA recall to a generation in the DB.
-    Strategy: exact brand match → fuzzy model name → year overlap bonus.
-    """
+    """Match a KBA recall to a generation (rules in model_match)."""
     rows = db.execute(text("""
         SELECT g.id, g.year_start, g.year_end, vm.name AS model_name
         FROM generations g
@@ -152,36 +142,10 @@ def _find_generation(
         JOIN brands b ON vm.brand_id = b.id
         WHERE b.name = :brand
     """), {"brand": brand_name}).mappings().fetchall()
-
-    if not rows:
-        return None
-
-    # Acceptance is decided on the NAME score alone (>= 0.6); the year overlap
-    # only re-ranks candidates, it never promotes a weak name into a match.
-    best_name = 0.0
-    best_rank = 0.0
-    best_gen_id = None
-
-    for row in rows:
-        name = _name_match_score(row["model_name"], model_raw)
-        if name < 0.6:
-            continue
-
-        rank = name
-        if (prod_year_start and prod_year_end and
-                row["year_start"] and row["year_end"]):
-            overlap = (
-                prod_year_start <= row["year_end"] and
-                prod_year_end >= row["year_start"]
-            )
-            rank *= 1.3 if overlap else 0.5
-
-        if rank > best_rank:
-            best_rank = rank
-            best_gen_id = row["id"]
-            best_name = name
-
-    return best_gen_id if best_name >= 0.6 else None
+    years = (list(range(prod_year_start, prod_year_end + 1))
+             if prod_year_start and prod_year_end and prod_year_end >= prod_year_start
+             else [y for y in (prod_year_start, prod_year_end) if y])
+    return best_generation(rows, model_raw, years)
 
 
 def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:

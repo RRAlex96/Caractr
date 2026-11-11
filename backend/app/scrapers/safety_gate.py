@@ -39,6 +39,8 @@ import requests
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.scrapers.model_match import best_generation, name_match
+
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://ec.europa.eu/safety-gate-alerts/public/api/"
@@ -83,17 +85,9 @@ def _severity_from_notification(detail: dict) -> str:
 
 
 def _name_match_score(db_model: str, raw_product: str) -> float:
-    """High-precision model match. A whole-word hit of the DB model name inside
-    the (often verbose) alert product text is a confident match (1.0); otherwise
-    fall back to a string-similarity ratio. Precision over recall on purpose —
-    a recall wrongly pinned to the wrong car is a worse failure than a miss."""
-    db = (db_model or "").lower().strip()
-    raw = (raw_product or "").lower()
-    if not db or not raw:
-        return 0.0
-    if re.search(r"\b" + re.escape(db) + r"\b", raw):
-        return 1.0
-    return SequenceMatcher(None, db, raw).ratio()
+    """1.0 for a strict whole-word match (see model_match), else 0.0 —
+    no fuzzy similarity: it put S-Klasse recalls on the A-Class."""
+    return 1.0 if name_match(db_model, raw_product) else 0.0
 
 
 # Brand name normalisation map (Safety Gate uses English / registry names)
@@ -130,6 +124,39 @@ def _split_models(name_specific: str) -> list[str]:
     """'Caddy, Golf Sportsvan, Golf Variant 7\\t' → ['Caddy', 'Golf Sportsvan', 'Golf Variant 7']."""
     parts = re.split(r"[,;/+\n\t]|\band\b", name_specific or "")
     return [p.strip() for p in parts if p and len(p.strip()) >= 2]
+
+
+_DATE_YEAR = re.compile(r"\b(19[89]\d|20[0-3]\d)\b")
+
+
+def _range(years: list[int]) -> list[int]:
+    ys = sorted(set(years))
+    if len(ys) >= 2 and ys[-1] - ys[0] <= 25:
+        return list(range(ys[0], ys[-1] + 1))
+    return ys
+
+
+def _years_for_model(detail: dict, model_raw: str) -> list[int]:
+    """Production years for ONE model of a multi-model alert. Batch entries are
+    often per model ("Astra H : 03.01.2005 - 14.03.2014 // VIN ..."); pooling
+    them credited an Astra H with years that belong to the Mokka A. VIN text is
+    dropped so its digits can't be read as years."""
+    entries = [(b.get("batchNumber") or "") for b in
+               ((detail.get("product") or {}).get("batchNumbers") or [])]
+    own, generic = [], []
+    for e in entries:
+        dates = e.split("//")[0]
+        if ":" in dates:
+            label, dates = dates.split(":", 1)
+            if name_match(model_raw, label) or name_match(label.strip(), model_raw):
+                own += [int(y) for y in _DATE_YEAR.findall(dates)]
+            continue  # labelled for a different model
+        generic += [int(y) for y in _DATE_YEAR.findall(dates)]
+    if own:
+        return _range(own)
+    if generic:
+        return _range(generic)
+    return _years_from_detail(detail)
 
 
 def _years_from_detail(detail: dict) -> list[int]:
@@ -173,13 +200,7 @@ def _is_vehicle_detail(detail: dict) -> bool:
 
 def _find_generation(db: Session, brand_name: str, model_name_raw: str,
                      years: list[int]) -> int | None:
-    """
-    Match one alert model string to a generation in the DB.
-
-    Acceptance is decided on the NAME score alone (>= 0.6); year overlap only
-    re-ranks candidates, it never creates a match. On ties, the more specific
-    (longer) DB model name wins — "Tiguan Allspace" beats "Tiguan".
-    """
+    """Match one alert model string to a generation (rules in model_match)."""
     rows = db.execute(text("""
         SELECT g.id, g.year_start, g.year_end, vm.name as model_name
         FROM generations g
@@ -187,19 +208,7 @@ def _find_generation(db: Session, brand_name: str, model_name_raw: str,
         JOIN brands b ON vm.brand_id = b.id
         WHERE b.name = :brand
     """), {"brand": brand_name}).mappings().fetchall()
-
-    best_rank, best_gen_id = 0.0, None
-    for row in rows:
-        name = _name_match_score(row["model_name"], model_name_raw)
-        if name < 0.6:
-            continue
-        rank = name + len(row["model_name"] or "") * 1e-3
-        if years and row["year_start"] and row["year_end"]:
-            if not any(row["year_start"] <= y <= row["year_end"] for y in years):
-                rank *= 0.5  # de-prioritise non-overlapping years
-        if rank > best_rank:
-            best_rank, best_gen_id = rank, row["id"]
-    return best_gen_id
+    return best_generation(rows, model_name_raw, years)
 
 
 def _already_ingested(db: Session, generation_id: int, source_url: str) -> bool:
@@ -261,7 +270,6 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
     alert_id = detail.get("id")
     url = ALERT_PAGE.format(id=alert_id)
     models = _split_models((detail.get("product") or {}).get("nameSpecific") or "")
-    years = _years_from_detail(detail)
     severity = _severity_from_notification(detail)
     sev_data = SEVERITY_MAP.get(severity, DEFAULT_SEVERITY)
     pub = (detail.get("publicationDate") or "")[:10]
@@ -274,6 +282,7 @@ def _ingest_detail(db: Session, brand: str, detail: dict, stats: dict) -> None:
 
     matched = set()
     for model_raw in models:
+        years = _years_for_model(detail, model_raw)
         gen_id = _find_generation(db, brand, model_raw, years)
         if gen_id is None or gen_id in matched:
             continue

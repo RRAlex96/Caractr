@@ -68,3 +68,18 @@ def test_vehicle_detail_and_list_candidate_filters():
     assert _is_candidate(car) == "Volkswagen"
     assert _is_candidate(toy) is None
     assert _is_candidate(unknown_brand) is None
+
+
+def test_years_attributed_per_model_from_labelled_batches():
+    from app.scrapers.safety_gate import _years_for_model
+    d = {"product": {"nameSpecific": "Astra H / Mokka A", "batchNumbers": [
+        {"batchNumber": "Astra H : 03.01.2005 - 14.03.2014 // VIN : W0L0AHL4858055910 - W0L0AHL48E2065632"},
+        {"batchNumber": "Mokka A : 22.05.2012 - 23.05.2018 // VIN : W0LJB7EE9DB000566 - W0VJD7EC0J4329477"},
+    ]}}
+    assert _years_for_model(d, "Astra H") == list(range(2005, 2015))
+    assert _years_for_model(d, "Mokka A") == list(range(2012, 2019))
+
+
+def test_unlabelled_batch_is_shared_by_all_models():
+    from app.scrapers.safety_gate import _years_for_model
+    assert _years_for_model(DETAIL, "Touran") == list(range(2013, 2025))
