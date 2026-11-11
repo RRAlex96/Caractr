@@ -294,7 +294,7 @@ async def _analyse(
 ) -> dict:
     """
     Route to the correct analysis engine:
-    - Gemini 2.5 Flash: when GEMINI_API_KEY is set and USE_RULE_ANALYSIS != true
+    - Gemini (LLM_MODEL): when GEMINI_API_KEY is set and USE_RULE_ANALYSIS != true
     - Rule engine: fallback when no API key, flag set, or Gemini fails
     """
     from app.services.llm_client import llm_available
@@ -306,7 +306,7 @@ async def _analyse(
         result["_analysis_engine"] = f"rule:{reason}"
         return result
 
-    print("[AD_ANALYSIS] Using Gemini 2.5 Flash for analysis")
+    print("[AD_ANALYSIS] Using Gemini for analysis")
     prompt = _build_analysis_prompt(listing, model_info, market_stats, user_profile)
     result = await _call_gemini_analysis(prompt)
 

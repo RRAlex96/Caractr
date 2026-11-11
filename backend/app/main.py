@@ -167,31 +167,27 @@ async def _market_refresh_loop() -> None:
 
 def _run_reliability_sync() -> None:
     """Sync wrapper — runs in thread pool so it never blocks the event loop."""
-    db = SessionLocal()
-    try:
-        print("[SCHEDULER] Starting weekly reliability update...")
+    # Each source runs with its own session so one failing (network, site
+    # change) never skips the others or the scorer. KBA (car-recalls.eu) is
+    # not run: the site was restructured; German recalls reach Safety Gate.
+    from app.scrapers.safety_gate import ingest_safety_gate
+    from app.scrapers.nhtsa import ingest_nhtsa_all
+    from app.services.reliability_runner import run_reliability_scorer
 
-        from app.scrapers.safety_gate import ingest_safety_gate
-        sg_stats = ingest_safety_gate(db, max_pages=20, sleep_seconds=1.5)
-        print(f"[SCHEDULER] Safety Gate: {sg_stats}")
-
-        from app.scrapers.nhtsa import ingest_nhtsa_all
-        nhtsa_stats = ingest_nhtsa_all(db, sleep_seconds=0.4)
-        print(f"[SCHEDULER] NHTSA: {nhtsa_stats}")
-
-        from app.scrapers.kba_recalls import ingest_kba_incremental
-        kba_stats = ingest_kba_incremental(db, sleep_seconds=2.0)
-        print(f"[SCHEDULER] KBA: {kba_stats}")
-
-        from app.services.reliability_runner import run_reliability_scorer
-        scorer_stats = run_reliability_scorer(db)
-        print(f"[SCHEDULER] Bayesian scorer: {scorer_stats}")
-
-    except Exception as e:
-        print(f"[SCHEDULER] Reliability update error: {e}")
-        db.rollback()
-    finally:
-        db.close()
+    print("[SCHEDULER] Starting reliability update...")
+    for label, step in (
+        ("Safety Gate",     lambda db: ingest_safety_gate(db, max_pages=10, sleep_seconds=1.0)),
+        ("NHTSA",           lambda db: ingest_nhtsa_all(db, sleep_seconds=0.4)),
+        ("Bayesian scorer", run_reliability_scorer),
+    ):
+        db = SessionLocal()
+        try:
+            print(f"[SCHEDULER] {label}: {step(db)}")
+        except Exception as e:
+            print(f"[SCHEDULER] {label} error: {e}")
+            db.rollback()
+        finally:
+            db.close()
 
 
 async def _reliability_scorer_loop() -> None:
