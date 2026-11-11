@@ -338,11 +338,28 @@ def _ensure_playwright_browsers() -> None:
 
 # ── App setup ──────────────────────────────────────────────────────────────────
 
+def _missing_columns(db, table: str, columns: list[str]) -> bool:
+    from sqlalchemy import text
+    have = {r[0] for r in db.execute(text(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = :t"), {"t": table})}
+    return any(c not in have for c in columns)
+
+
 def _run_startup_migrations() -> None:
-    """Idempotent schema migrations that run on every deploy."""
+    """Idempotent schema migrations that run on every deploy.
+
+    Lock-safe: ALTER TABLE takes an ACCESS EXCLUSIVE lock *before* checking
+    IF NOT EXISTS, so running it on every boot made a cold start queue behind
+    any open transaction on `generations` (e.g. the monthly refresh) — and
+    every other query on that table then queued behind the boot. Now the
+    column ALTERs only run when a column is actually missing, and the whole
+    migration fails fast (lock_timeout) instead of waiting; it simply retries
+    on the next boot.
+    """
     db = SessionLocal()
     try:
         from sqlalchemy import text
+        db.execute(text("SET LOCAL lock_timeout = '4s'"))
         db.execute(text("""
             CREATE TABLE IF NOT EXISTS price_observations (
                 id                SERIAL PRIMARY KEY,
@@ -376,28 +393,34 @@ def _run_startup_migrations() -> None:
                 ON price_observations(source_domain, observed_at DESC)
         """))
         # v54: depreciation columns on generations
-        db.execute(text("""
-            ALTER TABLE generations
-                ADD COLUMN IF NOT EXISTS depreciation_pct_year  NUMERIC(5,4),
-                ADD COLUMN IF NOT EXISTS depreciation_curve     JSONB NOT NULL DEFAULT '[]'::jsonb,
-                ADD COLUMN IF NOT EXISTS depreciation_as_of     DATE
-        """))
+        if _missing_columns(db, "generations",
+                            ["depreciation_pct_year", "depreciation_curve", "depreciation_as_of"]):
+            db.execute(text("""
+                ALTER TABLE generations
+                    ADD COLUMN IF NOT EXISTS depreciation_pct_year  NUMERIC(5,4),
+                    ADD COLUMN IF NOT EXISTS depreciation_curve     JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    ADD COLUMN IF NOT EXISTS depreciation_as_of     DATE
+            """))
         # Bayesian/curator reliability columns on generations. Older seed
         # snapshots stop at 'platform', so enrichment + the curator agent (and
         # the admin pending query) need these added idempotently.
-        db.execute(text("""
-            ALTER TABLE generations
-                ADD COLUMN IF NOT EXISTS reliability_score        NUMERIC(3,1),
-                ADD COLUMN IF NOT EXISTS reliability_ci_low       NUMERIC(3,1),
-                ADD COLUMN IF NOT EXISTS reliability_ci_high      NUMERIC(3,1),
-                ADD COLUMN IF NOT EXISTS reliability_data_quality VARCHAR(20),
-                ADD COLUMN IF NOT EXISTS reliability_sources      JSONB
-        """))
+        if _missing_columns(db, "generations",
+                            ["reliability_score", "reliability_ci_low", "reliability_ci_high",
+                             "reliability_data_quality", "reliability_sources"]):
+            db.execute(text("""
+                ALTER TABLE generations
+                    ADD COLUMN IF NOT EXISTS reliability_score        NUMERIC(3,1),
+                    ADD COLUMN IF NOT EXISTS reliability_ci_low       NUMERIC(3,1),
+                    ADD COLUMN IF NOT EXISTS reliability_ci_high      NUMERIC(3,1),
+                    ADD COLUMN IF NOT EXISTS reliability_data_quality VARCHAR(20),
+                    ADD COLUMN IF NOT EXISTS reliability_sources      JSONB
+            """))
         # v55: admin_notes for concierge pipeline (internal operator field)
-        db.execute(text("""
-            ALTER TABLE concierge_requests
-                ADD COLUMN IF NOT EXISTS admin_notes TEXT
-        """))
+        if _missing_columns(db, "concierge_requests", ["admin_notes"]):
+            db.execute(text("""
+                ALTER TABLE concierge_requests
+                    ADD COLUMN IF NOT EXISTS admin_notes TEXT
+            """))
         # v56: append-only listing snapshot log (price history + relisting/rollback moat)
         # Unlike price_observations (one row per URL, overwritten), this NEVER overwrites —
         # every observation is a new row. Foundation for price-history graphs,

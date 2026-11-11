@@ -308,7 +308,11 @@ def ingest_nhtsa_for_generation(
             except Exception as e:
                 logger.error(f"Recall processing error {make}/{nhtsa_model}/{year}: {e}")
                 stats["errors"] += 1
+                db.rollback()  # an aborted transaction would fail every later write
 
+            # Commit before sleeping/fetching again: never hold a transaction
+            # (and its locks) open across network calls.
+            db.commit()
             time.sleep(sleep_seconds)
 
             # ── Complaints ────────────────────────────────────────
@@ -390,7 +394,9 @@ def ingest_nhtsa_for_generation(
             except Exception as e:
                 logger.error(f"Complaint processing error {make}/{nhtsa_model}/{year}: {e}")
                 stats["errors"] += 1
+                db.rollback()
 
+            db.commit()
             time.sleep(sleep_seconds)
 
     return stats

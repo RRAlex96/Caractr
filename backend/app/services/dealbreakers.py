@@ -38,7 +38,15 @@ _EMPTY = {
     "critical_issue_count": 0,
     "recalls": [],
     "critical_issues": [],
+    "us_recall_count": 0,
+    "us_recalls": [],
 }
+
+# US recalls (NHTSA) cover US-spec cars — engines, emissions kit and suppliers
+# often differ from the European version — so they never drive the loud
+# deal-breaker on their own. They're listed separately, with that caveat, and
+# still feed the reliability score.
+_US_SOURCES = {"nhtsa"}
 
 
 def _source_label(source: str) -> str:
@@ -106,7 +114,8 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         return dict(_EMPTY)
 
     # ── Official recalls (high-severity only) ────────────────────────────────
-    recalls: list[dict] = []
+    recalls: list[dict] = []      # EU-official (Safety Gate / KBA): the loud tier
+    us_recalls: list[dict] = []   # NHTSA: shown separately, never loud on its own
     seen: set = set()
     # Severities are fixed internal constants (not user input) — inlined so the
     # IN-list is a plain SQL literal, no bind-expansion needed.
@@ -140,8 +149,12 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         if key in seen:
             continue
         seen.add(key)
+        is_us = (r["source"] or "").lower() in _US_SOURCES
+        target, cap = (us_recalls, 4) if is_us else (recalls, 6)
+        if len(target) >= cap:
+            continue
         url = r["source_url"]
-        recalls.append({
+        target.append({
             "title": str(title)[:160],
             "description": str(desc)[:400],
             "severity": (r["severity"] or "").lower(),
@@ -150,7 +163,7 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
             "date": date_,
             "affected_years": _years_label(lo, hi),
         })
-        if len(recalls) >= 6:
+        if len(recalls) >= 6 and len(us_recalls) >= 4:
             break
 
     # ── Critical known failures (curator deal-breaker tier) ──────────────────
@@ -186,4 +199,6 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None)
         "critical_issue_count": len(critical),
         "recalls": recalls,
         "critical_issues": critical,
+        "us_recall_count": len(us_recalls),
+        "us_recalls": us_recalls,
     }

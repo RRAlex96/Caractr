@@ -117,6 +117,9 @@ export interface Dealbreakers {
   critical_issue_count: number
   recalls: DealbreakerRecall[]
   critical_issues: DealbreakerIssue[]
+  /** US (NHTSA) recalls — US-spec cars, may not apply in Europe; never loud on their own. */
+  us_recall_count?: number
+  us_recalls?: DealbreakerRecall[]
 }
 
 export interface MarketBand {

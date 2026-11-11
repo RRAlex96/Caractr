@@ -118,3 +118,45 @@ def test_years_label():
     assert _years_label(2024, None) == "2024+"
     assert _years_label(2019, date.today().year) == "2019+"
     assert _years_label(None, None) is None
+
+
+# ── US recalls never drive the loud banner on their own ─────────────────────
+
+from datetime import date as _date
+
+from app.services.dealbreakers import get_dealbreakers
+
+
+class _Res:
+    def __init__(self, rows): self._rows = rows
+    def mappings(self): return self
+    def fetchall(self): return self._rows
+
+
+class _FakeDB:
+    def __init__(self, recall_rows):
+        self.calls = 0
+        self.recall_rows = recall_rows
+    def execute(self, *_a, **_k):
+        self.calls += 1
+        return _Res(self.recall_rows if self.calls == 1 else [])
+
+
+def _recall(source, title):
+    return {"source": source, "source_url": "https://example.test/" + title, "severity": "serious",
+            "observed_month": _date(2026, 1, 1), "payload": {"title": title, "description": title},
+            "year_start": 2015, "year_end": None}
+
+
+def test_us_only_recalls_are_not_a_dealbreaker():
+    d = get_dealbreakers(_FakeDB([_recall("nhtsa", "US fuel pump")]), model_id=1)
+    assert d["has_dealbreaker"] is False
+    assert d["us_recall_count"] == 1 and d["recall_count"] == 0
+
+
+def test_eu_recall_is_loud_and_us_listed_separately():
+    d = get_dealbreakers(_FakeDB([_recall("eu_safety_gate", "EU steering bolt"),
+                                  _recall("nhtsa", "US fuel pump")]), model_id=1)
+    assert d["has_dealbreaker"] is True
+    assert [r["title"] for r in d["recalls"]] == ["EU steering bolt"]
+    assert [r["title"] for r in d["us_recalls"]] == ["US fuel pump"]
