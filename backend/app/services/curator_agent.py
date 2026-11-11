@@ -18,6 +18,7 @@ Run it on demand (cheap, no always-on infra):
 from typing import Optional
 
 import json
+import os
 import re
 
 from sqlalchemy import text
@@ -238,18 +239,27 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
 
 # ── THE AGENT LOOP ───────────────────────────────────────────────────────────
 def run_curator(db: Session, limit: int = 10,
-                autosave_confidence: float = AUTOSAVE_CONFIDENCE) -> dict:
+                autosave_confidence: float = AUTOSAVE_CONFIDENCE,
+                pause_seconds: float | None = None) -> dict:
     """
     Work toward the goal (fill reliability gaps), one model at a time, deciding
     what to do with each result. Returns a report of what it did.
+
+    pause_seconds (default env CURATOR_PAUSE, else 0) spaces out models so a
+    free-tier per-minute LLM quota isn't tripped mid-run.
     """
+    import time
+    if pause_seconds is None:
+        pause_seconds = float(os.getenv("CURATOR_PAUSE", "0"))
     if not llm_available():
         return {"error": "LLM unavailable — set GEMINI_API_KEY"}
 
     gaps = find_gaps(db, limit)
     report = {"gaps": len(gaps), "researched": 0, "saved": 0, "queued": 0, "errors": 0, "log": []}
 
-    for m in gaps:
+    for i, m in enumerate(gaps):
+        if i and pause_seconds > 0:
+            time.sleep(pause_seconds)
         label = f"{m['brand']} {m['model']}"
         try:
             draft = research_model(m["brand"], m["model"])          # TOOL: reason
