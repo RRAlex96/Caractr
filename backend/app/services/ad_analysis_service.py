@@ -34,7 +34,8 @@ def _strip_accents(s: str) -> str:
     )
 
 from app.scrapers.dispatcher import fetch_detail_for_url, detect_source, extract_slugs_from_url, is_supported_url, source_label
-from app.services.dealbreakers import get_dealbreakers
+from app.services.dealbreakers import get_dealbreakers, merge_known_issues
+from app.services.known_issues import match_listing
 from app.scrapers.normalizer import (
     _compute_price_delta,
     _compute_km_per_year,
@@ -332,7 +333,8 @@ def _get_cached_analysis(db: Session, listing_url: str) -> Optional[dict]:
     row = db.execute(text("""
         SELECT n.id, n.price, n.year, n.km, n.km_per_year, n.price_delta, n.deal_tier,
                n.deal_score, n.seller_type, n.brand_name, n.model_name, n.description,
-               n.llm_analysis, n.analysis_cached_at, n.photo_count, n.listing_age_days
+               n.llm_analysis, n.analysis_cached_at, n.photo_count, n.listing_age_days,
+               n.fuel_type
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
@@ -411,6 +413,47 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
         info["dealbreakers"] = get_dealbreakers(db, model_id, year=year)
 
     return info
+
+
+# Engine facts kept in the cached analysis blob, so a cache hit can re-match
+# curated known issues against whatever is approved *now*.
+_LISTING_ENGINE_KEYS = ("version", "engine_displacement_cc", "engine_power_hp", "transmission", "fuel_type")
+
+
+def known_issue_dealbreakers_for_cached(model_info: Optional[dict], row: dict, llm: dict) -> Optional[dict]:
+    """Cache hits and permalinks: re-match against the engine facts saved with
+    the analysis, so approvals made since then take effect."""
+    listing = {**row, **{k: v for k, v in (llm.get("_listing_engine") or {}).items() if v is not None}}
+    return _known_issue_dealbreakers(model_info, listing)[0]
+
+
+def _known_issue_dealbreakers(model_info: Optional[dict], listing: dict) -> tuple[Optional[dict], list]:
+    """Deal-breaker payload with the curated engine issues that match THIS
+    listing (its year, fuel, displacement and version) folded in."""
+    base = (model_info or {}).get("dealbreakers")
+    try:
+        matched = match_listing(listing)
+    except Exception as e:  # never let curation data break an analysis
+        print(f"[AD_ANALYSIS] Known-issue match error: {e}")
+        return base, []
+    if not matched:
+        return base, []
+    print(f"[AD_ANALYSIS] Known issues matched: {[i['id'] for i in matched]}")
+    return merge_known_issues(base, matched), matched
+
+
+def _known_issues_prompt_note(matched: list) -> str:
+    """Curated, sourced findings for the LLM — so the narrative can't call an
+    engine 'bulletproof' while the page shows it in red."""
+    if not matched:
+        return ""
+    parts = []
+    for i in matched:
+        lo, hi = i["years"]
+        tier = "FALHA GRAVE" if i["severity"] == "critico" else "ponto fraco"
+        parts.append(f"[{tier}] {i['name']} ({lo}-{hi}): {i['problem']}. Verificar: {i['check']}")
+    return ("FALHAS CONHECIDAS VERIFICADAS (com fontes) para a motorização deste anúncio — "
+            "menciona-as nos red_flags, engine_analysis e inspection_checklist: " + " | ".join(parts))
 
 
 def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tuple]:
@@ -1512,6 +1555,7 @@ async def _analyse_listing_inner(
             cached_market = _get_market_stats(db, cached_model_id, cached.get("year")) or {}
         if not cached.get("source_url"):
             cached["source_url"] = listing_url
+        cached_dealbreakers = known_issue_dealbreakers_for_cached(cached_model_info, cached, llm)
         return _build_response(
             cached, llm, from_cache=True,
             enrichment=cached_enrichment or None,
@@ -1519,6 +1563,7 @@ async def _analyse_listing_inner(
             market_stats=cached_market or None,
             analysis_id=cached.get("id"),
             price_history=_build_price_history(db, cached),
+            dealbreakers=cached_dealbreakers,
         )
 
     # ── 2. Resolve or scrape listing ──
@@ -1621,6 +1666,11 @@ async def _analyse_listing_inner(
     if model_id:
         model_info = _get_model_info(db, brand_name, model_name, year=year)
 
+    # Curated known engine/gearbox failures for THIS car (year + engine).
+    # Matched on the listing itself, so it works even when the model isn't
+    # in the catalogue.
+    dealbreakers, known_matched = _known_issue_dealbreakers(model_info, normalized)
+
     # ── 3a. Compute deal metrics ──
     # Use the MEDIAN as the market reference, not the average. The average is
     # skewed by expensive trims/outliers (e.g. M-Sport variants), which made the
@@ -1660,7 +1710,12 @@ async def _analyse_listing_inner(
     # ── 4. Analysis (Gemini or rule engine fallback) ──
     # Single unified LLM call returns both analysis + enrichment fields.
     # This halves Gemini API calls (critical on free tier: 20/day limit).
-    llm_result = await _analyse(normalized, model_info, market_stats, user_profile)
+    prompt_model_info = model_info
+    if known_matched:
+        note = _known_issues_prompt_note(known_matched)
+        prompt_model_info = {**(model_info or {}),
+                             "known_issues": f"{note}. {(model_info or {}).get('known_issues') or ''}".strip()}
+    llm_result = await _analyse(normalized, prompt_model_info, market_stats, user_profile)
 
     # ── 4a. Profile fit (when user_profile provided and model_info available) ──
     fit_result = None
@@ -1685,7 +1740,10 @@ async def _analyse_listing_inner(
     if norm_id:
         try:
             # Include enrichment in the cached blob so cache hits return full responses
-            llm_result_to_cache = {**llm_result, **enrichment}
+            llm_result_to_cache = {
+                **llm_result, **enrichment,
+                "_listing_engine": {k: normalized.get(k) for k in _LISTING_ENGINE_KEYS},
+            }
             _store_analysis(db, norm_id, llm_result_to_cache, deal_tier, deal_score)
         except Exception as e:
             print(f"[AD_ANALYSIS] Cache store error: {e}")
@@ -1714,6 +1772,7 @@ async def _analyse_listing_inner(
         depreciation=depreciation_data,
         analysis_id=normalized.get("id"),
         price_history=price_history,
+        dealbreakers=dealbreakers,
     )
 
 
@@ -2129,6 +2188,7 @@ def _build_response(
     depreciation: Optional[dict] = None,
     analysis_id: Optional[int] = None,
     price_history: Optional[dict] = None,
+    dealbreakers: Optional[dict] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
     km_per_year = listing.get("km_per_year")
@@ -2218,7 +2278,7 @@ def _build_response(
             "ci_high":      (model_info or {}).get("bayesian_reliability_ci_high"),
             "data_quality": (model_info or {}).get("bayesian_reliability_quality"),
         } if model_info and model_info.get("bayesian_reliability_score") else None,
-        "dealbreakers": (model_info or {}).get("dealbreakers"),
+        "dealbreakers": dealbreakers if dealbreakers is not None else (model_info or {}).get("dealbreakers"),
         "depreciation": depreciation,
     }
 

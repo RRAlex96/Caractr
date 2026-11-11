@@ -115,6 +115,17 @@ export interface DealbreakerIssue {
   affected_years: string | null
   fix_cost_estimate: string | null
   source: string
+  /** Curated (hand-reviewed, sourced) entry matched to this listing's engine and year. */
+  curated?: boolean
+  id?: string
+  severity?: "critico" | "alto"
+  component?: "motor" | "caixa"
+  /** One-line title, e.g. "Correia de distribuição em banho de óleo degrada-se cedo". */
+  problem?: string
+  /** What the buyer should ask or verify before buying. */
+  check?: string
+  mitigation?: string | null
+  sources?: { label: string; url: string }[]
 }
 
 export interface Dealbreakers {
@@ -125,6 +136,8 @@ export interface Dealbreakers {
   critical_issue_count: number
   recalls: DealbreakerRecall[]
   critical_issues: DealbreakerIssue[]
+  /** Curated amber weak points of this engine/gearbox — what to check, never red. */
+  watch_items?: DealbreakerIssue[]
 }
 
 export interface MarketBand {

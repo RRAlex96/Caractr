@@ -77,7 +77,9 @@ def get_analysis_by_id(
     """
     import json as _json
     from datetime import datetime, timezone, timedelta
-    from app.services.ad_analysis_service import _build_response, _get_model_info, _get_market_stats
+    from app.services.ad_analysis_service import (
+        _build_response, _get_model_info, _get_market_stats, known_issue_dealbreakers_for_cached,
+    )
 
     row = db.execute(text("""
         SELECT n.id, n.price, n.year, n.km, n.km_per_year, n.price_delta, n.deal_tier,
@@ -129,7 +131,8 @@ def get_analysis_by_id(
     brand_n = row["brand_name"] or ""
     model_n = row["model_name"] or ""
     if brand_n and model_n:
-        model_info = _get_model_info(db, brand_n, model_n) or {}
+        # year → recalls/failures filtered to this car's production year
+        model_info = _get_model_info(db, brand_n, model_n, year=row["year"]) or {}
 
     # Market stats
     market_stats = {}
@@ -143,6 +146,7 @@ def get_analysis_by_id(
         model_info=model_info or None,
         market_stats=market_stats or None,
         analysis_id=row["id"],
+        dealbreakers=known_issue_dealbreakers_for_cached(model_info, listing, llm),
     )
 
 

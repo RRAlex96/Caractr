@@ -11,7 +11,7 @@ import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
 import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
-import { KnownFailureAlert, RecallChecklist } from "@/components/analysis/dealbreaker-warning"
+import { EngineWatchList, KnownFailureAlert, RecallChecklist } from "@/components/analysis/dealbreaker-warning"
 import { PriceHistory } from "@/components/analysis/price-history"
 import { FlagsList } from "@/components/analysis/flags-list"
 import { EngineCard } from "@/components/analysis/engine-card"
@@ -206,6 +206,8 @@ function AnalisarContent() {
               {result.analysis.extras_analysis}
             </TextPanel>
           )}
+
+          <EngineWatchList data={result.dealbreakers} />
 
           <RecallChecklist data={result.dealbreakers} year={result.listing?.year} />
 

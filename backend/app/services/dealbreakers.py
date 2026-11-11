@@ -78,6 +78,21 @@ def _risk_label(title: str) -> str | None:
     return risk or None
 
 
+def merge_known_issues(payload: dict | None, matched: list[dict]) -> dict:
+    """Fold curated, listing-matched engine issues (known_issues.match_listing)
+    into a deal-breaker payload. Curated 'critico' entries lead the red list;
+    'alto' entries become `watch_items` — amber "what to check", never red."""
+    from app.services.known_issues import to_payload
+    out = {**_EMPTY, **(payload or {})}
+    crit = [to_payload(i) for i in matched if i["severity"] == "critico"]
+    watch = [to_payload(i) for i in matched if i["severity"] != "critico"]
+    out["critical_issues"] = crit + list(out.get("critical_issues") or [])
+    out["critical_issue_count"] = len(out["critical_issues"])
+    out["has_dealbreaker"] = out["critical_issue_count"] > 0
+    out["watch_items"] = watch
+    return out
+
+
 def _source_label(source: str) -> str:
     return _SOURCE_LABELS.get((source or "").lower(), source or "Fonte oficial")
 
