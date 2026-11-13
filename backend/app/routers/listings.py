@@ -79,6 +79,7 @@ def get_analysis_by_id(
     from datetime import datetime, timezone, timedelta
     from app.services.ad_analysis_service import (
         _build_response, _get_model_info, _get_market_stats, known_issue_dealbreakers_for_cached,
+        _cached_market_for,
     )
 
     row = db.execute(text("""
@@ -139,6 +140,7 @@ def get_analysis_by_id(
     model_id = model_info.get("id") if model_info else row["model_id"]
     if model_id and row["year"]:
         market_stats = _get_market_stats(db, model_id, row["year"]) or {}
+    market_stats = _cached_market_for(market_stats, llm)
 
     return _build_response(
         listing, llm, from_cache=True,

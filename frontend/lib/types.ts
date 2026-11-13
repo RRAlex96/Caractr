@@ -16,6 +16,22 @@ export interface AnalysisListing {
   listing_age_days: number | null
 }
 
+/**
+ * How the car's mileage was taken into account in the market comparison.
+ *  - band: only listings between km_from and km_to were compared
+ *  - pool: too few in the band, but the car's km is typical of the whole pool
+ *  - mismatch: nothing comparable in mileage — the price verdict is withheld
+ */
+export interface MarketKmComparison {
+  basis: "band" | "pool" | "mismatch"
+  car_km: number
+  km_from: number
+  km_to: number
+  in_band_count: number
+  pool_count: number
+  pool_median_km: number
+}
+
 export interface AnalysisDeal {
   tier: "forte" | "razoavel" | "cuidado" | "evitar"
   score: number
@@ -29,6 +45,7 @@ export interface AnalysisDeal {
   market_data_age_days: number | null
   market_data_stale: boolean
   market_fuel_type: string | null
+  market_km_comparison?: MarketKmComparison | null
   generation_year_start: number | null
   generation_year_end: number | null
 }
