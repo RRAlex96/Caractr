@@ -419,12 +419,33 @@ ON CONFLICT (source_url) DO UPDATE SET
 """
 
 
+def reassign(records: list, catalogue: list) -> list:
+    """The records with their catalogue model worked out again, against
+    `catalogue`. The model ids in a snapshot file are those of the catalogue it
+    was collected with; the database it is loaded into may have other ids, new
+    models, or a matcher that has learned a name since."""
+    assign = build_assigner(catalogue)
+    out = []
+    for rec in records:
+        hit = assign(rec.get("make") or "", rec.get("sv_model") or "", rec.get("title") or "",
+                     rec.get("powertrain") or "")
+        out.append({**rec, "model_id": hit["model_id"] if hit else None,
+                    "convertible": bool(hit and hit["convertible"])})
+    return out
+
+
 def load(db, records: list, batch: int = 500, log: Callable[[str], None] = print) -> dict:
-    """Upsert snapshot records into price_observations (by listing URL)."""
+    """Upsert snapshot records into price_observations (by listing URL). Each
+    listing is assigned to a model of this database's catalogue first."""
     from sqlalchemy import text
 
     db.execute(text(SNAPSHOT_COLUMNS_SQL))
     db.commit()
+    catalogue = [dict(r) for r in db.execute(text("""
+        SELECT vm.id, b.name AS brand_name, vm.name AS model_name, vm.body_type
+        FROM vehicle_models vm JOIN brands b ON b.id = vm.brand_id ORDER BY vm.id
+    """)).mappings()]
+    records = reassign(records, catalogue)
     generations = [dict(r) for r in db.execute(text(
         "SELECT id, model_id, year_start, year_end, fuel_type FROM generations")).mappings()]
     rows, counts = observation_rows(records, generations)

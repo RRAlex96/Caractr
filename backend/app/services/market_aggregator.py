@@ -334,6 +334,34 @@ def run_aggregation(db: Session) -> dict:
     return stats
 
 
+def model_year_stats(groups: dict) -> dict:
+    """
+    {(model_id, year): stats or None} from {(model_id, year): [prices]}.
+
+    A year with at least MIN_PUBLISH_SAMPLE clean listings is priced on its
+    own. A thinner one — a low-volume model has two or three listings in most
+    years — is priced on its own listings plus those of the year before and
+    the year after, and failing that of two years each side, when together
+    they reach the threshold. Without this, an Audi Q5 had a price for 2011
+    and 2017 and none in between, and a budget that buys a 2015 one was shown
+    the 2011. A year with no listing of its own gets no row, and None is
+    returned when even five years together are too few: no price is better
+    than one from three listings.
+    """
+    out: dict = {}
+    for (model_id, year), prices in groups.items():
+        st = _compute_stats(prices)
+        for reach in (1, 2):
+            if st and st["n"] >= MIN_PUBLISH_SAMPLE:
+                break
+            pooled = list(prices)
+            for step in range(1, reach + 1):
+                pooled += groups.get((model_id, year - step), []) + groups.get((model_id, year + step), [])
+            st = _compute_stats(pooled) if len(pooled) > len(prices) else st
+        out[(model_id, year)] = st if st and st["n"] >= MIN_PUBLISH_SAMPLE else None
+    return out
+
+
 def _refresh_market_price_stats(db: Session) -> dict:
     """
     Upsert market_price_stats from price_observations aggregated by (model_id, year).
@@ -359,9 +387,8 @@ def _refresh_market_price_stats(db: Session) -> dict:
             groups.setdefault((model_id, year), []).append(float(price))
 
         rows = []
-        for (model_id, year), prices in groups.items():
-            st = _compute_stats(prices)
-            if not st or st["n"] < MIN_PUBLISH_SAMPLE:
+        for (model_id, year), st in model_year_stats(groups).items():
+            if st is None:
                 skipped += 1
                 continue
             rows.append((model_id, year, st["n"], st["p50"], st["p10"], st["p90"]))

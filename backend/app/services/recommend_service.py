@@ -17,6 +17,8 @@ from sqlalchemy import text
 import uuid
 import json
 import math
+from datetime import datetime
+from typing import Optional
 
 from app.services.dealbreakers import get_dealbreakers
 
@@ -532,17 +534,30 @@ LEGACY_PRICE_SQL = text("""
 """)
 
 
-def price_for_budget(prices_by_year: list, budget_max: int, stretch_limit: float):
+# A model is recommended at a registration year no older than this. Without
+# it, the year a family budget "buys" of a Porsche Cayenne is 2008: true, and
+# not advice. Small budgets buy older cars, so the limit is wider for them.
+_MAX_AGE_YEARS = 12
+_MAX_AGE_YEARS_SMALL_BUDGET = 18
+_SMALL_BUDGET = 8000
+
+
+def price_for_budget(prices_by_year: list, budget_max: int, stretch_limit: float,
+                     this_year: Optional[int] = None):
     """
     (price row, is_stretch) for the car of this model the budget buys: the
     newest registration year whose median price fits the budget; failing that,
     the newest within the stretch limit. None when every year we have a price
-    for costs more.
+    for costs more, or when the only years that fit are older than the age
+    limit (_MAX_AGE_YEARS).
 
     A used model has no single price. The catalogue used to carry one
     (placeholder) figure per model, mostly for 2022, so a 12 000 EUR budget
     never saw a Golf at all; it buys a 2016 one.
     """
+    this_year = this_year or datetime.now().year
+    max_age = _MAX_AGE_YEARS if budget_max >= _SMALL_BUDGET else _MAX_AGE_YEARS_SMALL_BUDGET
+    prices_by_year = [y for y in prices_by_year if y["year"] >= this_year - max_age]
     in_budget = [y for y in prices_by_year if y["p50"] <= budget_max]
     if in_budget:
         return max(in_budget, key=lambda y: y["year"]), False

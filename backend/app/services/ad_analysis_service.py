@@ -1820,6 +1820,28 @@ _BODY_STYLE_WORDS = frozenset({
 
 _BRAND_ALIASES = {"vw": "volkswagen", "mercedes": "mercedes-benz", "merc": "mercedes-benz"}
 
+# Another name the market uses for a catalogue model, (brand, name as listed)
+# -> catalogue name. Checked on 2026-11-13 against every model name on
+# Standvirtual: the Hyundai Kona is sold in Portugal as the Kauai, the plug-in
+# MG HS as the EHS, the 2017-2021 Opel Grandland as the Grandland X, the
+# electric Renault Scénic as the Scenic E-Tech.
+_MODEL_NAME_ALIASES = {
+    ("hyundai", "kauai"): "kona",
+    ("mg", "ehs"): "hs",
+    ("opel", "grandland x"): "grandland",
+    ("renault", "scenic e-tech"): "scenic",
+}
+
+
+def _electric_twin(name: str) -> Optional[str]:
+    """The model an electric version is named after, when the name is nothing
+    but that model with an "e": 'e-208' -> '208', 'mokka-e' -> 'mokka',
+    '500e' -> '500'. None otherwise — and 'megane e-tech' is not one (it is a
+    different car from the Mégane)."""
+    m = re.fullmatch(r"e[- ](.+)", name) or re.fullmatch(r"(.+)-e", name) or re.fullmatch(r"(\d{3,4})e", name)
+    return m.group(1).strip() if m and m.group(1).strip() else None
+
+
 _MINI_HATCH_WORDS = frozenset({"one", "cooper", "john", "works", "jcw"})
 _MINI_OTHER_MODELS = frozenset({"clubman", "countryman", "paceman", "aceman", "coupe", "roadster"})
 
@@ -1854,7 +1876,9 @@ def match_catalogue_model(
          first, so a stub named "530" cannot capture the 530s. Two models of
          one series (Série 2 Active Tourer / Gran Coupé) need the body words.
       2. its name is the catalogue name (this also finds stubs), or
-      3. its name without body-style words is ("A3 Sportback" -> "A3").
+      3. its name without body-style words is ("A3 Sportback" -> "A3"), or it
+         is another name for the model: a market alias ("Kauai" -> "Kona") or
+         the electric version under its own name ("e-208" -> "208").
       4. Mercedes: a class letter -> "Classe X"; MINI: a hatch trim -> "Cooper".
     The old substring and any-word matches are gone: they made a C4 Cactus a
     C4, a Range Rover a Range Rover Sport and a Kangoo E-Tech a Renault 5.
@@ -1917,6 +1941,16 @@ def match_catalogue_model(
         hit = named(core) if core and core != name else None
         if hit:
             return out(hit)
+
+    # 3b. another name for a catalogue model: a market alias ("Kauai" is the
+    # Kona), or the electric version filed under its own name ("e-208" is a
+    # 208, "Mokka-e" a Mokka). With and without body-style words.
+    for name in names:
+        for candidate in (name, _core_model_name(name)):
+            other = _MODEL_NAME_ALIASES.get((brand, candidate)) or _electric_twin(candidate)
+            hit = named(other) if other else None
+            if hit:
+                return out(hit)
 
     # 4. Mercedes: "A 180", "A180", "Classe A" -> "Classe A"; "Classe CLA" -> "CLA"
     if brand == "mercedes-benz":

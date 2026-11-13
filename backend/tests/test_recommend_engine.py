@@ -347,17 +347,17 @@ GOLF = _years((2014, 9500), (2016, 12500), (2018, 15500), (2020, 19500), (2023, 
 
 def test_price_for_budget_picks_the_newest_year_that_fits():
     from app.services.recommend_service import price_for_budget
-    row, over = price_for_budget(GOLF, 16000, 16000 * 1.15)
+    row, over = price_for_budget(GOLF, 16000, 16000 * 1.15, this_year=2026)
     assert (row["year"], over) == (2018, False)
-    row, over = price_for_budget(GOLF, 30000, 30000 * 1.15)
+    row, over = price_for_budget(GOLF, 30000, 30000 * 1.15, this_year=2026)
     assert (row["year"], over) == (2023, False)
 
 
 def test_price_for_budget_stretches_only_when_nothing_fits():
     from app.services.recommend_service import price_for_budget
-    row, over = price_for_budget(GOLF, 9000, 9000 * 1.15)          # the 2014 one, 5% over
+    row, over = price_for_budget(GOLF, 9000, 9000 * 1.15, this_year=2026)   # the 2014 one, 5% over
     assert (row["year"], over) == (2014, True)
-    assert price_for_budget(GOLF, 7000, 7000 * 1.15) is None
+    assert price_for_budget(GOLF, 7000, 7000 * 1.15, this_year=2026) is None
 
 
 def test_hard_constraints_price_the_model_at_that_year():
@@ -381,3 +381,23 @@ def test_budget_floor_uses_the_year_the_budget_buys():
     golf = _model(id=1, avg_price=19500, prices_by_year=GOLF)
     passed, stretch = apply_hard_constraints([golf], {"p8_budget_min": 46000, "p8_budget_max": 60000})
     assert passed == [] and stretch == []
+
+
+def test_a_model_is_not_recommended_at_a_year_older_than_the_age_limit():
+    from app.services.recommend_service import price_for_budget
+    cayenne = _years((2008, 22000), (2012, 31000), (2016, 39000), (2021, 70000))
+    # 25 000 buys a 2008 Cayenne — 18 years old in 2026. Not advice: no pick.
+    assert price_for_budget(cayenne, 25000, 25000 * 1.15, this_year=2026) is None
+    row, over = price_for_budget(cayenne, 40000, 40000 * 1.15, this_year=2026)
+    assert (row["year"], over) == (2016, False)
+    # 12 years old is still inside the limit
+    row, _ = price_for_budget(_years((2014, 9500)), 10000, 11500, this_year=2026)
+    assert row["year"] == 2014
+
+
+def test_a_small_budget_may_buy_an_older_car():
+    from app.services.recommend_service import price_for_budget
+    old = _years((2009, 4500), (2012, 6500))
+    row, _ = price_for_budget(old, 5000, 5750, this_year=2026)       # 17 years old: allowed under 8 000
+    assert row["year"] == 2009
+    assert price_for_budget(_years((2006, 4500)), 5000, 5750, this_year=2026) is None   # 20 years: not even then

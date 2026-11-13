@@ -231,3 +231,20 @@ def test_catalogue_model_id_ignores_accents_on_both_sides():
     assert svc._catalogue_model_id(db, "Renault", "MEGANE") == 28
     assert svc._catalogue_model_id(db, "Renault", "Clio") is None
     assert svc._catalogue_model_id(db, "", "C3") is None
+
+
+def test_reassign_works_out_the_model_again_for_this_catalogue():
+    from app.services.market_snapshot import reassign
+    recs = [{"make": "audi", "sv_model": "a3-sportback", "title": "Audi A3 Sportback", "powertrain": "gaz",
+             "model_id": 999, "convertible": True, "url": "u1"},
+            {"make": "peugeot", "sv_model": "e-208", "title": "Peugeot e-208", "powertrain": "electric",
+             "model_id": None, "url": "u2"},
+            {"make": "hyundai", "sv_model": "kauai", "title": "Hyundai Kauai", "powertrain": "gaz",
+             "model_id": 5, "url": "u3"}]
+    cat = _cat() + [{"id": 77, "brand_name": "Peugeot", "model_name": "208", "body_type": "citadino"}]
+    out = reassign(recs, cat)
+    ids = {c["model_name"]: c["id"] for c in cat}
+    assert out[0]["model_id"] == ids["A3"] and out[0]["convertible"] is False   # the file's id is not trusted
+    assert out[1]["model_id"] == 77                                             # the electric 208
+    assert out[2]["model_id"] == ids["Kona"]
+    assert recs[0]["model_id"] == 999                                           # the input is not changed
