@@ -1776,14 +1776,21 @@ def _with_stored_engine(row: dict) -> dict:
 
 
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
-    """Try to resolve model_id from a listing URL already in the DB."""
+    """A listing already in the DB, read back instead of scraped again.
+
+    The row's id comes with it: the analysis that follows is stored on that
+    row (and gets its permalink) like the analysis of a fresh scrape. Without
+    it the re-analysis of a listing whose stored analysis had gone stale was
+    thrown away, and redone in full on every later request. The row read is
+    the one the cache check reads (the latest for the URL)."""
     row = db.execute(text("""
-        SELECT n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
+        SELECT n.id, n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
                n.km_per_year, n.price_delta, n.deal_tier, n.deal_score, n.seller_type,
                n.description, n.photo_count, n.fuel_type, n.llm_analysis, r.source_url
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
+        ORDER BY n.id DESC
         LIMIT 1
     """), {"url": listing_url}).mappings().fetchone()
     return _with_stored_engine(row) if row else None

@@ -4,6 +4,9 @@ A listing analysed before is not scraped again: its row is read back. The row
 has no column for the engine power, version, displacement or gearbox; they are
 saved in the analysis blob (`_listing_engine`). Read back without them, the car
 was compared across every engine of its model. They now come back with the row.
+
+So does the row's id: the analysis redone from a stored listing is saved on that
+row, as the analysis of a fresh scrape is. It used to be thrown away.
 """
 import asyncio
 import json
@@ -20,7 +23,7 @@ ENGINE = {"version": "1.6 TDI Confortline", "engine_displacement_cc": 1598, "eng
 
 
 def _row(**over):
-    row = {"model_id": 7, "brand_name": "Volkswagen", "model_name": "Golf", "year": 2017, "km": 120000,
+    row = {"id": 42, "model_id": 7, "brand_name": "Volkswagen", "model_name": "Golf", "year": 2017, "km": 120000,
            "price": 14500, "km_per_year": 13000, "price_delta": 0.0, "deal_tier": "razoavel",
            "deal_score": 0.5, "seller_type": "profissional", "description": "Golf 1.6 TDI",
            "photo_count": 12, "fuel_type": "Diesel", "source_url": URL,
@@ -106,6 +109,8 @@ def test_read_back_asks_for_the_blob_and_returns_the_power():
     db = _Db(_row())
     listing = _resolve_model_from_url(db, URL)
     assert "n.llm_analysis" in db.sql[0]
+    assert "n.id," in db.sql[0] and "ORDER BY n.id DESC" in db.sql[0]   # the row the cache check reads
+    assert listing["id"] == 42
     assert db.params[0] == {"url": URL}
     assert listing["engine_power_hp"] == 115 and listing["model_id"] == 7
 
@@ -160,3 +165,63 @@ def test_stored_mini_gets_its_trim_from_the_saved_version(monkeypatch):
     seen = _market_call(monkeypatch, row)
     assert seen["power_hp"] == 231
     assert seen["trim"] == "jcw"
+
+
+def _stored_analysis(monkeypatch, row, market=None):
+    """What analyse_listing saves after redoing the analysis of a stored listing."""
+    saved = {}
+
+    async def no_market(*args, **kwargs):
+        return dict(market or {})
+
+    async def analysis(listing, model_info, market_stats, user_profile):
+        return {"verdict": "razoavel", "summary": "redone"}
+
+    async def no_scrape(db, url):
+        raise AssertionError("a stored listing is not scraped again")
+
+    def store(db, normalized_id, blob, deal_tier, deal_score):
+        saved.update(id=normalized_id, blob=blob, tier=deal_tier, score=deal_score)
+        raise _Reached()
+
+    monkeypatch.setattr(svc, "_get_cached_analysis", lambda db, url: None)   # analysis gone stale
+    monkeypatch.setattr(svc, "_scrape_and_store_listing", no_scrape)
+    monkeypatch.setattr(svc, "_get_generation_window", lambda *args, **kwargs: None)
+    monkeypatch.setattr(svc, "_fetch_live_market_data", no_market)
+    monkeypatch.setattr(svc, "_stored_market_data", lambda *args, **kwargs: None)
+    monkeypatch.setattr(svc, "_get_model_info", lambda *args, **kwargs: {})
+    monkeypatch.setattr(svc, "_analyse", analysis)
+    monkeypatch.setattr(svc, "_store_analysis", store)
+    monkeypatch.setattr(svc, "DISABLE_LIVE_MARKET", False)
+    with pytest.raises(_Reached):
+        asyncio.run(svc.analyse_listing(_Db(row), URL))
+    return saved
+
+
+def test_redone_analysis_is_stored_on_the_listings_row(monkeypatch):
+    saved = _stored_analysis(monkeypatch, _row())
+    assert saved["id"] == 42
+    assert saved["blob"]["summary"] == "redone"
+
+
+def test_storing_the_redone_analysis_keeps_the_engine_facts(monkeypatch):
+    # The new blob replaces the old one: what the old one knew of the engine
+    # must be in it, or the next read-back and every cache hit would lose it.
+    saved = _stored_analysis(monkeypatch, _row())
+    assert saved["blob"]["_listing_engine"] == ENGINE
+
+
+def test_redone_analysis_stores_the_reference_it_was_judged_against(monkeypatch):
+    market = {"median_price": 14721, "avg_price": 14800, "sample_count": 58, "source": "live",
+              "power_comparison": {"car_power_hp": 115, "power_from": 97, "power_to": 133, "pool_count": 60}}
+    saved = _stored_analysis(monkeypatch, _row(), market)
+    ref = saved["blob"]["_market_ref"]
+    assert ref["median_price"] == 14721 and ref["sample_count"] == 58
+    assert ref["power_comparison"]["power_from"] == 97
+
+
+def test_listing_without_saved_engine_is_stored_too(monkeypatch):
+    saved = _stored_analysis(monkeypatch, _row(llm_analysis={"verdict": "bom"}))
+    assert saved["id"] == 42
+    assert saved["blob"]["_listing_engine"]["engine_power_hp"] is None
+    assert saved["blob"]["_listing_engine"]["fuel_type"] == "Diesel"
