@@ -16,7 +16,9 @@ from app.services.ad_analysis_service import (
     _build_response,
     _cached_market_for,
     _km_band,
-    _withhold_if_km_mismatch,
+    _median,
+    _select_km_comparables,
+    _withhold_if_not_comparable,
 )
 
 
@@ -101,7 +103,7 @@ def test_no_comparable_mileage_withholds_the_price_reference(monkeypatch):
     # The pool's stats are still returned: they are what goes to the database.
     assert stats["sample_count"] == 8 and stats["median_price"] == 29750
 
-    withheld = _withhold_if_km_mismatch(stats)
+    withheld = _withhold_if_not_comparable(stats)
     assert withheld["km_comparison"] == stats["km_comparison"]
     assert withheld["source"] == "live"
     for key in ("avg_price", "median_price", "min_price", "max_price", "sample_count"):
@@ -116,8 +118,8 @@ def test_no_comparable_mileage_withholds_the_price_reference(monkeypatch):
 
 def test_other_bases_are_not_withheld(monkeypatch):
     stats = _market(monkeypatch, LOW_KM + HIGH_KM, km=170000)
-    assert _withhold_if_km_mismatch(stats) is stats
-    assert _withhold_if_km_mismatch({}) == {}
+    assert _withhold_if_not_comparable(stats) is stats
+    assert _withhold_if_not_comparable({}) == {}
 
 
 def test_listings_without_km_are_never_counted_inside_the_band(monkeypatch):
@@ -190,8 +192,11 @@ def test_real_530e_pool(monkeypatch):
     before = _market(monkeypatch, listings, km=None, year=2018)
     assert (before["median_price"], before["sample_count"]) == (29895, 16)
 
-    after = _market(monkeypatch, listings, km=170000, year=2018)
-    assert (after["median_price"], after["sample_count"]) == (28900, 9)
-    assert after["km_comparison"]["basis"] == "band"
-    assert after["km_comparison"]["pool_median_km"] == 127050
-    assert after["pool_stats"]["median_price"] == 29895
+    # The mileage band on its own: nine listings, six of them 2020–2022 cars.
+    pool = [{"year": y, "km": km, "price": p} for y, km, p in REAL_530E if y <= 2023]
+    in_band, km_info = _select_km_comparables(pool, 170000)
+    assert (round(_median([l["price"] for l in in_band])), len(in_band)) == (28900, 9)
+    assert km_info["basis"] == "band"
+    assert km_info["pool_median_km"] == 127050
+    assert sum(1 for l in in_band if l["year"] >= 2020) == 6
+    # What the car is judged against now: test_market_year_mix.py.
