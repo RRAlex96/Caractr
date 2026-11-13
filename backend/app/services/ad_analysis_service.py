@@ -1599,18 +1599,43 @@ def _build_price_history(db: Session, listing: dict) -> Optional[dict]:
     }
 
 
+def _with_stored_engine(row: dict) -> dict:
+    """A listing row read back from the DB, plus the engine facts its last
+    analysis saved (power, version, displacement, gearbox).
+
+    The listing table has no column for them; they live in the analysis blob
+    (`_listing_engine`), which stays on the row after the analysis goes stale.
+    Without them a re-analysed listing is compared across every engine of its
+    model, and matched against no engine-specific known issue. A column the
+    row does have (fuel) is never overridden; a listing analysed before the
+    blob carried them, or never analysed, comes back as it is."""
+    out = dict(row)
+    blob = out.pop("llm_analysis", None)
+    if isinstance(blob, str):
+        try:
+            blob = json.loads(blob)
+        except ValueError:
+            blob = None
+    engine = blob.get("_listing_engine") if isinstance(blob, dict) else None
+    if isinstance(engine, dict):
+        for key in _LISTING_ENGINE_KEYS:
+            if out.get(key) is None and engine.get(key) is not None:
+                out[key] = engine[key]
+    return out
+
+
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     """Try to resolve model_id from a listing URL already in the DB."""
     row = db.execute(text("""
         SELECT n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
                n.km_per_year, n.price_delta, n.deal_tier, n.deal_score, n.seller_type,
-               n.description, n.photo_count, n.fuel_type, r.source_url
+               n.description, n.photo_count, n.fuel_type, n.llm_analysis, r.source_url
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
         LIMIT 1
     """), {"url": listing_url}).mappings().fetchone()
-    return dict(row) if row else None
+    return _with_stored_engine(row) if row else None
 
 
 # ── Variant → series mapping for brands that use numeric/letter variants ──
