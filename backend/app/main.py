@@ -392,6 +392,13 @@ def _run_startup_migrations() -> None:
             CREATE INDEX IF NOT EXISTS idx_po_source_domain
                 ON price_observations(source_domain, observed_at DESC)
         """))
+        # Market snapshot columns (engine, gearbox, body variant of each listing).
+        # The stored-pool fallback of the ad analysis filters on them.
+        if _missing_columns(db, "price_observations",
+                            ["engine_power_hp", "engine_cc", "gearbox", "powertrain",
+                             "variant", "version", "origin", "listed_at"]):
+            from app.services.market_snapshot import SNAPSHOT_COLUMNS_SQL
+            db.execute(text(SNAPSHOT_COLUMNS_SQL))
         # v54: depreciation columns on generations
         if _missing_columns(db, "generations",
                             ["depreciation_pct_year", "depreciation_curve", "depreciation_as_of"]):

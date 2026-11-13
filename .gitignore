@@ -39,3 +39,6 @@ docs/
 /npm
 /backend/python
 /frontend/npm
+
+# Market snapshots (listings read by scripts/market_snapshot.py)
+backend/snapshots/
