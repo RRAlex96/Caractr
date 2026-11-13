@@ -160,3 +160,88 @@ def test_stored_mini_gets_its_trim_from_the_saved_version(monkeypatch):
     seen = _market_call(monkeypatch, row)
     assert seen["power_hp"] == 231
     assert seen["trim"] == "jcw"
+
+
+# ── A stored listing read over a week ago is read again ──────────────────────
+
+from datetime import datetime, timedelta, timezone
+
+from app.services.ad_analysis_service import CACHE_TTL_HOURS, _stored_listing_is_old
+
+
+def _days_ago(days):
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def test_a_listing_read_over_a_week_ago_is_old():
+    assert CACHE_TTL_HOURS == 168
+    assert _stored_listing_is_old({"scraped_at": _days_ago(8)})
+    assert not _stored_listing_is_old({"scraped_at": _days_ago(6)})
+    # stored without a time zone: read as UTC
+    assert _stored_listing_is_old({"scraped_at": _days_ago(8).replace(tzinfo=None)})
+    # no date: taken as it is
+    assert not _stored_listing_is_old({})
+    assert not _stored_listing_is_old({"scraped_at": None})
+
+
+def test_read_back_carries_the_row_id_and_the_latest_row():
+    db = _Db(_row(id=41, scraped_at=_days_ago(1)))
+    listing = _resolve_model_from_url(db, URL)
+    assert "n.id" in db.sql[0] and "r.scraped_at" in db.sql[0]
+    assert "ORDER BY n.id DESC" in db.sql[0]
+    # the id is what lets the new analysis be saved on the row
+    assert listing["id"] == 41
+
+
+def _analyse_stored(monkeypatch, row, scrape):
+    """Run the analysis of a stored listing up to the market comparison; returns
+    what the comparison was asked and how many times the listing was scraped."""
+    seen, calls = {}, []
+
+    async def market(brand, model, year, **kw):
+        seen.update(kw, brand=brand, model=model, year=year)
+        raise _Reached()
+
+    async def scraper(db, url):
+        calls.append(url)
+        return scrape
+
+    monkeypatch.setattr(svc, "_get_cached_analysis", lambda db, url: None)
+    monkeypatch.setattr(svc, "_scrape_and_store_listing", scraper)
+    monkeypatch.setattr(svc, "_get_generation_window", lambda *args, **kwargs: None)
+    monkeypatch.setattr(svc, "_fetch_live_market_data", market)
+    monkeypatch.setattr(svc, "DISABLE_LIVE_MARKET", False)
+    result = None
+    try:
+        result = asyncio.run(svc.analyse_listing(_Db(row), URL))
+    except _Reached:
+        pass
+    return seen, calls, result
+
+
+def test_old_stored_listing_is_read_again_and_judged_on_todays_price(monkeypatch):
+    fresh = {"id": 41, "model_id": 7, "brand_name": "Volkswagen", "model_name": "Golf", "year": 2017,
+             "km": 131000, "price": 12900, "fuel_type": "Diesel", "engine_power_hp": 115,
+             "description": "Golf 1.6 TDI", "source_url": URL}
+    seen, calls, _ = _analyse_stored(monkeypatch, _row(id=41, scraped_at=_days_ago(9)), fresh)
+    assert calls == [URL]
+    assert seen["km"] == 131000 and seen["power_hp"] == 115
+
+
+def test_old_stored_listing_is_kept_when_the_site_cannot_be_read(monkeypatch):
+    seen, calls, _ = _analyse_stored(monkeypatch, _row(id=41, scraped_at=_days_ago(9)), None)
+    assert calls == [URL]
+    # the stored listing, with the power its last analysis saved
+    assert seen["km"] == 120000 and seen["power_hp"] == 115
+
+
+def test_old_stored_listing_that_was_removed_says_so(monkeypatch):
+    seen, calls, result = _analyse_stored(monkeypatch, _row(id=41, scraped_at=_days_ago(9)), {"_gone": True})
+    assert calls == [URL] and not seen
+    assert "já não está disponível" in result["error"]
+
+
+def test_recently_read_listing_is_not_read_again(monkeypatch):
+    seen, calls, _ = _analyse_stored(monkeypatch, _row(id=41, scraped_at=_days_ago(2)), None)
+    assert calls == []
+    assert seen["km"] == 120000
