@@ -58,6 +58,20 @@ SERIES_CARS = [
     ("Mercedes Classe A, no sub-model", "Mercedes-Benz", "Classe A", 2019, "Diesel", 120000, 2018, None, None, None, None, "Mercedes Classe A AMG Line 2019"),
 ]
 
+# A car the site files under two ids (DS 7), and one whose trims are different
+# cars in price (the MINI hatch, "Cooper" in the catalogue) (--set split).
+SPLIT_CARS = [
+    ("DS 7 Crossback diesel (other site)", "DS", "7", 2019, "Diesel", 110000, 2018, None, None, None, None, "DS 7 Crossback 1.5 BlueHDi Be Chic EAT8"),
+    ("DS 7 Crossback diesel (Standvirtual)", "DS", "7", 2019, "Diesel", 110000, 2018, None, None, None, "ds7-crossback", "DS DS7 Crossback 1.5 BlueHDi Be Chic EAT8"),
+    ("DS 7 plug-in 2022 (Standvirtual)", "DS", "7", 2022, "Híbrido Plug-In", 60000, 2018, None, None, None, "ds7", "DS DS7 E-Tense Rivoli EAT8"),
+    ("MINI Cooper petrol (other site)", "MINI", "Cooper", 2018, "Gasolina", 70000, 2014, 2023, None, None, None, "MINI Cooper 1.5 Auto 136cv"),
+    ("MINI Cooper S petrol (Standvirtual)", "MINI", "Cooper", 2018, "Gasolina", 70000, 2014, 2023, None, None, "mini-3p", "MINI 3 Portas Cooper S Auto"),
+    ("MINI One petrol (Standvirtual)", "MINI", "Cooper", 2018, "Gasolina", 70000, 2014, 2023, None, None, "mini-5p", "MINI 5 Portas One"),
+    ("MINI JCW petrol (other site)", "MINI", "Cooper", 2018, "Gasolina", 70000, 2014, 2023, None, None, None, "Mini John Cooper Works 231cv"),
+    ("MINI Cooper D diesel (other site)", "MINI", "Cooper", 2017, "Diesel", 120000, 2014, 2023, None, None, None, "MINI Cooper D 5 portas"),
+    ("MINI hatch, no trim in the title", "MINI", "Cooper", 2018, "Gasolina", 70000, 2014, 2023, None, None, None, "Mini 3 portas 2018 gasolina"),
+]
+
 
 def _search_total(html: str):
     """totalCount of the Standvirtual search embedded in a results page."""
@@ -79,6 +93,9 @@ async def _measure(car) -> dict:
     title = car[11] if len(car) > 11 else None
     if not sv_slug and title and hasattr(svc, "_market_model_slug"):
         sv_slug = svc._market_model_slug({"source_title": title}, brand, model, None)
+    extra = {}
+    if title and hasattr(svc, "_market_trim"):
+        extra["trim"] = svc._market_trim({"source_title": title}, None)
     pages, fetched = [], {}
 
     # The page parser (the card parser before result pages were read from the
@@ -107,7 +124,7 @@ async def _measure(car) -> dict:
         stats = await asyncio.wait_for(svc._fetch_live_market_data(
             brand, model, year, fuel_type=fuel, engine_hint=hint,
             gen_year_start=gen_from, gen_year_end=gen_to,
-            variant_code=variant, sv_model_slug=sv_slug, km=km), timeout=45)
+            variant_code=variant, sv_model_slug=sv_slug, km=km, **extra), timeout=45)
     except asyncio.TimeoutError:
         stats = {"timeout": True}
     seconds = round(time.time() - started, 1)
@@ -141,7 +158,7 @@ async def _measure(car) -> dict:
 
 async def _main(tag: str, out_dir: str, only: str, car_set: str) -> None:
     rows = []
-    for car in (SERIES_CARS if car_set == "series" else CARS):
+    for car in {"series": SERIES_CARS, "split": SPLIT_CARS}.get(car_set, CARS):
         if only and only.lower() not in car[0].lower():
             continue
         rows.append(await _measure(car))
@@ -165,6 +182,6 @@ if __name__ == "__main__":
     ap.add_argument("--tag", default="run")
     ap.add_argument("--out", default="measurements")
     ap.add_argument("--only", default="", help="substring of a car label")
-    ap.add_argument("--set", default="common", choices=["common", "series"], dest="car_set")
+    ap.add_argument("--set", default="common", choices=["common", "series", "split"], dest="car_set")
     args = ap.parse_args()
     asyncio.run(_main(args.tag, args.out, args.only, args.car_set))

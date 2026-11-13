@@ -14,9 +14,16 @@ name once case, accents, spaces and punctuation are set aside. What the list
 cannot tell — a model the site calls something else — is in _MODEL_ALIASES.
 scripts/audit_sv_slugs.py checks every catalogue model against the live site.
 
-Known gaps: MINI "Cooper" (the site files MINIs as "3 Portas" / "5 Portas")
-and the DS 7, which the site splits into `ds7` and `ds7-crossback`.
+Two more things the list cannot tell:
+
+  - one car filed under two ids, which are searched together ("a--b" in the
+    path, the site's own form for several models): the DS 7 is `ds7` and
+    `ds7-crossback`, the MINI hatch `mini-3p` and `mini-5p` (_MODEL_GROUPS);
+  - a model whose trims are priced as different cars: every MINI hatch is a
+    "Cooper" in our catalogue, be it a One or a John Cooper Works. Its
+    comparables must share the trim (needs_trim / trim_label).
 """
+import re
 from typing import Optional
 
 from app.scrapers.sv_models_data import SV_MAKES, SV_MODELS
@@ -36,7 +43,29 @@ _MODEL_ALIASES = {
     ("skoda", "superb combi"): "superb-break",
     ("skoda", "octavia combi"): "octavia-break",
     ("skoda", "fabia combi"): "fabia-break",
+    # The MINI hatch: our catalogue calls it "Cooper"; listings name the trim.
+    **{("mini", name): "mini-3p" for name in (
+        "cooper", "cooper s", "cooper d", "cooper sd", "cooper se", "cooper e", "cooper c",
+        "one", "one d", "one first", "john cooper works", "jcw", "hatch", "hatchback")},
 }
+
+# One car the site files under several model ids. Any of them is searched as
+# all of them. Live, 2026-11-13: the two DS 7 ids hold the same model years
+# (2018–2024) and a merged pool prices a listing as well as its own id's does
+# (off by more than 20%: 6% against 8% diesel, 2% against 3% plug-in), with
+# more verdicts; the DS 4 became the "Nº4" in 2025; a MINI 3-door and 5-door of
+# one trim price alike (14% against 15%).
+_MODEL_GROUPS = {
+    "ds": [("ds7", "ds7-crossback"), ("ds4", "number-4")],
+    "mini": [("mini-3p", "mini-5p")],
+}
+
+# Searches (make id, model id as searched) whose comparables must share the
+# car's trim. MINI hatch, leave-one-out over 256 live listings: against all
+# trims the reference is off by more than 20% for 49% of petrol cars (a One is
+# 29% under it, a John Cooper Works 27% over) and 22% of diesels; against the
+# same trim, 14% and 6%.
+_TRIMMED = {("mini", "mini-3p--mini-5p")}
 
 
 def _key(text: Optional[str]) -> str:
@@ -73,7 +102,8 @@ def find_model(make: Optional[str], model_name: Optional[str]) -> Optional[str]:
 
       "XC40" -> "xc-40", "ID.3" -> "id-3", "Mégane" -> "megane", "#1" -> "smart-1",
       "Range Rover Evoque" -> "evoque", and with the make in front where the
-      site writes it that way: DS "4" -> "ds4", MG "4" -> "mg4".
+      site writes it that way: MG "4" -> "mg4". A car filed under several ids
+      comes back as all of them: DS "7" -> "ds7--ds7-crossback".
 
     For BMW, Mercedes-Benz and Lexus the ids found here are series, which the
     search path does not take — ask sv_series first.
@@ -83,7 +113,43 @@ def find_model(make: Optional[str], model_name: Optional[str]) -> Optional[str]:
         return None
     alias = _MODEL_ALIASES.get((make, name))
     if alias:
-        return alias
+        return expand_model(make, alias)
     by_key = _MODEL_BY_KEY.get(make, {})
     key = name.replace(" ", "")
-    return by_key.get(key) or by_key.get(_key(SV_MAKES.get(make)) + key) or by_key.get(_key(make) + key)
+    return expand_model(make, by_key.get(key) or by_key.get(_key(SV_MAKES.get(make)) + key)
+                        or by_key.get(_key(make) + key))
+
+
+def expand_model(make: Optional[str], model_id: Optional[str]) -> Optional[str]:
+    """The path slug to search a model id under: the id itself, or, for a car
+    the site files under several ids, all of them ("ds7" -> "ds7--ds7-crossback")."""
+    for group in _MODEL_GROUPS.get(make or "", []):
+        if model_id in group:
+            return "--".join(group)
+    return model_id
+
+
+def needs_trim(make: Optional[str], searched_slug: Optional[str]) -> bool:
+    """True when the comparables of this search must share the car's trim."""
+    return (make, searched_slug) in _TRIMMED
+
+
+def trim_label(*texts: Optional[str]) -> Optional[str]:
+    """
+    The MINI trim a listing names, from the first text that names one: "one",
+    "cooper", "cooper s", "cooper se", "cooper e" or "jcw". The diesels fall
+    in with their petrol namesakes (One D, Cooper D, Cooper SD); the fuel
+    filter keeps them apart. None when no text names a trim.
+    """
+    for text in texts:
+        t = _norm(text)
+        if not t:
+            continue
+        if "john cooper works" in t or re.search(r"\bjcw\b", t):
+            return "jcw"
+        m = re.search(r"\bcooper(?: (se|sd|s|e|d|c))?\b", t)
+        if m:
+            return {"se": "cooper se", "s": "cooper s", "sd": "cooper s", "e": "cooper e"}.get(m.group(1), "cooper")
+        if re.search(r"\bone\b", t):
+            return "one"
+    return None

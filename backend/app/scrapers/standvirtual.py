@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
-from app.scrapers.sv_models import find_make, find_model
+from app.scrapers.sv_models import expand_model, find_make, find_model, needs_trim, trim_label
 from app.scrapers.sv_series import find_series, find_variant
 
 # Playwright import is lazy — only loaded when fetch_listings actually needs it.
@@ -104,6 +104,14 @@ def sv_model_slug_for(brand: str, model: str, *texts: Optional[str]) -> Optional
     return find_variant(_make_slug(brand or ""), model, *texts)
 
 
+def search_needs_trim(brand: str, model: str, model_slug: Optional[str] = None) -> bool:
+    """True when the comparables of this car's search must share its trim (the
+    MINI hatch: see sv_models). model_slug is the listing's own, when it has one."""
+    make = _make_slug(brand or "")
+    searched = expand_model(make, model_slug.strip()) if model_slug else find_model(make, model)
+    return needs_trim(make, searched)
+
+
 def is_series_model(brand: str, model: str) -> bool:
     """True when the site files `model` as a series with sub-models."""
     make = _make_slug(brand or "")
@@ -178,7 +186,8 @@ def _build_search_url(
     # for any model, including ones the site's list does not have yet.
     series_id = None
     if model_slug_override:
-        model_slug = model_slug_override.strip()
+        # ... widened when the site files the car under a second id as well.
+        model_slug = expand_model(brand_slug, model_slug_override.strip())
     else:
         model_clean = model.strip()
         # A model the site files as a sub-model ("530", "A 180") goes in the

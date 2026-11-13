@@ -1042,6 +1042,16 @@ def _market_model_slug(normalized: dict, brand_name: str, model_name: str,
                              normalized.get("source_model_name"), listing_url)
 
 
+def _market_trim(normalized: dict, listing_url: Optional[str]) -> Optional[str]:
+    """The trim the listing names (title, version, model as the source wrote
+    it, URL), for the models whose comparables must share it — see
+    sv_models.trim_label. The catalogue's model name is not asked: every MINI
+    hatch is a "Cooper" there."""
+    from app.scrapers.standvirtual import trim_label
+    return trim_label(normalized.get("source_title"), normalized.get("version"),
+                      normalized.get("source_model_name"), listing_url)
+
+
 async def _fetch_live_market_data(
     brand_name: str,
     model_name: str,
@@ -1053,6 +1063,7 @@ async def _fetch_live_market_data(
     sv_model_slug: Optional[str] = None,
     variant_code: Optional[str] = None,
     km: Optional[int] = None,
+    trim: Optional[str] = None,
 ) -> dict:
     """
     Fetch real-time market pricing from Standvirtual + OLX.
@@ -1104,6 +1115,20 @@ async def _fetch_live_market_data(
     # "Classe A" and must not share a cached pool.
     if sv_model_slug:
         model_key = f"{model_key}~{sv_model_slug.strip().lower()}"
+
+    # A model whose trims are priced as different cars (the MINI hatch: One,
+    # Cooper, Cooper S, John Cooper Works) is compared within the car's trim
+    # only, and not at all when the listing does not name it: against all
+    # trims the reference is off by more than 20% for half the petrol cars.
+    from app.scrapers.standvirtual import search_needs_trim, trim_label
+    if search_needs_trim(brand_name, model_search, sv_model_slug):
+        if not trim:
+            print(f"[MARKET] {brand_name} {model_name}: trim unknown - no like-for-like pool")
+            return {}
+        model_key = f"{model_key}~{trim.replace(' ', '-')}"
+    else:
+        trim = None
+
     cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_key}_{gen_key}_{fuel_key}_{engine_key}"
     now = time.time()
 
@@ -1181,6 +1206,13 @@ async def _fetch_live_market_data(
             if len(fuel_pool) >= 3:
                 pool = fuel_pool
                 print(f"[MARKET] Fuel filter '{fuel_type}' -> {len(pool)} listings")
+
+        # ── Filter 2a: trim ───────────────────────────────────────────────────
+        # Strict, unlike the other filters: the listings of other trims are
+        # never kept as a fallback (see above).
+        if trim:
+            pool = [l for l in pool if trim_label(l.get("title")) == trim]
+            print(f"[MARKET] Trim filter '{trim}' -> {len(pool)} listings")
 
         # ── Filter 2b: BMW series scope ───────────────────────────────────────
         # A "/bmw/serie-3" search over-returns the whole BMW range (116, 220,
@@ -2116,6 +2148,7 @@ async def _analyse_listing_inner(
                     gen_year_start=gen_year_start,
                     gen_year_end=gen_year_end,
                     sv_model_slug=_market_model_slug(normalized, brand_name, model_name, listing_url),
+                    trim=_market_trim(normalized, listing_url),
                     variant_code=_sv_variant_code(listing_url),
                     km=normalized.get("km"),
                 ),
