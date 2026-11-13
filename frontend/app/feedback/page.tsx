@@ -75,7 +75,7 @@ function FeedbackContent() {
             href="/"
             className="rounded-full border border-border px-5 py-2 text-[13px] text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
           >
-            voltar ao inicio
+            voltar ao início
           </Link>
         </div>
       </main>
@@ -105,7 +105,7 @@ function FeedbackContent() {
             {[
               { value: "sim", label: "Sim" },
               { value: "mais_ou_menos", label: "Mais ou menos" },
-              { value: "nao", label: "Nao" },
+              { value: "nao", label: "Não" },
             ].map((opt) => {
               const selected = satisfaction === opt.value
               return (
@@ -203,7 +203,7 @@ function FeedbackContent() {
             className="w-full rounded-[10px] border border-border bg-card px-5 py-4 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
           />
           <p className="mt-2 text-xs font-light text-muted-foreground/50">
-            Sem spam. So um aviso quando lancarmos.
+            Sem spam. Só um aviso quando lançarmos.
           </p>
         </div>
 

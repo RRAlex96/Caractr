@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 
 const STATS = [
   { value: "354", label: "perfis detalhados", sub: "condução, fiabilidade e versão" },
-  { value: "200+", label: "modelos analisados", sub: "desde 2010, em expansao" },
+  { value: "200+", label: "modelos analisados", sub: "desde 2010, em expansão" },
   { value: "tempo real", label: "dados de mercado", sub: "preços de anúncios reais" },
 ]
 
@@ -13,7 +13,7 @@ const STEPS = [
   {
     n: "01",
     title: "Conta-nos",
-    desc: "Sobre a tua vida. O que fazes, onde vais, quem levas. Sem cilindradas, sem especificacoes tecnicas.",
+    desc: "Sobre a tua vida. O que fazes, onde vais, quem levas. Sem cilindradas, sem especificações técnicas.",
   },
   {
     n: "02",
@@ -29,7 +29,7 @@ const STEPS = [
   {
     n: "04",
     title: "Concierge",
-    desc: "Preferes que facamos tudo? Pesquisamos, analisamos e entregamos uma selecao curada.",
+    desc: "Preferes que façamos tudo? Pesquisamos, analisamos e entregamos uma seleção curada.",
     link: { href: "/concierge", label: "expressar interesse" },
     badge: "acesso antecipado",
   },
@@ -72,7 +72,7 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute left-6 right-6 top-20 flex items-center justify-between lg:left-20 lg:right-20">
           <div className="h-px w-10 bg-foreground/15" />
           <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-foreground/20">
-            motor de recomendacao
+            motor de recomendação
           </span>
           <div className="h-px w-10 bg-foreground/15" />
         </div>
@@ -96,7 +96,7 @@ export default function LandingPage() {
           >
             <div className="hidden h-px w-9 shrink-0 bg-gold sm:block" />
             <p className="text-center text-[clamp(13px,1.1vw,15px)] font-light tracking-wide text-foreground/40">
-              O motor de recomendacao que te conhece a ti.
+              O motor de recomendação que te conhece a ti.
             </p>
           </div>
 
@@ -110,7 +110,7 @@ export default function LandingPage() {
               href="/escolher"
               className="rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
             >
-              comecar a experiencia
+              começar a experiência
             </Link>
             <Link
               href="/analisar"
@@ -148,24 +148,24 @@ export default function LandingPage() {
             encontra o teu carro
           </p>
           <h2 className="font-display text-[clamp(32px,5vw,72px)] font-extrabold leading-[0.92] tracking-tight">
-            O teu proximo
+            O teu próximo
             <br />
             carro já sabe
             <br />
-            <span className="text-gold-dark">quem es.</span>
+            <span className="text-gold-dark">quem és.</span>
           </h2>
 
           <p className="mt-8 max-w-[320px] text-[clamp(14px,1.1vw,16px)] font-light leading-relaxed text-muted-foreground">
             5 perguntas sobre a tua vida.
             <br />
-            Zero especificacoes tecnicas.
+            Zero especificações técnicas.
           </p>
           <div className="mt-7">
             <Link
               href="/escolher"
               className="inline-block rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
             >
-              comecar a experiencia
+              começar a experiência
             </Link>
           </div>
           <div className="mt-10 border-t border-border pt-6">
@@ -201,17 +201,17 @@ export default function LandingPage() {
 
         <div className="relative z-10 flex max-w-[860px] flex-col items-center">
           <h2 className="font-display text-[clamp(40px,8vw,108px)] font-extrabold leading-[1.05] tracking-[-0.04em] text-foreground">
-            NAO PRECISAS
+            NÃO PRECISAS
           </h2>
           <h2 className="font-display text-[clamp(40px,8vw,108px)] font-normal leading-[0.88] tracking-[-0.04em] text-foreground/20">
             de saber nada.
           </h2>
           <h3 className="mt-6 font-display text-[clamp(18px,2.2vw,32px)] font-bold tracking-tight text-gold">
-            So precisas de te conhecer.
+            Só precisas de te conhecer.
           </h3>
           <p className="mx-auto mt-5 max-w-[440px] text-[clamp(13px,1.1vw,16px)] font-light leading-relaxed text-foreground/40">
-            Descreve-nos o teu estilo de vida e os teus habitos ao volante.
-            O algoritmo faz o resto — sem tabelas de cilindradas, sem confusao.
+            Descreve-nos o teu estilo de vida e os teus hábitos ao volante.
+            O algoritmo faz o resto — sem tabelas de cilindradas, sem confusão.
           </p>
 
           {/* Stats */}
@@ -295,7 +295,7 @@ export default function LandingPage() {
 
         <div className="relative z-10 px-6 text-center">
           <p className="mb-5 text-[11px] font-normal uppercase tracking-[0.25em] text-foreground/30">
-            2 minutos · zero pressao
+            2 minutos · zero pressão
           </p>
           <h2 className="font-display text-[clamp(48px,10vw,128px)] font-extrabold leading-[0.85] tracking-[-0.04em] text-foreground">
             PRONTO?
@@ -305,7 +305,7 @@ export default function LandingPage() {
               href="/escolher"
               className="rounded-full bg-gold px-10 py-4 text-[14px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
             >
-              comecar a experiencia
+              começar a experiência
             </Link>
           </div>
         </div>

@@ -13,10 +13,10 @@
   "price": 21900,
   "seller_type": "stand",
   "photo_count": 57,
-  "listing_age_days": 1
+  "listing_age_days": 2
  },
  "deal": {
-  "tier": "cuidado",
+  "tier": "razoavel",
   "score": 0.3292,
   "price_delta": -0.3415,
   "price_delta_pct": 6.8,
@@ -25,52 +25,68 @@
   "market_median_price": null,
   "market_sample_count": 55,
   "market_data_source": "db",
-  "market_data_age_days": 0,
-  "market_data_stale": false,
+  "market_data_age_days": 37,
+  "market_data_stale": true,
   "market_fuel_type": "Híbrido (Gasolina)",
   "generation_year_start": 2018,
   "generation_year_end": null
  },
  "analysis": {
-  "verdict": "cuidado",
-  "verdict_reason": "Preço acima do mercado — negociar antes de avançar.",
+  "verdict": "razoavel",
+  "verdict_reason": "Motor 2ZR-FXE ultra fiável com 85k km, mas está 6.8% acima da mediana (€21.900) e a garantia é negociada.",
   "green_flags": [
-   "Garantia incluída",
-   "Boas fotos do anúncio (57 imagens)",
-   "Bem equipado (4 extras identificados)",
-   "Anúncio recente — provavelmente não vendido ainda"
+   "Motor 1.8 Hybrid (2ZR-FXE) de 122cv de guerra, indestrutível com consumo abaixo dos 4.5L/100km.",
+   "Quilometragem realista (85.000 km em 4 anos), longe de ser carro de frota TVDE desgastado.",
+   "Equipamento de topo 'Exclusive' com o ecossistema multimédia atualizado (Apple CarPlay/Android Auto)."
   ],
   "red_flags": [
-   "Preço acima do mercado — margem de negociação recomendada"
+   "Preço de €21.900 está €1.400 acima da mediana de mercado para o Corolla de 2020.",
+   "Garantia de 18 meses 'por mútuo acordo' é código de stand para tentar passar a garantia a custo do comprador ou cortar na cobertura."
   ],
-  "seller_analysis": "Stand profissional. Garantia incluída — verificar período e cobertura. Apresentação cuidada.",
-  "profile_fit": "Análise baseada nas características do Toyota Corolla.",
-  "trim_level": "1.8 Hybrid Exclusive",
-  "spec_tier": "medio",
-  "trim_includes": [],
-  "optional_extras": [],
-  "equipment_note": null,
+  "seller_analysis": "Anúncio típico de stand intermédio com texto pré-formatado e copy-paste. Omitiu fotos reais no texto e tenta mascarar a garantia legal obrigatória usando o termo 'por mútuo acordo'. O tom é genérico e sem grande detalhe sobre o histórico.",
+  "profile_fit": "Perfeito para quem quer zero dores de cabeça na oficina, faz muita cidade e valoriza conforto, sem prescindir de conectividade moderna.",
+  "trim_level": "Exclusive",
+  "spec_tier": "alto",
+  "trim_includes": [
+   "Carregador de smartphone wireless",
+   "Chave inteligente (Keyless Entry/Go)",
+   "Bancos aquecidos",
+   "Sensores de estacionamento dianteiros e traseiros",
+   "Faróis Bi-LED",
+   "Toyota Safety Sense (Assistência de faixa e travagem autónoma)"
+  ],
+  "optional_extras": [
+   "Integração Apple CarPlay e Android Auto",
+   "Controlo por voz estendido"
+  ],
+  "equipment_note": "Muito bem equipado — a versão Exclusive é topo de gama e já traz o conforto todo de série, justificando parte do valor extra.",
   "key_extras": [
-   "Bluetooth",
-   "Apple CarPlay",
    "Android Auto",
-   "Com garantia"
+   "Apple CarPlay",
+   "Carregamento Wireless",
+   "Bluetooth",
+   "Computador de Bordo",
+   "Controlo por voz"
   ],
   "spec_value_assessment": "adequado",
-  "engine_code": "2.2",
-  "engine_analysis": "Motorização 2.2 (Híbrido (Gasolina)). Híbrido — verificar estado da bateria de alta tensão e ciclos de carga registados.",
-  "extras_analysis": "Extras identificados: Bluetooth, Apple CarPlay, Android Auto, Com garantia. Equipamento de nível médio, dentro do esperado para esta gama. Não detetados: bancos em pele, teto panorâmico, faróis LED — se presentes, valorizariam o carro.",
-  "negotiation_script": "Começa por oferecer €19,900. Argumentos: o preço está €1,400 acima da média de mercado. Num stand, pede garantia estendida ou revisão incluída como contrapartida.",
-  "verdict_narrative": "Este Toyota Corolla de 2020 requer cautela — há pontos que merecem investigação antes de avançar. A €21,900, está 7% acima da média (€20,500) — há margem para negociar.",
-  "seller_read": "Descrição com informação razoável, mas não exaustiva. Com 57 fotos, mostra o carro em detalhe — bom indicador de confiança."
+  "engine_code": "2ZR-FXE",
+  "engine_analysis": "O motor 1.8 Hybrid (2ZR-FXE com caixa e-CVT) é uma rocha. Não tem embraiagem, alternador nem correia de distribuição tradicional, o que reduz os custos de manutenção a quase nada.",
+  "extras_analysis": "A versão Exclusive vem recheada. O facto de ter CarPlay e Android Auto de origem resolve a pior falha do sistema multimédia nativo da Toyota dessa época.",
+  "negotiation_script": "Boas! Tenho interesse no Corolla de 2020. Vi que está anunciado por €21.900, o que fica um pouco acima da média para 85 mil km. Se fecharmos negócio com a garantia total de 18 meses incluída sem truques, consigo avançar nos €20.500. Diga-me se faz sentido para vocês.",
+  "verdict_narrative": "É um grande carro com um motor indestrutível. O preço pedido de €21.900 está puxado em relação ao mercado, mas a versão Exclusive compensa parte disso pelo equipamento. Se me ouvires, só compras isto se baixarem para os €20.500-€21.000 e te derem a garantia por escrito sem tretas de 'mútuo acordo'.",
+  "seller_read": "Vendedor profissional a tentar puxar a margem para cima aproveitando a reputação de fiabilidade da Toyota. A conversa da garantia 'por mútuo acordo' significa que vão tentar cobrar mais para dar a garantia total de 18 meses."
  },
  "inspection_checklist": [
-  "Travões — verificar espessura dos discos e pastilhas",
-  "Histórico de serviços — pedir caderneta ou registos de manutenção",
-  "Teste em estrada — verificar vibrações, ruídos e travagem"
+  "Pedir o Histórico de Manutenção na marca para confirmar o 'Health Check' anual da bateria de tração HV.",
+  "Verificar o filtro de refrigeração da bateria híbrida sob o banco traseiro (se está obstruído com cotão/pelos).",
+  "Confirmar se o software do Toyota Touch 2 tem a atualização de firmware efetuada para Apple CarPlay/Android Auto funcional.",
+  "Inspecionar desgaste dos discos de travão (em híbridos duram muito, se estiverem muito gastos a quilometragem pode ser duvidosa).",
+  "Verificar batidas de pedras no para-brisas na zona da câmara do Toyota Safety Sense."
  ],
  "negotiation_tips": [
-  "Anda uns 34% acima de carros parecidos. Leva-lhe alguns anúncios semelhantes e atira um valor à volta dos 20.500€ — com jeitinho costuma resultar."
+  "Usa os €20.500 da mediana de mercado como a tua âncora de negociação.",
+  "Exige o relatório do teste de saúde da bateria híbrida feito na Toyota — se não tiverem, pede €300 de desconto para seres tu a fazer.",
+  "Não pague nem mais um cêntimo pela garantia de 18 meses; a lei em Portugal exige 3 anos (ou 18 meses por acordo), eles têm de cobrir o carro sem cobrar extra por isso."
  ],
  "negotiation": {
   "asking_price": 21900,
@@ -87,12 +103,12 @@
  "anomaly": null,
  "price_history": null,
  "cost_of_ownership": {
-  "monthly_running": 166,
-  "monthly_true": null,
+  "monthly_running": 165,
+  "monthly_true": 413,
   "annual_fuel": 1312,
   "annual_iuc": 350,
-  "annual_maintenance": 335,
-  "depreciation_monthly": null,
+  "annual_maintenance": 323,
+  "depreciation_monthly": 248,
   "assumptions": {
    "km_year": 15000,
    "consumption": 5.0,
@@ -100,11 +116,11 @@
    "fuel_price": 1.75
   }
  },
- "maintenance_estimate": 335.0,
+ "maintenance_estimate": 323.3333333333333,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
- "_analysis_engine": "rule:gemini_error",
- "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_analysis_engine": "gemini",
+ "_llm_error": null,
  "_extraction_method": "next_data",
  "_data_quality": {
   "score": 0.96,
@@ -114,6 +130,70 @@
  },
  "_data_warnings": [],
  "fit": null,
- "reliability": null,
- "depreciation": null
+ "reliability": {
+  "score": 8.79,
+  "ci_low": 7.36,
+  "ci_high": 10.0,
+  "data_quality": "limited"
+ },
+ "dealbreakers": {
+  "has_dealbreaker": false,
+  "recall_count": 0,
+  "critical_issue_count": 0,
+  "recalls": [],
+  "critical_issues": []
+ },
+ "depreciation": {
+  "annual_pct": 0.1357,
+  "annual_pct_label": "13.6%/ano",
+  "holds_value": false,
+  "loses_fast": false,
+  "curve": [
+   {
+    "age": 0,
+    "p50": 18499,
+    "year": 2023,
+    "pct_of_new": 1.0
+   },
+   {
+    "age": 1,
+    "p50": 15990,
+    "year": 2022,
+    "pct_of_new": 0.8643
+   },
+   {
+    "age": 2,
+    "p50": 20490,
+    "year": 2021,
+    "pct_of_new": 1.1076
+   },
+   {
+    "age": 3,
+    "p50": 22900,
+    "year": 2020,
+    "pct_of_new": 1.2379
+   }
+  ],
+  "as_of": "2026-11-11",
+  "future_value": [
+   {
+    "year": 1,
+    "value": 18928,
+    "pct_of_current": 0.8643,
+    "loss": 2972
+   },
+   {
+    "year": 2,
+    "value": 16359,
+    "pct_of_current": 0.747,
+    "loss": 5541
+   },
+   {
+    "year": 3,
+    "value": 14139,
+    "pct_of_current": 0.6456,
+    "loss": 7761
+   }
+  ]
+ }
 }

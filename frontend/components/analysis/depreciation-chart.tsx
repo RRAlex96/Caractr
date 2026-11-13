@@ -49,7 +49,7 @@ export function DepreciationChart({
     <div className={cn("rounded-xl border border-border bg-card p-5", className)}>
       <div className="mb-4 flex items-center justify-between">
         <p className="font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-          Depreciacao
+          Depreciação
         </p>
         <div className="flex items-center gap-2">
           {holds_value && (
@@ -59,7 +59,7 @@ export function DepreciationChart({
           )}
           {loses_fast && (
             <span className="rounded-full border border-danger/40 px-2 py-0.5 font-mono text-[9px] uppercase text-danger">
-              Perde rapido
+              Perde rápido
             </span>
           )}
         </div>
@@ -132,7 +132,7 @@ export function DepreciationChart({
       {hasFuture && (
         <div>
           <p className="mb-2 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-            Projecao futura
+            Projeção futura
           </p>
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
             {futureData.map((fp) => (

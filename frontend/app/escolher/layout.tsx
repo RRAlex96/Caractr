@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: "Descobrir o teu carro",
   description:
     "Responde a 5 perguntas sobre o teu estilo de vida e descobre os modelos que melhor se adequam a ti.",
+  alternates: { canonical: "/escolher" },
 }
 
 export default function EscolherLayout({ children }: { children: React.ReactNode }) {

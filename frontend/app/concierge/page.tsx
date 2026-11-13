@@ -8,14 +8,14 @@ import { submitConcierge } from "@/lib/api"
 import type { ProfileNarrative } from "@/lib/types"
 
 const FEEDBACK_TAGS = [
-  { id: "wrong_brand", label: "Nao me identifico com a marca" },
+  { id: "wrong_brand", label: "Não me identifico com a marca" },
   { id: "want_sportier", label: "Quero algo mais desportivo" },
   { id: "want_comfort", label: "Quero mais conforto" },
-  { id: "want_practical", label: "Quero algo mais pratico" },
-  { id: "budget_off", label: "Orcamento nao esta certo" },
+  { id: "want_practical", label: "Quero algo mais prático" },
+  { id: "budget_off", label: "Orçamento não está certo" },
   { id: "want_premium", label: "Quero algo mais premium" },
   { id: "want_discreet", label: "Quero algo mais discreto" },
-  { id: "want_bigger", label: "Preciso de mais espaco" },
+  { id: "want_bigger", label: "Preciso de mais espaço" },
 ]
 
 function ConciergeContent() {
@@ -83,11 +83,11 @@ function ConciergeContent() {
 
   const submit = async () => {
     if (!name.trim() || !email.trim()) {
-      setError("Nome e email sao obrigatorios.")
+      setError("Nome e email são obrigatórios.")
       return
     }
     if (!consentCaractr) {
-      setError("E necessario aceitar o contacto pela Caractr para continuar.")
+      setError("É necessário aceitar o contacto pela Caractr para continuar.")
       return
     }
     setSending(true)
@@ -114,7 +114,7 @@ function ConciergeContent() {
         setError(result.error || "Erro ao enviar. Tenta novamente.")
       }
     } catch {
-      setError("Erro de ligacao. Verifica a internet e tenta novamente.")
+      setError("Erro de ligação. Verifica a internet e tenta novamente.")
     } finally {
       setSending(false)
     }
@@ -141,7 +141,7 @@ function ConciergeContent() {
             </p>
             {[
               "Vemos o teu perfil e os modelos que te interessam.",
-              "Pesquisamos anuncios reais que se encaixam nas tuas prioridades.",
+              "Pesquisamos anúncios reais que se encaixam nas tuas prioridades.",
               "Entramos em contacto via email com uma shortlist curada.",
             ].map((step, i) => (
               <div
@@ -159,7 +159,7 @@ function ConciergeContent() {
           </div>
 
           <p className="mb-8 text-[13px] leading-relaxed text-muted-foreground/55">
-            Enviamos uma confirmacao para{" "}
+            Enviamos uma confirmação para{" "}
             <strong className="font-normal text-foreground">{email}</strong>.
           </p>
 
@@ -174,7 +174,7 @@ function ConciergeContent() {
               href="/analisar"
               className="rounded-full border border-border px-5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
             >
-              analisar anuncio
+              analisar anúncio
             </Link>
           </div>
         </div>
@@ -198,8 +198,8 @@ function ConciergeContent() {
             interestedModels.length > 0 ? "mb-6" : "mb-12"
           )}
         >
-          Pesquisamos anuncios reais que se adequam ao teu perfil e enviamos-te
-          uma shortlist curada. Gratuito durante o lancamento.
+          Pesquisamos anúncios reais que se adequam ao teu perfil e enviamos-te
+          uma shortlist curada. Gratuito durante o lançamento.
         </p>
 
         {/* Interested models chips */}
@@ -244,7 +244,7 @@ function ConciergeContent() {
         {listingUrl && (
           <div className="mb-8 flex items-center gap-3 rounded-[10px] border border-border bg-card p-3 px-4">
             <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-              Anuncio analisado
+              Anúncio analisado
             </span>
             {listingVerdict && (
               <span
@@ -314,13 +314,13 @@ function ConciergeContent() {
               type="text"
               value={modelInterest}
               onChange={(e) => setModelInterest(e.target.value)}
-              placeholder="ex: BMW Serie 3, Mazda CX-5..."
+              placeholder="ex: BMW Série 3, Mazda CX-5..."
               className="w-full rounded-[10px] border border-border bg-card px-4.5 py-3.5 text-sm font-light text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-gold/60"
             />
           </div>
           <div>
             <label className="mb-2 block font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/60">
-              Orcamento maximo (EUR)
+              Orçamento máximo (EUR)
             </label>
             <input
               type="number"
@@ -335,10 +335,10 @@ function ConciergeContent() {
         {/* ── Feedback chips ── */}
         <div className="mb-10">
           <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-            A recomendacao nao esta certa? (opcional)
+            A recomendação não está certa? (opcional)
           </p>
           <p className="mb-4 text-[13px] text-muted-foreground/70">
-            Seleciona o que nao se adequa — ajuda-nos a afinar.
+            Seleciona o que não se adequa — ajuda-nos a afinar.
           </p>
           <div className="flex flex-wrap gap-2">
             {FEEDBACK_TAGS.map((tag) => {
@@ -434,7 +434,7 @@ function ConciergeContent() {
                       className="text-xs text-gold-dark underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Politica de Privacidade
+                      Política de Privacidade
                     </a>
                     )
                   </>
@@ -460,12 +460,12 @@ function ConciergeContent() {
         </button>
 
         <p className="mt-3 text-xs font-light text-muted-foreground/50">
-          Estas entre os primeiros a experimentar o Caractr — este servico e nosso presente de lancamento.
+          Estás entre os primeiros a experimentar o Caractr — este serviço é o nosso presente de lançamento.
         </p>
 
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/40">
-          Os teus dados sao usados exclusivamente para os fins indicados acima.
-          Nunca sao partilhados sem consentimento explicito.
+          Os teus dados são usados exclusivamente para os fins indicados acima.
+          Nunca são partilhados sem consentimento explícito.
         </p>
       </div>
     </main>

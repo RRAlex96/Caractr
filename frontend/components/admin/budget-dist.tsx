@@ -8,7 +8,7 @@ export function BudgetDist({ data }: BudgetDistProps) {
   return (
     <div className="rounded-xl border border-border bg-card px-6 py-5">
       <div className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        Orcamento
+        Orçamento
       </div>
       <div className="flex flex-col gap-2">
         {(data || []).map((b, i) => (

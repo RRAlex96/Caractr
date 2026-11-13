@@ -40,7 +40,7 @@ export function DreamBrandPicker({
 
       {loading ? (
         <div className="py-12 font-mono text-[11px] tracking-[1px] text-muted-foreground">
-          A personalizar opcoes...
+          A personalizar opções...
         </div>
       ) : (
         <div className="border-t border-border">

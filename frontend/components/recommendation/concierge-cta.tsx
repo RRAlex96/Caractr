@@ -23,7 +23,7 @@ export function ConciergeCTA({
             <span className="text-gold-dark">
               {interestedRecs.length === 1
                 ? `Quer que encontremos um ${interestedRecs[0].full_name} para ti?`
-                : "Quer ajuda a encontrar uma destas opcoes?"}
+                : "Quer ajuda a encontrar uma destas opções?"}
             </span>
           </h2>
           <p className="mb-2 max-w-[480px] text-[15px] font-light leading-relaxed text-muted-foreground">
@@ -52,11 +52,11 @@ export function ConciergeCTA({
       ) : allDismissed ? (
         <>
           <h2 className="mb-3 font-display text-[clamp(24px,3.5vw,40px)] font-extrabold tracking-tight">
-            Nenhuma sugestao acertou.
+            Nenhuma sugestão acertou.
           </h2>
           <p className="mb-7 max-w-[480px] text-[15px] font-light leading-relaxed text-muted-foreground">
             O teu feedback já foi registado — vamos usar para melhorar.
-            Podes refinar o teu perfil e tentar de novo, ou pedir-nos que facamos a pesquisa por ti.
+            Podes refinar o teu perfil e tentar de novo, ou pedir-nos que façamos a pesquisa por ti.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link
@@ -69,7 +69,7 @@ export function ConciergeCTA({
               href={`/concierge?session=${sessionId}`}
               className="rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
             >
-              Peco que facam por mim
+              Peço que façam por mim
             </Link>
           </div>
         </>

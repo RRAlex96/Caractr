@@ -29,7 +29,7 @@ export function AnalysisStats({ stats }: AnalysisStatsProps) {
   return (
     <div className="rounded-xl border border-border bg-card px-6 py-5">
       <div className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        Analises
+        Análises
       </div>
       <div className="mb-4 flex gap-6">
         <div>

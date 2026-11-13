@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { PageViewTracker } from "@/components/shared/page-view-tracker"
 
 const SITE_URL = "https://caractr.pt"
 const SITE_NAME = "Caractr"
@@ -37,13 +38,15 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  // Google Search Console ownership check, when verifying by meta tag.
+  verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
   alternates: {
-    canonical: SITE_URL,
+    canonical: "/",   // home only: every section sets its own
   },
 }
 
@@ -62,6 +65,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#09090B" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans text-foreground antialiased")}>
+        <PageViewTracker />
         <TooltipProvider delay={300}>
           <Navbar />
           <main className="flex-1">{children}</main>

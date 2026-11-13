@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 const STEPS = [
   "A recolher dados do anúncio",
-  "A consultar referencias de mercado",
+  "A consultar referências de mercado",
   "A calcular km/ano e desgaste",
   "A compor a análise",
 ]

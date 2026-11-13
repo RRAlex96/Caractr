@@ -1,7 +1,7 @@
 """Model resolution guard, variant codes, and the OLX detail label parsing."""
 from app.services.ad_analysis_service import _models_compatible, _sv_variant_code
 from app.scrapers.olx import _extract_pt_label_values, _norm_fuel, _norm_transmission
-from app.scrapers.standvirtual import _sv_fuel_slug
+from app.scrapers.standvirtual import _sv_fuel_values
 
 
 def test_models_compatible_blocks_wrong_match():
@@ -36,5 +36,5 @@ def test_fuel_normalisers():
     assert _norm_fuel("Gasóleo") == "Diesel"
     assert _norm_fuel("Híbrido Plug-in") == "Híbrido (Plug-in)"
     assert _norm_transmission("Automática") == "Automática"
-    assert _sv_fuel_slug("Diesel") == "diesel"
-    assert _sv_fuel_slug("Híbrido (Plug-in)") == "plugin-hybrid"
+    assert _sv_fuel_values("Diesel") == ["diesel"]
+    assert _sv_fuel_values("Híbrido (Plug-in)") == ["plugin-hybrid"]

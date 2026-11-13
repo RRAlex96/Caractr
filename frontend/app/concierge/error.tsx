@@ -23,7 +23,7 @@ export default function ConciergeError({
         ERRO NO CONCIERGE
       </h2>
       <p className="mb-9 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Nao conseguimos processar o teu pedido. Tenta novamente ou
+        Não conseguimos processar o teu pedido. Tenta novamente ou
         contacta-nos diretamente.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
@@ -37,7 +37,7 @@ export default function ConciergeError({
           href="/analisar"
           className="rounded-full border border-border px-7 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
         >
-          Analisar anuncio
+          Analisar anúncio
         </Link>
       </div>
     </div>

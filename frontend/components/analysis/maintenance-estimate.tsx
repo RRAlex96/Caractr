@@ -14,7 +14,7 @@ export function MaintenanceEstimate({ estimate, className }: MaintenanceEstimate
       )}
     >
       <p className="font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-        Manutencao estimada / ano
+        Manutenção estimada / ano
       </p>
       <p className="font-mono text-base font-bold text-foreground">
         ~{formatPrice(Math.round(estimate))}

@@ -14,7 +14,7 @@ export function OverviewCards({ data }: OverviewCardsProps) {
     { value: data.unique_users, label: "Utilizadores" },
     { value: data.sessions_started, label: "Wizards iniciados" },
     { value: data.sessions_completed, label: "Wizards completos" },
-    { value: data.analyses_requested, label: "Analises pedidas" },
+    { value: data.analyses_requested, label: "Análises pedidas" },
     { value: data.concierge_submissions, label: "Concierge" },
   ]
 

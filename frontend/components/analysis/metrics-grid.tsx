@@ -45,7 +45,7 @@ export function MetricsGrid({ deal, analysis, className }: MetricsGridProps) {
 
   if (analysis.spec_tier) {
     items.push({
-      label: "Versao",
+      label: "Versão",
       value: (analysis.trim_level || analysis.spec_tier).toUpperCase(),
     })
   }

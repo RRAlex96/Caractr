@@ -22,6 +22,11 @@ Config (env vars):
     LLM_MAX_RETRIES       — default: 1 (conservative to save quota)
     LLM_TIMEOUT           — default: 45 seconds per API call
 
+Cost tracking:
+    Every successful call logs its token counts and an estimated cost, and
+    fills the optional `usage_out` dict so callers can store it next to what
+    they generated (ad analysis keeps it in the cached blob as `_llm_usage`).
+
 History: gemini-2.5-flash was retired for new keys (404) in late 2026, and the
 old google-generativeai SDK reached end-of-life — both silently pushed every
 caller onto template fallbacks. This module now uses google-genai only.
@@ -42,6 +47,14 @@ _THINKING       = int(os.getenv("LLM_THINKING_BUDGET", "1024"))
 _RETRIES        = int(os.getenv("LLM_MAX_RETRIES", "1"))  # reduced: save quota on free tier
 _API_KEY        = os.getenv("GEMINI_API_KEY", "")
 _TIMEOUT        = int(os.getenv("LLM_TIMEOUT", "45"))  # seconds per API call
+
+# List prices in USD per 1M tokens (input, output), for the cost estimate only.
+# Thinking tokens bill as output. Figures from public price trackers (Nov 2026)
+# — check https://ai.google.dev/gemini-api/docs/pricing before relying on them.
+_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    "gemini-3.5-flash":      (1.50, 9.00),
+}
 
 # Lazy-initialised client — avoids import errors when SDK not installed
 _client: Any = None
@@ -123,12 +136,45 @@ def _extract_text(response) -> str:
     return text
 
 
-def generate_text(prompt: str, max_tokens: int = 1024) -> str:
+def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
+    """Estimated list-price cost of one call; None for a model we have no price for."""
+    # Longest matching prefix, so dated variants ("…-flash-lite-001") resolve
+    # and "-flash-lite" is never priced as "-flash".
+    for name in sorted(_PRICES_USD_PER_M, key=len, reverse=True):
+        if model.startswith(name):
+            p_in, p_out = _PRICES_USD_PER_M[name]
+            return round((input_tokens * p_in + output_tokens * p_out) / 1_000_000, 6)
+    return None
+
+
+def _usage_from(response, model: str) -> dict:
+    """Token counts and estimated cost of one response (zeros if the SDK gave none)."""
+    um = getattr(response, "usage_metadata", None)
+    inp = int(getattr(um, "prompt_token_count", 0) or 0)
+    out = int(getattr(um, "candidates_token_count", 0) or 0)
+    think = int(getattr(um, "thoughts_token_count", 0) or 0)
+    # If the SDK reports a total above what it itemised, the gap is billed
+    # output we would otherwise miss (e.g. reasoning reported only in the total).
+    total = int(getattr(um, "total_token_count", 0) or 0)
+    think = max(think, total - inp - out)
+    return {
+        "model": model,
+        "input_tokens": inp,
+        "output_tokens": out,
+        "thinking_tokens": think,
+        "cost_usd": estimate_cost_usd(model, inp, out + think),
+    }
+
+
+def generate_text(prompt: str, max_tokens: int = 1024, usage_out: dict | None = None) -> str:
     """
     Call Gemini and return the response text.
     Retries up to LLM_MAX_RETRIES times on transient errors, then falls back to
     LLM_FALLBACK_MODEL if the primary is retired/overloaded.
     Raises LLMError on failure, QuotaExhaustedError on 429.
+
+    `usage_out`, if given, is filled with the tokens and estimated cost of the
+    call that produced the answer.
     """
     now = time.monotonic()
     if now < _quota_exhausted_until:
@@ -151,7 +197,15 @@ def generate_text(prompt: str, max_tokens: int = 1024) -> str:
         for attempt in range(_RETRIES + 1):
             try:
                 resp = client.models.generate_content(model=model, contents=prompt, config=config)
-                return _extract_text(resp)
+                text = _extract_text(resp)
+                usage = _usage_from(resp, model)
+                cost = usage["cost_usd"]
+                print(f"[LLM] usage model={model} in={usage['input_tokens']} "
+                      f"out={usage['output_tokens']} thinking={usage['thinking_tokens']} "
+                      f"cost_usd={'?' if cost is None else f'{cost:.4f}'}")
+                if usage_out is not None:
+                    usage_out.update(usage)
+                return text
             except LLMError as e:
                 last_err = e          # blocked / empty — not transient, try next model
                 break
@@ -177,12 +231,12 @@ def _strip_fences(text: str) -> str:
     return text.strip()
 
 
-def generate_json(prompt: str, max_tokens: int = 1024) -> dict:
+def generate_json(prompt: str, max_tokens: int = 1024, usage_out: dict | None = None) -> dict:
     """
     Call Gemini expecting JSON output. Strips markdown fences if present.
     Raises LLMError if response cannot be parsed as JSON.
     """
-    text = _strip_fences(generate_text(prompt, max_tokens=max_tokens))
+    text = _strip_fences(generate_text(prompt, max_tokens=max_tokens, usage_out=usage_out))
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:

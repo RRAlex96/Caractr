@@ -4,97 +4,112 @@
  "source": "standvirtual",
  "source_label": "Standvirtual",
  "source_domain": "",
- "source_url": "https://www.standvirtual.com/carros/anuncio/bmw-530-ver-e-pack-desportivo-m-ID8Q18eQ.html",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/bmw-530-ver-e-iperformance-pack-m-ID8Q0tFo.html",
  "listing": {
   "brand_name": "BMW",
   "model_name": "530",
-  "year": 2022,
-  "km": 79296,
-  "price": 35900,
-  "seller_type": "stand",
-  "photo_count": 26,
-  "listing_age_days": 1
+  "year": 2018,
+  "km": 170000,
+  "price": 25400,
+  "seller_type": "desconhecido",
+  "photo_count": 28,
+  "listing_age_days": 0
  },
  "deal": {
-  "tier": "evitar",
-  "score": 0.0,
-  "price_delta": -0.9933,
-  "price_delta_pct": 19.9,
-  "km_per_year": 19824.0,
-  "market_avg_price": 30593,
-  "market_median_price": 29950,
-  "market_sample_count": 15,
+  "tier": "cuidado",
+  "score": 0.6791,
+  "price_delta": 0.7582,
+  "price_delta_pct": 15.2,
+  "km_per_year": 21250.0,
+  "market_avg_price": 31061,
+  "market_median_price": 29940,
+  "market_sample_count": 18,
   "market_data_source": "live",
   "market_data_age_days": null,
   "market_data_stale": false,
   "market_fuel_type": "Híbrido Plug-In",
-  "generation_year_start": null,
-  "generation_year_end": null
+  "generation_year_start": 2017,
+  "generation_year_end": 2023
  },
  "analysis": {
-  "verdict": "evitar",
-  "verdict_reason": "Preço acima do mercado em mais de 10% — existem alternativas melhores.",
+  "verdict": "cuidado",
+  "verdict_reason": "Preço tentador (15% abaixo do mercado), mas 170k km num híbrido plug-in de 2018 exige teste exaustivo à bateria.",
   "green_flags": [
-   "Garantia incluída",
-   "Boas fotos do anúncio (26 imagens)",
-   "Bem equipado (6 extras identificados)",
-   "Anúncio recente — provavelmente não vendido ainda"
+   "Motor B48B20 robusto — base mecânica sólida da BMW.",
+   "Versão Pack M de origem — melhor estética e retenção de valor.",
+   "Preço 15.2% abaixo da mediana de mercado — margem interessante.",
+   "Origem nacional indicada pelo vendedor."
   ],
   "red_flags": [
-   "Preço acima do mercado — margem de negociação recomendada",
-   "Stand a pedir mais de 15% acima da média de mercado"
+   "170.000 km num híbrido plug-in (2018) — degradação da bateria de alta voltagem é o maior risco.",
+   "Média de 21.250 km/ano — típico uso intensivo de frota ou empresa.",
+   "Desconto forte face ao mercado pode esconder custos ocultos de manutenção."
   ],
-  "seller_analysis": "Stand profissional. Garantia incluída — verificar período e cobertura. Apresentação cuidada.",
-  "profile_fit": "Análise baseada nas características do BMW 530.",
-  "trim_level": "Sport",
-  "spec_tier": "alto",
-  "trim_includes": [],
-  "optional_extras": [],
-  "equipment_note": null,
+  "seller_analysis": "O stand usa um tom comercial polido e focado em prémios, típico de marketing. Omitiram o estado real da bateria e o historial de utilização anterior, focando-se apenas nos extras básicos.",
+  "profile_fit": "Ideal para quem quer um Série 5 imponente e faz muitos quilómetros, mas tem de ter orçamento de reserva para a componente elétrica.",
+  "trim_level": "Pack M",
+  "spec_tier": "medio",
+  "trim_includes": [
+   "Kit aerodinâmico M",
+   "Suspensão desportiva M",
+   "Volante desportivo M em pele",
+   "Bancos desportivos",
+   "Jantes de liga leve M",
+   "Forro do teto anthracite"
+  ],
+  "optional_extras": [
+   "Bancos em pele",
+   "Pintura azul metalizada"
+  ],
+  "equipment_note": "Equipamento aceitável com o look do Pack M e bancos em pele, mas faltam extras tecnológicos de peso.",
   "key_extras": [
-   "GPS",
-   "Sensores de parque",
-   "Cruise control",
-   "Ar condicionado",
-   "Climatização bi-zona",
-   "Faróis LED"
+   "Bancos em pele",
+   "Navegação profissional",
+   "Sensores de estacionamento",
+   "Caixa automática",
+   "Pintura metalizada"
   ],
-  "spec_value_assessment": "abaixo_do_esperado",
-  "engine_code": "1.99",
-  "engine_analysis": "Motorização 1.99 (Híbrido Plug-In). Híbrido — verificar estado da bateria de alta tensão e ciclos de carga registados.",
-  "extras_analysis": "Extras identificados: GPS, Sensores de parque, Cruise control, Ar condicionado, Climatização bi-zona, Faróis LED. Equipamento acima da média para este modelo — valoriza o anúncio. Apesar do bom equipamento, o preço acima do mercado sugere margem para negociar.",
-  "negotiation_script": "Começa por oferecer €29,700. Argumentos: o preço está €5,307 acima da média de mercado. Num stand, pede garantia estendida ou revisão incluída como contrapartida.",
-  "verdict_narrative": "Este BMW 530 de 2022 não se recomenda nas condições atuais — procura alternativas semelhantes. A €35,900, está 17% acima da média (€30,593) — há margem para negociar. Equipamento acima da média (6 extras), o que valoriza este exemplar.",
-  "seller_read": "Descrição detalhada — sinal positivo de transparência por parte do vendedor. Com 26 fotos, mostra o carro em detalhe — bom indicador de confiança."
+  "spec_value_assessment": "adequado",
+  "engine_code": "B48B20",
+  "engine_analysis": "O B48 a gasolina é fiável, mas neste 530e o foco crítico é o sistema híbrido. Aos 170k km, a bateria de iões de lítio precisa de verificação rigorosa de capacidade.",
+  "extras_analysis": "Tem o essencial do Pack M estético e bancos em pele, mas é uma configuração algo despida de extras de conforto premium como teto ou som assinado.",
+  "negotiation_script": "Olá! Vi o vosso BMW 530e anunciado. Sendo um híbrido com 170.000 km, queria saber se têm o relatório do estado de saúde (SoH) da bateria e o histórico de revisões completo. Qual é o melhor valor final para fecho rápido?",
+  "verdict_narrative": "Por 25.400€ é uma forma barata de entrar num Série 5 G30, mas 170 mil quilómetros num híbrido plug-in com 6 anos obriga a muita cautela. A bateria já sofreu bastante desgaste e substituí-la custa uma fortuna. Se o teste de saúde da bateria vier limpo e o histórico for irrepreensível, pode ser um bom negócio; caso contrário, é melhor passar à frente.",
+  "seller_read": "O vendedor apresenta-se como um stand estabelecido, mas a descrição é genérica e usa técnicas de pressão comercial ('stock limitado', prémios). O preço baixo pode indicar necessidade rápida de escoar uma unidade com quilometragem sensível."
  },
  "inspection_checklist": [
-  "Histórico de serviços — pedir caderneta ou registos de manutenção",
-  "Teste em estrada — verificar vibrações, ruídos e travagem"
+  "Verificar estado de saúde (SoH) da bateria híbrida com diagnóstico oficial BMW",
+  "Testar o carregamento completo em tomada doméstica e posto público",
+  "Avaliar o comportamento da transmissão automática na transição entre elétrico e térmico",
+  "Inspecionar fugas no sistema de refrigeração do motor e inversor",
+  "Verificar folgas na suspensão devido ao peso extra do sistema híbrido"
  ],
  "negotiation_tips": [
-  "Anda uns 99% acima de carros parecidos. Leva-lhe alguns anúncios semelhantes e atira um valor à volta dos 33.500€ — com jeitinho costuma resultar."
+  "Usa os 170k km e a incerteza da bateria para negociar uma redução no preço ou garantia própria mais abrangente.",
+  "Exige o certificado de capacidade da bateria antes de avançar com qualquer sinal.",
+  "Confirma se o valor inclui o cabo de carregamento original em bom estado."
  ],
  "negotiation": {
-  "asking_price": 35900,
-  "opening_offer": 28150,
+  "asking_price": 25400,
+  "opening_offer": 24250,
   "fair_value": 29950,
   "walk_away": 29950,
-  "potential_saving": 7750,
+  "potential_saving": 1150,
   "leverage": [
-   "Está uns 20% acima de carros parecidos — mostra-lhe os comparáveis",
+   "Está uns 15% abaixo da média — já é bom preço, confirma o estado",
    "Tem mais km do que a média para o ano"
   ],
   "confidence": "media",
-  "sample_count": 15
+  "sample_count": 18
  },
  "anomaly": null,
  "price_history": null,
  "cost_of_ownership": {
-  "monthly_running": 146,
+  "monthly_running": 238,
   "monthly_true": null,
   "annual_fuel": 1312,
   "annual_iuc": 440,
-  "annual_maintenance": null,
+  "annual_maintenance": 1100,
   "depreciation_monthly": null,
   "assumptions": {
    "km_year": 15000,
@@ -103,20 +118,32 @@
    "fuel_price": 1.75
   }
  },
- "maintenance_estimate": null,
+ "maintenance_estimate": 1100.0,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
- "_analysis_engine": "rule:gemini_error",
- "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_analysis_engine": "gemini",
+ "_llm_error": null,
  "_extraction_method": "next_data",
  "_data_quality": {
-  "score": 0.96,
+  "score": 0.88,
   "grade": "A",
   "critical_filled": "5/5",
   "missing_critical": []
  },
  "_data_warnings": [],
  "fit": null,
- "reliability": null,
+ "reliability": {
+  "score": 6.56,
+  "ci_low": 5.78,
+  "ci_high": 7.32,
+  "data_quality": "limited"
+ },
+ "dealbreakers": {
+  "has_dealbreaker": false,
+  "recall_count": 0,
+  "critical_issue_count": 0,
+  "recalls": [],
+  "critical_issues": []
+ },
  "depreciation": null
 }

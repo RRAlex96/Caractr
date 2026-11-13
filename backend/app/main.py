@@ -415,6 +415,13 @@ def _run_startup_migrations() -> None:
                     ADD COLUMN IF NOT EXISTS reliability_data_quality VARCHAR(20),
                     ADD COLUMN IF NOT EXISTS reliability_sources      JSONB
             """))
+        # v59: fuel restriction on a generation (e.g. the electric Fiat 500e, sold
+        # alongside the petrol 500) so the year lookup can tell overlapping cars apart.
+        if _missing_columns(db, "generations", ["fuel_type"]):
+            db.execute(text("""
+                ALTER TABLE generations
+                    ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(20)
+            """))
         # v55: admin_notes for concierge pipeline (internal operator field)
         if _missing_columns(db, "concierge_requests", ["admin_notes"]):
             db.execute(text("""

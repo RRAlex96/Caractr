@@ -15,7 +15,7 @@ const QUICK_AVERSIONS = [
   { value: "fiabilidade", label: "Pouca fiabilidade" },
   { value: "conforto",    label: "Pouco conforto" },
   { value: "espaco",      label: "Pouco espaço" },
-  { value: "potencia",    label: "Pouca potencia" },
+  { value: "potencia",    label: "Pouca potência" },
 ]
 
 const QUICK_BUDGETS = [
@@ -67,7 +67,7 @@ export function QuickProfile({ onComplete, className }: QuickProfileProps) {
         Para ti
       </p>
       <p className="mb-5 font-display text-[15px] font-bold leading-tight">
-        Este carro e bom negocio.<br />Mas e bom <em>para ti</em>?
+        Este carro é bom negócio.<br />Mas é bom <em>para ti</em>?
       </p>
 
       {/* Top dimension */}

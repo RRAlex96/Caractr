@@ -16,9 +16,9 @@ interface ShareButtonProps {
 }
 
 const TIER_LABELS: Record<string, string> = {
-  forte: "NEGOCIO FORTE",
-  razoavel: "RAZOAVEL",
-  cuidado: "ATENCAO",
+  forte: "NEGÓCIO FORTE",
+  razoavel: "RAZOÁVEL",
+  cuidado: "ATENÇÃO",
   evitar: "EVITAR",
 }
 

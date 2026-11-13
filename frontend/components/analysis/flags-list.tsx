@@ -17,7 +17,7 @@ export function FlagsList({ greenFlags, redFlags, className }: FlagsListProps) {
       )}
     >
       <p className="mb-1 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-        Pontos de analise
+        Pontos de análise
       </p>
       {greenFlags.map((f, i) => (
         <div key={`g${i}`} className="flex items-start gap-3">

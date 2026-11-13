@@ -1,0 +1,47 @@
+name: Health
+
+# Daily check that the product still works end to end where it is most fragile:
+# the site is up, the API wakes, and the server can still find and read a
+# Standvirtual listing (no AI call, no database write). GitHub emails the
+# repository owner when a scheduled run fails.
+#
+# Setup, once (Settings → Secrets and variables → Actions):
+#   variable CARACTR_API_URL  — the backend's base URL, no trailing slash
+#   secret   ADMIN_TOKEN      — the same value the backend has
+# Until the variable exists the job is skipped, so nothing fails by default.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC, every day
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Site, API and listing fetch
+    runs-on: ubuntu-latest
+    if: vars.CARACTR_API_URL != ''
+    env:
+      API: ${{ vars.CARACTR_API_URL }}
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - name: Website responds
+        run: curl --fail --silent --show-error --max-time 30 -o /dev/null https://caractr.pt/
+
+      - name: API is up (allows for a cold start)
+        run: >
+          curl --fail --silent --show-error --max-time 60
+          --retry 6 --retry-delay 15 --retry-all-errors
+          "$API/api/health"
+
+      - name: A listing can still be found and read
+        run: |
+          for attempt in 1 2; do
+            code=$(curl --silent --show-error --max-time 90 -o result.json -w '%{http_code}' \
+              -H "X-Admin-Token: $ADMIN_TOKEN" "$API/api/admin/health/extraction" || echo 000)
+            echo "attempt $attempt: HTTP $code"
+            cat result.json 2>/dev/null; echo
+            if [ "$code" = "200" ]; then exit 0; fi
+            if [ "$code" = "403" ]; then echo "ADMIN_TOKEN secret is missing or wrong"; exit 1; fi
+            sleep 60   # one retry, so a single hiccup does not send an alert
+          done
+          exit 1

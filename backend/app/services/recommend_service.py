@@ -452,25 +452,15 @@ LOAD_MODELS_SQL = text("""
         (SELECT mp.avg_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS avg_price,
         (SELECT mp.min_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS min_price,
         (SELECT mp.max_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS max_price,
-        -- Reliability trust data: aggregate across generations (latest generation preferred)
-        (
-            SELECT ROUND(AVG(g.reliability_score)::numeric, 2)
-            FROM generations g WHERE g.model_id = vm.id AND g.reliability_score IS NOT NULL
-        ) AS reliability_score,
-        (
-            SELECT ROUND(MIN(g.reliability_ci_low)::numeric, 2)
-            FROM generations g WHERE g.model_id = vm.id AND g.reliability_ci_low IS NOT NULL
-        ) AS reliability_ci_low,
-        (
-            SELECT ROUND(MAX(g.reliability_ci_high)::numeric, 2)
-            FROM generations g WHERE g.model_id = vm.id AND g.reliability_ci_high IS NOT NULL
-        ) AS reliability_ci_high,
-        (
-            SELECT g.reliability_data_quality
-            FROM generations g
-            WHERE g.model_id = vm.id AND g.reliability_data_quality IS NOT NULL
-            ORDER BY g.year_start DESC LIMIT 1
-        ) AS reliability_data_quality,
+        -- Reliability shown on the card: the curated per-engine score the ranking
+        -- already uses, with the spread across the model's engines as its range.
+        -- The count-based generations.reliability_score is NOT shown: it adds a
+        -- "failure" for every recall or complaint record and no exposure, so it
+        -- scored a Honda CR-V 1.4/10 and any model with no records 8.9/10.
+        ROUND(AVG(e.reliability_score)::numeric, 1) AS reliability_score,
+        ROUND(GREATEST(1, MIN(e.reliability_score) - 0.5)::numeric, 1) AS reliability_ci_low,
+        ROUND(LEAST(10, MAX(e.reliability_score) + 0.5)::numeric, 1) AS reliability_ci_high,
+        'prior_only' AS reliability_data_quality,
         -- Market trust data: from newest generation
         (
             SELECT g.market_value_p50

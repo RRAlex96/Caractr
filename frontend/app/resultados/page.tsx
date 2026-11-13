@@ -220,7 +220,7 @@ export default function ResultadosPage() {
             <span className="text-gold">
               {data.suggestions.stretch_budget?.toLocaleString("pt-PT")} EUR
             </span>
-            , tens mais opcoes.
+            , tens mais opções.
           </p>
         </section>
       )}

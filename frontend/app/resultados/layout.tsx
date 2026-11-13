@@ -4,6 +4,8 @@ export const metadata: Metadata = {
   title: "A tua shortlist",
   description:
     "As melhores recomendações para o teu perfil — com fiabilidade, preço de mercado e tradeoffs honestos.",
+  alternates: { canonical: "/resultados" },
+  robots: { index: false, follow: true },
 }
 
 export default function ResultadosLayout({ children }: { children: React.ReactNode }) {

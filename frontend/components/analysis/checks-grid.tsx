@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils"
 
 const CHECKS = [
-  { label: "PRECO VS. MERCADO", desc: "Comparamos com anuncios reais da mesma marca e modelo." },
-  { label: "KM / ANO",         desc: "Calculamos se o desgaste e compativel com o ano de matricula." },
-  { label: "VENDEDOR",         desc: "Particular ou dealer — cada um tem padroes diferentes." },
+  { label: "PREÇO VS. MERCADO", desc: "Comparamos com anúncios reais da mesma marca e modelo." },
+  { label: "KM / ANO",         desc: "Calculamos se o desgaste é compatível com o ano de matrícula." },
+  { label: "VENDEDOR",         desc: "Particular ou dealer — cada um tem padrões diferentes." },
   { label: "EXTRAS",           desc: "Identificamos equipamentos relevantes que afetam o valor." },
 ]
 

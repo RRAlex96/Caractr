@@ -19,7 +19,7 @@ const QUESTIONS = [
     label: "01 — Dia a dia",
     question: "Onde passas mais tempo ao volante?",
     options: [
-      { value: "cidade",  label: "Cidade",   desc: "Transito, estacionamento, trajetos curtos" },
+      { value: "cidade",  label: "Cidade",   desc: "Trânsito, estacionamento, trajetos curtos" },
       { value: "misto",   label: "Misto",    desc: "Um pouco de tudo — cidade e estrada" },
       { value: "estrada", label: "Estrada",  desc: "Autoestrada, viagens longas, muitos km" },
       { value: "familia", label: "Família",  desc: "Escola, compras, logística familiar" },
@@ -27,12 +27,12 @@ const QUESTIONS = [
   },
   {
     id: "p2_relationship",
-    label: "02 — Relacao com o carro",
-    question: "Como ves o teu carro?",
+    label: "02 — Relação com o carro",
+    question: "Como vês o teu carro?",
     options: [
       { value: "apenas_transporte", label: "Apenas transporte",  desc: "Leva-me do A ao B, sem drama" },
       { value: "gosto_conduzir",    label: "Gosto de conduzir",  desc: "Aprecio uma boa viagem, mas não é obsessão" },
-      { value: "adoro_conduzir",    label: "Adoro conduzir",     desc: "O carro e uma extensao de mim" },
+      { value: "adoro_conduzir",    label: "Adoro conduzir",     desc: "O carro é uma extensão de mim" },
     ],
   },
   {
@@ -51,7 +51,7 @@ const QUESTIONS = [
     question: "O que queres que o carro comunique?",
     options: [
       { value: "discreto",     label: "Discreto",          desc: "Não preciso de atenção — só de um bom carro" },
-      { value: "bom_aspeto",   label: "Bom aspeto",        desc: "Elegante, sem ser ostentacao" },
+      { value: "bom_aspeto",   label: "Bom aspeto",        desc: "Elegante, sem ser ostentação" },
       { value: "vire_cabecas", label: "Que vire cabeças",  desc: "Presença forte — gosto de ser notado" },
     ],
   },
@@ -61,9 +61,9 @@ const QUESTIONS = [
     question: "O que seria inaceitável no teu próximo carro?",
     options: [
       { value: "fiabilidade", label: "Problemas mecânicos", desc: "Avarias, custos inesperados, falta de confiança" },
-      { value: "conforto",    label: "Desconforto",         desc: "Barulho, suspensao dura, viagens longas a sofrer" },
+      { value: "conforto",    label: "Desconforto",         desc: "Barulho, suspensão dura, viagens longas a sofrer" },
       { value: "espaco",      label: "Falta de espaço",     desc: "Pouco espaço para passageiros ou bagagem" },
-      { value: "potencia",    label: "Falta de resposta",   desc: "Motor fraco, aceleracao lenta, sem dinamismo" },
+      { value: "potencia",    label: "Falta de resposta",   desc: "Motor fraco, aceleração lenta, sem dinamismo" },
     ],
   },
 ]
@@ -71,10 +71,10 @@ const QUESTIONS = [
 const DREAM_BRANDS_FALLBACK = [
   { id: "porsche",    name: "Porsche",     identity: "Performance sem compromisso" },
   { id: "bmw",        name: "BMW",         identity: "O prazer de conduzir" },
-  { id: "mercedes",   name: "Mercedes",    identity: "Elegancia e refinamento" },
-  { id: "toyota",     name: "Toyota",      identity: "Fiavel como nada" },
-  { id: "volvo",      name: "Volvo",       identity: "Seguranca e conforto escandinavo" },
-  { id: "volkswagen", name: "Volkswagen",  identity: "Solido, maduro, sem teatros" },
+  { id: "mercedes",   name: "Mercedes",    identity: "Elegância e refinamento" },
+  { id: "toyota",     name: "Toyota",      identity: "Fiável como nada" },
+  { id: "volvo",      name: "Volvo",       identity: "Segurança e conforto escandinavo" },
+  { id: "volkswagen", name: "Volkswagen",  identity: "Sólido, maduro, sem teatros" },
 ]
 
 const DIM_LABELS: Record<string, string> = {
@@ -95,7 +95,7 @@ function buildFallbackNarrative(data: any): { summary: string; lines: string[] }
       : "Perfil equilibrado."
   const lines: string[] = []
   if (top2.length >= 2)
-    lines.push(`${cap(top2[0])} e ${top2[1]} estao no topo das tuas prioridades.`)
+    lines.push(`${cap(top2[0])} e ${top2[1]} estão no topo das tuas prioridades.`)
   if (data.answers?.p6_aversion && data.answers.p6_aversion !== "nenhuma") {
     const map: Record<string, string> = {
       fiabilidade: "Ficou claro: problemas mecânicos são inaceitáveis para ti.",
@@ -210,7 +210,7 @@ export default function EscolherPage() {
       }, 1500)
     } catch (err) {
       console.error("Submit error:", err)
-      setSubmitError("Erro ao calcular o perfil. Verifica a ligacao e tenta novamente.")
+      setSubmitError("Erro ao calcular o perfil. Verifica a ligação e tenta novamente.")
       setSubmitting(false)
     }
   }

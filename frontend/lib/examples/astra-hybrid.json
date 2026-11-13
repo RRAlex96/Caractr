@@ -4,23 +4,23 @@
  "source": "standvirtual",
  "source_label": "Standvirtual",
  "source_domain": "",
- "source_url": "https://www.standvirtual.com/carros/anuncio/opel-astra-ver-1-2-t-hybrid-gs-edct-ID8Q0eQn.html",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/opel-astra-ver-1-2-t-hybrid-gs-edct-ID8Q0JOw.html",
  "listing": {
   "brand_name": "Opel",
   "model_name": "Astra",
-  "year": 2025,
-  "km": 16570,
-  "price": 24490,
+  "year": 2026,
+  "km": 4000,
+  "price": 30990,
   "seller_type": "desconhecido",
-  "photo_count": 15,
-  "listing_age_days": 2
+  "photo_count": 26,
+  "listing_age_days": 3
  },
  "deal": {
   "tier": "razoavel",
-  "score": 0.42,
+  "score": 0.5,
   "price_delta": 0.0,
   "price_delta_pct": null,
-  "km_per_year": 16570.0,
+  "km_per_year": 4000.0,
   "market_avg_price": null,
   "market_median_price": null,
   "market_sample_count": null,
@@ -33,44 +33,66 @@
  },
  "analysis": {
   "verdict": "razoavel",
-  "verdict_reason": "Preço alinhado com o mercado, sem grandes alertas.",
+  "verdict_reason": "Seminovo de 2026 com 4000 km e motor 1.2 MHEV (corrente), mas preço elevado próximo de novo.",
   "green_flags": [
-   "Boas fotos do anúncio (15 imagens)",
-   "Anúncio recente — provavelmente não vendido ainda"
+   "Motor 1.2 PureTech/Hybrid de 145cv com distribuição por corrente (elimina o problema histórico da correia banhada a óleo)",
+   "Apenas 4000 km percorridos — praticamente em estado de novo",
+   "Caixa automática eDCT de 6 velocidades integrada com sistema Mild-Hybrid de 48V"
   ],
-  "red_flags": [],
-  "seller_analysis": "Tipo de vendedor não identificado — confirmar antes de avançar.",
-  "profile_fit": "Análise baseada nas características do Opel Astra.",
-  "trim_level": "1.2 T Hybrid GS eDCT",
-  "spec_tier": "base",
-  "trim_includes": [],
+  "red_flags": [
+   "Cobrança adicional de 300 € para despesas administrativas além do preço anunciado",
+   "Desvalorização inicial reduzida face ao preço de um exemplar zero quilómetros de concessionário"
+  ],
+  "seller_analysis": "O anúncio apresenta características típicas de um concessionário ou comerciante profissional, evidenciado pelo acréscimo de 'despesas administrativas'. A descrição é extremamente sucinta e omite a lista detalhada de equipamento opcional. O foco está na venda rápida de uma unidade semi-nova de serviço ou demonstração.",
+  "profile_fit": "Ideal para quem procura um familiar compacto moderno, com consumo eficiente em cidade e garantia de fábrica, sem esperar meses por um novo.",
+  "trim_level": "GS",
+  "spec_tier": "alto",
+  "trim_includes": [
+   "Acabamentos exteriores GS Line em preto brilhante (teto e grelha Vizor)",
+   "Jantes em liga leve de 17\" ou 18\" GS design",
+   "Bancos desportivos AGR",
+   "Painel digital Pure Panel (instrumentação + ecrã tátil)",
+   "Câmara de visão 360º / Sensores de estacionamento",
+   "Faróis Eco-LED ou Matrix LED",
+   "Volante desportivo em pele multifunções"
+  ],
   "optional_extras": [],
-  "equipment_note": null,
-  "key_extras": [],
+  "equipment_note": "O nível GS já é a versão desportiva e topo de gama de série no Astra, vindo habitualmente muito bem recheado de tecnologia.",
+  "key_extras": [
+   "Painel Digital",
+   "Faróis LED",
+   "Jantes Liga Leve GS",
+   "Caixa Automática eDCT"
+  ],
   "spec_value_assessment": "adequado",
-  "engine_code": null,
-  "engine_analysis": "Motor a gasolina.",
-  "extras_analysis": "Não foram identificados extras na descrição do Opel Astra. Isto pode indicar uma versão base, ou o vendedor simplesmente não listou o equipamento. Confirma diretamente antes de avaliar.",
-  "negotiation_script": "Propõe €23,300 como ponto de partida (≈5% de desconto).",
-  "verdict_narrative": "Este Opel Astra de 2025 está dentro do normal para o mercado — não é oferta, mas também não é caro. Equipamento limitado ou não listado — confirma com o vendedor o que inclui.",
-  "seller_read": "Descrição detalhada — sinal positivo de transparência por parte do vendedor. Com 15 fotos, mostra o carro em detalhe — bom indicador de confiança."
+  "engine_code": "EB2LTEDH2",
+  "engine_analysis": "Esta nova motorização 1.2 Turbo Hybrid de 145cv substitui a antiga correia banhada a óleo por uma corrente de distribuição, resolvendo o maior cancro dos motores PureTech anteriores. A caixa eDCT integra o motor elétrico de 48V, sendo um conjunto bastante recente no mercado.",
+  "extras_analysis": "Por ser a versão GS, o carro já inclui de série o pacote estético desportivo e a tecnologia central. Como a descrição não detalha opcionais extra (como teto panorâmico ou sistema de som premium), assume-se o equipamento de série da linha GS.",
+  "negotiation_script": "Boas! Tenho interesse no Astra 1.2 Hybrid GS. Vi que tem apenas 4000 km, mas reparei que acrescem 300 € de despesas administrativas ao valor anunciado. Conseguimos arredondar a proposta para os 29.500 € com essa documentação já incluída? Cumprimentos.",
+  "verdict_narrative": "É um carro praticamente novo, com a grande vantagem de já trazer a nova motorização 1.2 MHEV com corrente de distribuição, o que é um alívio em termos de fiabilidade futura. O nível GS fica-lhe a matar e vem super equipado. Contudo, 31k € é um valor alto; só avança se conseguires cortar a taxa de 300 € e baixar um pouco o valor final.",
+  "seller_read": "Trata-se de um vendedor profissional a despachar stock recente. A inclusão de taxas administrativas no texto indica uma postura rígida na margem de lucro, mas a fraca descrição sugere que contam que o carro se venda sozinho pelos km e ano."
  },
  "inspection_checklist": [
-  "Histórico de serviços — pedir caderneta ou registos de manutenção",
-  "Teste em estrada — verificar vibrações, ruídos e travagem"
+  "Confirmar a transição suave entre o motor elétrico e a gasolina na caixa eDCT durante o test-drive",
+  "Verificar se o livro de garantia da marca está carimbado e ativado para Portugal",
+  "Confirmar se o motor é efetivamente a versão Mild-Hybrid com corrente de distribuição",
+  "Inspecionar jantes e para-choques para detetar eventuais pequenos toques de estacionamento",
+  "Testar o funcionamento de todas as assistências à condução no ecrã Pure Panel"
  ],
  "negotiation_tips": [
-  "Antes de qualquer oferta, pede o histórico de revisões completo. Se faltar, é logo meio caminho andado para negociar."
+  "Bate o pé no valor das 'despesas administrativas' de 300 €; exige que fiquem incluídas no valor final.",
+  "Usa o argumento de que sendo um modelo seminovo de 2026, a concorrência com unidades de serviço em concessionários oficiais é forte.",
+  "Pede para incluírem a primeira revisão anual na marca como condição de fecho de negócio."
  ],
  "negotiation": null,
  "anomaly": null,
  "price_history": null,
  "cost_of_ownership": {
-  "monthly_running": 178,
+  "monthly_running": 181,
   "monthly_true": null,
   "annual_fuel": 1575,
   "annual_iuc": 130,
-  "annual_maintenance": 425,
+  "annual_maintenance": 467,
   "depreciation_monthly": null,
   "assumptions": {
    "km_year": 15000,
@@ -79,11 +101,11 @@
    "fuel_price": 1.75
   }
  },
- "maintenance_estimate": 425.0,
+ "maintenance_estimate": 466.6666666666667,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
- "_analysis_engine": "rule:gemini_error",
- "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_analysis_engine": "gemini",
+ "_llm_error": null,
  "_extraction_method": "next_data",
  "_data_quality": {
   "score": 0.88,
@@ -93,6 +115,41 @@
  },
  "_data_warnings": [],
  "fit": null,
- "reliability": null,
+ "reliability": {
+  "score": 7.06,
+  "ci_low": 4.64,
+  "ci_high": 9.17,
+  "data_quality": "limited"
+ },
+ "dealbreakers": {
+  "has_dealbreaker": false,
+  "recall_count": 2,
+  "critical_issue_count": 0,
+  "recalls": [
+   {
+    "title": "Opel Astra L: Risco de incêndio",
+    "description": "A mangueira de combustível pode ter sido incorretamente encaminhada durante a montagem, fazendo com que entrasse em contacto com a polia do cinto do motor. Este contacto pode danificar a mangueira e resultar em fugas de combustível ou pulverização para o compartimento do motor ou áreas circundantes, conduzindo potencialmente a um incêndio se o combustível atingir superfícies quentes.",
+    "risk": "Risco de incêndio",
+    "priority": false,
+    "severity": "serious",
+    "source": "UE Safety Gate",
+    "source_url": "https://ec.europa.eu/safety-gate-alerts/screen/webReport/alertDetail/10099245?lang=en",
+    "date": "2026-06-09",
+    "affected_years": "2025+"
+   },
+   {
+    "title": "Opel Astra: Risco de ferimentos",
+    "description": "O motor DV5R pode sofrer uma perda de potência devido à derrapagem da polia da bomba de água. Esta derrapagem pode causar desalinhamento da correia dentada, resultando potencialmente na paragem do motor. A roda dentada da polia da bomba de água pode separar-se do eixo, o que pode levar à perda de peças na estrada e aumentar o risco de acidentes e lesões.",
+    "risk": "Risco de ferimentos",
+    "priority": false,
+    "severity": "serious",
+    "source": "UE Safety Gate",
+    "source_url": "https://ec.europa.eu/safety-gate-alerts/screen/webReport/alertDetail/10098428?lang=en",
+    "date": "2026-04-08",
+    "affected_years": "2025+"
+   }
+  ],
+  "critical_issues": []
+ },
  "depreciation": null
 }

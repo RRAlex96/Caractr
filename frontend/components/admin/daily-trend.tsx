@@ -30,7 +30,7 @@ export function DailyTrend({ data }: DailyTrendProps) {
   return (
     <div className="mb-8 rounded-xl border border-border bg-card px-6 py-5">
       <div className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        Tendencia diaria
+        Tendência diária
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[600px]">
         <polyline

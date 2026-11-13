@@ -16,6 +16,62 @@ export interface AnalysisListing {
   listing_age_days: number | null
 }
 
+/**
+ * The engine-power band the comparable listings lie in (the car's power ±15%),
+ * when the listing states the car's power. pool_count is how many listings of
+ * that power were found.
+ */
+export interface MarketPowerComparison {
+  car_power_hp: number
+  power_from: number
+  power_to: number
+  pool_count: number
+}
+
+/**
+ * How the car's mileage was taken into account in the market comparison.
+ *  - band: only listings between km_from and km_to were compared
+ *  - pool: too few in the band, but the car's km is typical of the whole pool
+ *  - mismatch: nothing comparable in mileage — the price verdict is withheld
+ */
+export interface MarketKmComparison {
+  basis: "band" | "pool" | "mismatch"
+  car_km: number
+  km_from: number
+  km_to: number
+  in_band_count: number
+  pool_count: number
+  pool_median_km: number
+}
+
+/**
+ * How the mix of model years among the comparable listings was handled.
+ *  - adjusted: every listing's price was moved to the car's own year and km
+ *    (fit of price on year and km); margin_pct is the 90% margin of the reference
+ *  - near: only listings of the car's year ±1 were compared
+ *  - typical: the car's year is the middle of the listings' years
+ *  - mismatch: the listings are mostly of other years and too few to adjust
+ *    for it — the price verdict is withheld
+ */
+export interface MarketYearComparison {
+  basis: "adjusted" | "near" | "typical" | "mismatch"
+  car_year: number
+  median_year: number
+  year_from: number
+  year_to: number
+  count: number
+  /** Why prices were not adjusted (bases other than "adjusted"). */
+  not_adjusted?: "unknown" | "few" | "single" | "outside" | "unstable"
+  car_km?: number
+  km_from?: number
+  km_to?: number
+  excluded_count?: number
+  pool_count?: number
+  per_year_pct?: number
+  per_10k_km_pct?: number
+  margin_pct?: number
+}
+
 export interface AnalysisDeal {
   tier: "forte" | "razoavel" | "cuidado" | "evitar"
   score: number
@@ -29,6 +85,9 @@ export interface AnalysisDeal {
   market_data_age_days: number | null
   market_data_stale: boolean
   market_fuel_type: string | null
+  market_km_comparison?: MarketKmComparison | null
+  market_year_comparison?: MarketYearComparison | null
+  market_power_comparison?: MarketPowerComparison | null
   generation_year_start: number | null
   generation_year_end: number | null
 }
