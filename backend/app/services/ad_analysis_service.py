@@ -56,6 +56,10 @@ USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "false").lower() == "true"  # scraping is now httpx-based (no Playwright OOM)
 _MIN_NEGOTIATION_SAMPLE = 5  # below this many comparables, suppress precise offer figures
 _MIN_RELIABLE_MARKET_SAMPLE = 5  # below this, the market median is too noisy to drive the price verdict
+# The live comparison reads up to 4 Standvirtual result pages (32 listings
+# each). One page, cut to 20, left a model with 5–15 comparables at best.
+_MARKET_MAX_PAGES = 4
+_MARKET_MAX_LISTINGS = 160
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -1037,6 +1041,10 @@ async def _fetch_live_market_data(
     """
     Fetch real-time market pricing from Standvirtual + OLX.
 
+    The search is scoped to the comparison year window and the fuel, and up to
+    _MARKET_MAX_PAGES Standvirtual result pages are read (the whole market of
+    the variant when it has at most 128 listings).
+
     Filters comparables progressively to ensure like-for-like pricing:
       1. Generation window (year_start–year_end from generations table) when available,
          else ±3 year fallback — so a Golf Mk7 (2012–2019) only compares with Mk7 listings.
@@ -1101,7 +1109,8 @@ async def _fetch_live_market_data(
             brand=brand_name,
             model=model_search,
             budget_max=None,
-            max_per_source=20,
+            max_per_source=_MARKET_MAX_LISTINGS,
+            max_pages=_MARKET_MAX_PAGES,
             fuel_type=fuel_type,
             sv_model_slug=sv_model_slug,
             year_from=scrape_year_from,
@@ -1158,6 +1167,16 @@ async def _fetch_live_market_data(
                 print(f"[MARKET] BMW series filter '{series}xx' -> {len(pool)} listings")
 
         # ── Filter 3: engine variant hint ─────────────────────────────────────
+        # A hard cut from 3 matches up, kept as it was now that prices are
+        # adjusted for year and km. Leave-one-out over ten models' live pools
+        # (2026-11-13), pricing each listing from the others:
+        #   - 8 or more share the engine: the reference is off by more than 20%
+        #     for 8–9% of cars against same-engine listings, 12–15% against all.
+        #   - only 3–4 share it: against all engines the verdict is off by more
+        #     than 20% for one car in three. Cutting leaves fewer than
+        #     _MIN_RELIABLE_MARKET_SAMPLE, so the price verdict is withheld.
+        # Raising the threshold to 5 would trade that withheld verdict for the
+        # wrong one.
         if engine_hint and len(pool) >= 5:
             hint_lower = engine_hint.lower()
             engine_pool = [
