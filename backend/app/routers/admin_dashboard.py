@@ -27,6 +27,21 @@ def _auth(x_admin_token: str = Header(...)):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+@router.get("/health/extraction", dependencies=[Depends(_auth)])
+async def health_extraction():
+    """
+    Daily canary: one Standvirtual search and one listing read from this
+    server, no AI call and no database write. 200 when a listing reads with
+    every critical field, 503 otherwise — so a scheduled `curl --fail` alerts.
+    Admin-only: it makes outbound requests, so it must not be open to abuse.
+    """
+    from fastapi.responses import JSONResponse
+    from app.services.extraction_check import check_extraction
+
+    result = await check_extraction()
+    return JSONResponse(result, status_code=200 if result["ok"] else 503)
+
+
 @router.get("/dashboard", dependencies=[Depends(_auth)])
 def get_dashboard(
     period: str = Query("30d", pattern="^(7d|30d|90d)$"),
