@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
+from app.scrapers.sv_series import find_series, find_variant
+
 # Playwright import is lazy — only loaded when fetch_listings actually needs it.
 # Importing playwright at module level wastes ~50MB RAM even when unused.
 _PLAYWRIGHT_AVAILABLE: Optional[bool] = None  # None = not checked yet
@@ -110,13 +112,9 @@ BRAND_SLUGS = {
     "MG": "mg",
 }
 
-# Model slug mappings for common models
+# Model slug mappings for common models. Series ("Serie 3", "Classe A") are not
+# here: the site does not take them as a path slug (see sv_series.py).
 MODEL_SLUGS = {
-    "Serie 3": "serie-3",
-    "Serie 5": "serie-5",
-    "Classe A": "classe-a",
-    "Classe C": "classe-c",
-    "Classe E": "classe-e",
     "Golf": "golf",
     "Passat": "passat",
     "Polo": "polo",
@@ -151,6 +149,25 @@ MODEL_SLUGS = {
 
 def _random_ua() -> str:
     return random.choice(USER_AGENTS)
+
+
+def _make_slug(brand: str) -> str:
+    """The site's make id for one of our brand names."""
+    return BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
+
+
+def sv_model_slug_for(brand: str, model: str, *texts: Optional[str]) -> Optional[str]:
+    """The site's sub-model slug for a car filed under a series ("Serie 3",
+    "Classe A"), read from what the listing calls it (title, model as written,
+    URL): "BMW 320d Touring" -> "320". None when the model is not a series or
+    no sub-model of it is named. See sv_series.find_variant."""
+    return find_variant(_make_slug(brand or ""), model, *texts)
+
+
+def is_series_model(brand: str, model: str) -> bool:
+    """True when the site files `model` as a series with sub-models."""
+    make = _make_slug(brand or "")
+    return find_series(make, model) is not None and find_variant(make, model) is None
 
 
 # Fuel names (ours and the listing pages' own labels) -> the values of the
@@ -216,16 +233,25 @@ def _build_search_url(
     model_slug_override: Optional[str] = None,
     page: int = 1,
 ) -> str:
-    brand_slug = BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
+    brand_slug = _make_slug(brand)
     # Prefer SV's own model slug (from the listing) when provided — it's exact
     # for any model, including ones not in our MODEL_SLUGS map (e.g. 'velar').
+    series_id = None
     if model_slug_override:
         model_slug = model_slug_override.strip()
     else:
         model_clean = model.strip()
-        model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
-    url = f"{SEARCH_URL}/{brand_slug}/{model_slug}"
+        # A model the site files as a sub-model ("530", "A 180") goes in the
+        # path; a series ("Serie 5", "Classe A") only works as a filter.
+        model_slug = find_variant(brand_slug, model_clean)
+        if not model_slug:
+            series_id = find_series(brand_slug, model_clean)
+        if not model_slug and not series_id:
+            model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
+    url = f"{SEARCH_URL}/{brand_slug}" + (f"/{model_slug}" if not series_id else "")
     params = []
+    if series_id:
+        params.append(f"search[filter_enum_model]={series_id}")
     if budget_max:
         params.append(f"search[filter_float_price:to]={budget_max}")
     # The year filter is the first registration year. "filter_float_year" is
@@ -497,6 +523,8 @@ def _listings_from_search(search: dict) -> list[dict]:
             "source": "standvirtual",
             "source_url": url,
             "title": node.get("title") or "",
+            # The site's model of the listing; for a series search, the sub-model.
+            "sv_model_slug": value("model") or None,
             "price": int(price) if isinstance(price, (int, float)) and price > 0 else None,
             "year": _parse_year(value("first_registration_year")),
             "km": _parse_km(value("mileage")),

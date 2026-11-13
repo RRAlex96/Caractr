@@ -45,6 +45,19 @@ CARS = [
     ("Tesla Model 3 2021 electric",     "Tesla", "Model 3", 2021, "Elétrico", 90000, 2017, None, None, None, None),
 ]
 
+# Cars the catalogue files under a series, analysed from a listing that is not
+# from Standvirtual: no site slug, only the listing's title (last field). The
+# sub-model to search has to be read from it (--set series).
+SERIES_CARS = [
+    ("BMW Serie 3 '320d Touring'",      "BMW", "Serie 3", 2020, "Diesel", 120000, 2019, None, None, None, None, "BMW 320d Touring Pack M"),
+    ("BMW Serie 1 '116d'",              "BMW", "Serie 1", 2017, "Diesel", 130000, 2011, 2019, None, None, None, "BMW 116d EfficientDynamics"),
+    ("BMW Serie 5 '530e'",              "BMW", "Serie 5", 2018, "Híbrido Plug-In", 170000, 2017, 2023, None, None, None, "BMW 530e iPerformance Pack M"),
+    ("Mercedes Classe A 'A 180 d'",     "Mercedes-Benz", "Classe A", 2019, "Diesel", 120000, 2018, None, None, None, None, "Mercedes-Benz A 180 d Style Aut."),
+    ("Mercedes Classe C 'C 220 d'",     "Mercedes-Benz", "Classe C", 2017, "Diesel", 160000, 2014, 2021, None, None, None, "Mercedes-Benz C 220 d Avantgarde"),
+    ("Lexus NX 'NX 300h'",              "Lexus", "NX", 2018, "Híbrido (Gasolina)", 110000, 2014, 2021, None, None, None, "Lexus NX 300h Executive+"),
+    ("Mercedes Classe A, no sub-model", "Mercedes-Benz", "Classe A", 2019, "Diesel", 120000, 2018, None, None, None, None, "Mercedes Classe A AMG Line 2019"),
+]
+
 
 def _search_total(html: str):
     """totalCount of the Standvirtual search embedded in a results page."""
@@ -62,7 +75,10 @@ def _search_total(html: str):
 
 
 async def _measure(car) -> dict:
-    label, brand, model, year, fuel, km, gen_from, gen_to, hint, variant, sv_slug = car
+    label, brand, model, year, fuel, km, gen_from, gen_to, hint, variant, sv_slug = car[:11]
+    title = car[11] if len(car) > 11 else None
+    if not sv_slug and title and hasattr(svc, "_market_model_slug"):
+        sv_slug = svc._market_model_slug({"source_title": title}, brand, model, None)
     pages, fetched = [], {}
 
     # The page parser (the card parser before result pages were read from the
@@ -105,7 +121,8 @@ async def _measure(car) -> dict:
              or (stats.get("km_comparison") or {}).get("basis"))
     listings = fetched.get("listings") or []
     return {
-        "label": label, "car": {"year": year, "km": km, "fuel": fuel, "engine_hint": hint},
+        "label": label, "car": {"year": year, "km": km, "fuel": fuel, "engine_hint": hint, "title": title},
+        "searched_as": sv_slug,
         "search_total": pages[0]["total"] if pages else None,
         "pages": pages,
         "fetched": len(listings),
@@ -122,9 +139,9 @@ async def _measure(car) -> dict:
     }
 
 
-async def _main(tag: str, out_dir: str, only: str) -> None:
+async def _main(tag: str, out_dir: str, only: str, car_set: str) -> None:
     rows = []
-    for car in CARS:
+    for car in (SERIES_CARS if car_set == "series" else CARS):
         if only and only.lower() not in car[0].lower():
             continue
         rows.append(await _measure(car))
@@ -148,5 +165,6 @@ if __name__ == "__main__":
     ap.add_argument("--tag", default="run")
     ap.add_argument("--out", default="measurements")
     ap.add_argument("--only", default="", help="substring of a car label")
+    ap.add_argument("--set", default="common", choices=["common", "series"], dest="car_set")
     args = ap.parse_args()
-    asyncio.run(_main(args.tag, args.out, args.only))
+    asyncio.run(_main(args.tag, args.out, args.only, args.car_set))

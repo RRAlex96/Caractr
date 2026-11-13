@@ -1026,6 +1026,22 @@ def _sv_variant_code(url: Optional[str]) -> Optional[str]:
     return None
 
 
+def _market_model_slug(normalized: dict, brand_name: str, model_name: str,
+                       listing_url: Optional[str]) -> Optional[str]:
+    """Standvirtual model slug to search the car's market under: the listing's
+    own when it is a Standvirtual listing, else — for a model the site files as
+    a series (BMW "Serie 3", Mercedes "Classe A", Lexus "NX") — the sub-model
+    its title, its model as the source wrote it, or its URL names
+    ("BMW 320d Touring" -> "320"). None otherwise: the search then goes by the
+    model name."""
+    slug = normalized.get("sv_model_slug")
+    if slug:
+        return slug
+    from app.scrapers.standvirtual import sv_model_slug_for
+    return sv_model_slug_for(brand_name, model_name, normalized.get("source_title"),
+                             normalized.get("source_model_name"), listing_url)
+
+
 async def _fetch_live_market_data(
     brand_name: str,
     model_name: str,
@@ -1043,7 +1059,8 @@ async def _fetch_live_market_data(
 
     The search is scoped to the comparison year window and the fuel, and up to
     _MARKET_MAX_PAGES Standvirtual result pages are read (the whole market of
-    the variant when it has at most 128 listings).
+    the variant when it has at most 128 listings). sv_model_slug is the site's
+    model to search (see _market_model_slug); a series without one returns {}.
 
     Filters comparables progressively to ensure like-for-like pricing:
       1. Generation window (year_start–year_end from generations table) when available,
@@ -1083,8 +1100,22 @@ async def _fetch_live_market_data(
     cmp_year_from, cmp_year_to, cmp_label = _comparison_year_window(
         year, gen_year_start, gen_year_end)
     gen_key     = f"{cmp_year_from or 'x'}-{cmp_year_to or 'now'}"
+    # The sub-model searched is part of the key: an A 180 and an A 250 are both
+    # "Classe A" and must not share a cached pool.
+    if sv_model_slug:
+        model_key = f"{model_key}~{sv_model_slug.strip().lower()}"
     cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_key}_{gen_key}_{fuel_key}_{engine_key}"
     now = time.time()
+
+    # A series ("Serie 3", "Classe A") whose sub-model is not known is not
+    # searched: against the whole series the reference is off by more than 20%
+    # for one car in four that is not the series' most common sub-model
+    # (leave-one-out over six series, 2026-11-13), one in ten against its own.
+    if not sv_model_slug:
+        from app.scrapers.standvirtual import is_series_model
+        if is_series_model(brand_name, model_search):
+            print(f"[MARKET] {brand_name} {model_name}: a series, sub-model unknown - no like-for-like pool")
+            return {}
 
     cached = _market_cache.get(cache_key)
     if cached and (now - cached["cached_at"]) < _MARKET_CACHE_TTL:
@@ -1474,7 +1505,7 @@ def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     row = db.execute(text("""
         SELECT n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
                n.km_per_year, n.price_delta, n.deal_tier, n.deal_score, n.seller_type,
-               n.description, n.photo_count, r.source_url
+               n.description, n.photo_count, n.fuel_type, r.source_url
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
@@ -1704,8 +1735,9 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     _extraction_method = detail.pop("_extraction_method", None)
     _extraction_layers = detail.pop("_extraction_layers", None)
     _data_quality = detail.pop("_data_quality", None)
-    # Pop title used internally by extraction layers
-    detail.pop("title", None)
+    # Title used internally by extraction layers. Kept aside: it names the
+    # sub-model ("BMW 320d Touring") that the series-level model name loses.
+    source_title = detail.pop("title", None)
 
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
@@ -1801,6 +1833,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     # Lookup model — resolve, or auto-register if unknown (self-healing catalogue).
     # Guard against empty brand/model (generic scraper may not resolve them).
+    source_model_name = model_name
     model_first_word = (model_name.lower().split() or [""])[0]
     model_row = _get_or_create_model(db, brand_name, model_name, model_first_word)
 
@@ -1908,6 +1941,8 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "version":              detail.get("version"),
         "engine_displacement_cc": detail.get("engine_displacement_cc"),
         "sv_model_slug":        detail.get("sv_model_slug"),
+        "source_title":         source_title,
+        "source_model_name":    source_model_name,
         "source_url":    listing_url,
         "source":        source,
         "_js_limited":   _js_limited,
@@ -2080,7 +2115,7 @@ async def _analyse_listing_inner(
                     engine_hint=engine_hint,
                     gen_year_start=gen_year_start,
                     gen_year_end=gen_year_end,
-                    sv_model_slug=normalized.get("sv_model_slug"),
+                    sv_model_slug=_market_model_slug(normalized, brand_name, model_name, listing_url),
                     variant_code=_sv_variant_code(listing_url),
                     km=normalized.get("km"),
                 ),

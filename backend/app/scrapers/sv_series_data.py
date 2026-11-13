@@ -1,0 +1,75 @@
+"""
+Standvirtual's series ("Modelo") and their sub-models ("Sub-modelo"), for the
+four makes the site files that way: BMW, Mercedes-Benz, Lexus and the Porsche
+911. Generated on 2026-11-13 from the filter data embedded in a search results
+page (__NEXT_DATA__ -> urqlState -> filters.states: filter_enum_model and
+filter_enum_engine_code). Do not edit by hand; see sv_series.py for how it is
+used.
+
+    {make id: {series id: (series name, {sub-model id: sub-model name})}}
+"""
+
+SV_SERIES = {
+    "bmw": {
+        "serie-1": ("Série 1", {"114": "114", "116": "116", "118": "118", "120": "120", "123": "123", "125": "125", "130": "130", "135": "135", "150": "150", "1m-coupe": "1M Coupe", "m135i": "M135i", "m140i": "M140i"}),
+        "serie-2": ("Série 2", {"214-active-tourer": "214 Active Tourer", "214-gran-tourer": "214 Gran Tourer", "216-active-tourer": "216 Active Tourer", "216-gran-coupe": "216 Gran Coupé", "216-gran-tourer": "216 Gran Tourer", "218": "218", "218-active-tourer": "218 Active Tourer", "218-gran-coupe": "218 Gran Coupé", "218-gran-tourer": "218 Gran Tourer", "220": "220", "220-active-tourer": "220 Active Tourer", "220-gran-coupe": "220 Gran Coupé", "220-gran-tourer": "220 Gran Tourer", "223-active-tourer": "223 Active Tourer", "223-gran-coupe": "223 Gran Coupé", "225": "225", "225i-active-tourer": "225i Active Tourer", "225xe-active-tourer": "225xe Active Tourer", "bmw-228": "228", "230": "230", "230xe-active-tourer": "230xe Active Tourer", "m2": "M2", "m235i": "M235i", "m235i-gran-coupe": "M235i Gran Coupé", "m240i": "M240i"}),
+        "serie-3": ("Série 3", {"315": "315", "316": "316", "318": "318", "318-gran-turismo": "318 Gran Turismo", "320": "320", "320-gran-turismo": "320 Gran Turismo", "323": "323", "324": "324", "325": "325", "325-gran-turismo": "325 Gran Turismo", "328": "328", "328-gran-turismo": "328 Gran Turismo", "330": "330", "330-gran-turismo": "330 Gran Turismo", "335": "335", "335-gran-turismo": "335 Gran Turismo", "340": "340", "340-gran-turismo": "340 Gran Turismo", "activehybrid-3": "ActiveHybrid 3", "compact": "Compact", "m3": "M3", "m340": "M340", "m350": "M350"}),
+        "serie-4": ("Série 4", {"418": "418", "418-gran-coupe": "418 Gran Coupé", "420": "420", "420-gran-coupe": "420 Gran Coupé", "425": "425", "425-gran-coupe": "425 Gran Coupé", "428": "428", "428-gran-coupe": "428 Gran Coupé", "430": "430", "430-gran-coupe": "430 Gran Coupé", "435": "435", "435-gran-coupe": "435 Gran Coupé", "440": "440", "440-gran-coupe": "440 Gran Coupé", "m4": "M4", "m440": "M440", "m440_gran-coupe": "M440 Gran Coupé"}),
+        "serie-5": ("Série 5", {"518": "518", "520": "520", "520-gran-turismo": "520 Gran Turismo", "523": "523", "524": "524", "525": "525", "528": "528", "530": "530", "530-gran-turismo": "530 Gran Turismo", "535": "535", "535-gran-turismo": "535 Gran Turismo", "540": "540", "545": "545", "550": "550", "550-gran-turismo": "550 Gran Turismo", "activehybrid-5": "ActiveHybrid 5", "m5": "M5", "m535i": "M535i", "m550d": "M550d"}),
+        "serie-6": ("Série 6", {"620-gran-turismo": "620 Gran Turismo", "628": "628", "630": "630", "630-gran-turismo": "630 Gran Turismo", "633": "633", "635": "635", "640": "640", "640-gran-coupe": "640 Gran Coupé", "640-gran-turismo": "640 Gran Turismo", "645": "645", "650": "650", "650-gran-coupe": "650 Gran Coupé", "m6": "M6", "m6-gran-coupe": "M6 Gran Coupé"}),
+        "serie-7": ("Série 7", {"725": "725", "728": "728", "730": "730", "732": "732", "733": "733", "735": "735", "740": "740", "745": "745", "750": "750", "760": "760", "activehybrid-7": "ActiveHybrid 7"}),
+        "serie-8": ("Série 8", {"840": "840", "840-gran-coupe": "840 Gran Coupé", "850": "850", "bmw-m8": "M8", "m850i": "M850i", "m850i-gran-coupe": "M850i Gran Coupé"}),
+        "serie-i": ("Série i", {"i3": "i3", "i4": "i4", "i5": "i5", "i7": "i7", "i8": "i8"}),
+        "serie-x": ("Série X", {"ix": "iX", "ix1": "iX1", "ix2": "iX2", "ix3": "iX3", "x1": "X1", "x2": "X2", "x2-m35i": "X2 M35i", "x3": "X3", "x3-m": "X3 M", "x4": "X4", "x4-m": "X4 M", "x5": "X5", "x5-m": "X5 M", "x6": "X6", "x6-activehybrid": "X6 ActiveHybrid", "x6-m": "X6 M", "x7": "X7", "x7-m": "X7 M", "xm": "XM"}),
+        "serie-z": ("Série Z", {"z1": "Z1", "z3": "Z3", "z4": "Z4", "z8": "Z8"}),
+    },
+    "lexus": {
+        "ct": ("CT", {"ct-200h": "CT 200h"}),
+        "es": ("ES", {"es-200": "ES 200", "es-250": "ES 250", "es-300h": "ES 300h", "es-350": "ES 350", "es-350e": "ES 350e", "es-500e": "ES 500e"}),
+        "gs": ("GS", {"gs-200": "GS 200", "gs-250": "GS 250", "gs-300": "GS 300", "gs-300h": "GS 300h", "gs-430": "GS 430", "gs-450h": "GS 450h", "gs-460": "GS 460", "gs-f": "GS F", "gs-hybrid": "GS Hybrid"}),
+        "gx": ("GX", {"gx-460": "GX 460", "gx-470": "GX 470"}),
+        "is": ("IS", {"is-200": "IS 200", "is-220": "IS 220", "is-250": "IS 250", "is-300": "IS 300", "is-300h": "IS 300H", "is-350": "IS 350", "is-f": "IS F"}),
+        "lc": ("LC", {"lc-500": "LC 500", "lc-500h": "LC 500h"}),
+        "lm": ("LM", {"lm-350h": "LM 350h"}),
+        "ls": ("LS", {"ls-400": "LS 400", "ls-430": "LS 430", "ls-460": "LS 460", "ls-500h": "LS 500h", "ls-600h": "LS 600h"}),
+        "lx": ("LX", {"lx-450": "LX 450", "lx-470": "LX 470", "lx-500": "LX 500", "lx-570": "LX 570"}),
+        "nx": ("NX", {"nx-200": "NX 200", "nx-300h": "NX 300h", "nx-350h": "NX 350h", "nx-450hplus": "NX 450h+"}),
+        "rc": ("RC", {"rc-200t": "RC 200t", "rc-300": "RC 300", "rc-300h": "RC 300h", "rc-f": "RC F"}),
+        "rx": ("RX", {"rx-200": "RX 200", "rx-300": "RX 300", "rx-330": "RX 330", "rx-350": "RX 350", "rx-400": "RX 400", "rx-400h": "RX 400h", "rx-450h": "RX 450h"}),
+        "rz": ("RZ", {"rz-300e": "RZ 300e", "rz-350e": "RZ 350e", "rz-450e": "RZ 450e", "rz-500e": "RZ 500e", "rz-550e": "RZ 550e"}),
+        "sc": ("SC", {"sc-300": "SC 300", "sc-400": "SC 400", "sc-430": "SC 430"}),
+        "ux": ("UX", {"ux-200": "UX 200", "ux-250h": "UX 250h", "ux-300e": "UX 300e"}),
+    },
+    "mercedes-benz": {
+        "classe-a": ("Classe A", {"a-140": "A 140", "a-150": "A 150", "a-160": "A 160", "a-160-limousine": "A 160 Limousine", "a-170": "A 170", "a-180": "A 180", "a-180-limousine": "A 180 Limousine", "a-190": "A 190", "a-200": "A 200", "a-200-limousine": "A 200 Limousine", "a-210": "A 210", "a-220": "A 220", "a-220-limousine": "A 220 Limousine", "a-250": "A 250", "a-250-limousine": "A 250 Limousine", "a-35-amg": "A 35 AMG", "a-35-amg-limousine": "A 35 AMG Limousine", "a-45-amg": "A 45 AMG"}),
+        "classe-b": ("Classe B", {"b-150": "B 150", "b-160": "B 160", "b-170": "B 170", "b-180": "B 180", "b-200": "B 200", "b-220": "B 220", "b-250": "B 250", "b-electric-drive": "B Electric Drive"}),
+        "classe-c": ("Classe C", {"c-150": "C 150", "c-160": "C 160", "c-180": "C 180", "c-200": "C 200", "c-220": "C 220", "c-230": "C 230", "c-240": "C 240", "c-250": "C 250", "c-270": "C 270", "c-280": "C 280", "c-30": "C 30 AMG", "c-300": "C 300", "c-32": "C 32 AMG", "c-320": "C 320", "c-350": "C 350", "c-36": "C 36 AMG", "c-400": "C 400", "c-43": "C 43 AMG", "c-450": "C 450", "c-55": "C 55 AMG", "c-63": "C 63 AMG"}),
+        "classe-cl": ("Classe CL", {"cl-420": "CL 420", "cl-500": "CL 500", "cl-55": "CL 55 AMG", "cl-600": "CL 600", "cl-63": "CL 63 AMG", "cl-65": "CL 65 AMG"}),
+        "classe-cla": ("Classe CLA", {"cla-180": "CLA 180", "cla-200": "CLA 200", "cla-220": "CLA 220", "cla-250": "CLA 250", "cla-250-plus": "CLA 250+", "cla-35-amg": "CLA 35 AMG", "cla-350": "CLA 350", "cla-45-amg": "CLA 45 AMG"}),
+        "classe-clc": ("Classe CLC", {"clc-160": "CLC 160", "clc-180": "CLC 180", "clc-200": "CLC 200", "clc-220": "CLC 220", "clc-230": "CLC 230", "clc-250": "CLC 250", "clc-350": "CLC 350"}),
+        "classe-cle": ("Classe CLE", {"cle-180": "CLE 180", "cle-200": "CLE 200", "cle-220": "CLE 220", "cle-300": "CLE 300", "cle-450": "CLE 450", "cle-53-amg": "CLE 53 AMG"}),
+        "classe-clk": ("Classe CLK", {"clk-200": "CLK 200", "clk-220": "CLK 220", "clk-230": "CLK 230", "clk-240": "CLK 240", "clk-270": "CLK 270", "clk-280": "CLK 280", "clk-320": "CLK 320", "clk-350": "CLK 350", "clk-430": "CLK 430", "clk-500": "CLK 500", "clk-55": "CLK 55 AMG", "clk-63": "CLK 63 AMG"}),
+        "classe-cls": ("Classe CLS", {"cls-220": "CLS 220", "cls-250": "CLS 250", "cls-280": "CLS 280", "cls-300": "CLS 300", "cls-320": "CLS 320", "cls-350": "CLS 350", "cls-400": "CLS 400", "cls-450": "CLS 450", "cls-500": "CLS 500", "cls-53": "CLS 53 AMG", "cls-55": "CLS 55 AMG", "cls-63": "CLS 63 AMG"}),
+        "classe-e": ("Classe E", {"e-200": "E 200", "e-220": "E 220", "e-230": "E 230", "e-240": "E 240", "e-250": "E 250", "e-270": "E 270", "e-280": "E 280", "e-290": "E 290", "e-300": "E 300", "e-320": "E 320", "e-350": "E 350", "e-400": "E 400", "e-420": "E 420", "e-43-amg": "E 43 AMG", "e-430": "E 430", "e-450": "E 450", "e-50": "E 50 AMG", "e-500": "E 500", "e-53": "E 53 AMG", "e-55": "E 55 AMG", "e-63": "E 63 AMG"}),
+        "classe-g": ("Classe G", {"g-230": "G 230", "g-240": "G 240", "g-250": "G 250", "g-270": "G 270", "g-280": "G 280", "g-300": "G 300", "g-320": "G 320", "g-350": "G 350", "g-400": "G 400", "g-450": "G 450", "g-500": "G 500", "g-55": "G 55 AMG", "g-580": "G 580", "g-63": "G 63 AMG", "g-65": "G 65 AMG"}),
+        "classe-gl": ("Classe GL", {"gl-320": "GL 320", "gl-350": "GL 350", "gl-400": "GL 400", "gl-420": "GL 420", "gl-450": "GL 450", "gl-500": "GL 500", "gl-550": "GL 550", "gl-63-amg": "GL 63 AMG"}),
+        "classe-gla": ("Classe GLA", {"gla-180": "GLA 180", "gla-200": "GLA 200", "gla-220": "GLA 220", "gla-250": "GLA 250", "gla-35-amg": "GLA 35 AMG", "gla-45-amg": "GLA 45 AMG"}),
+        "classe-glb": ("Classe GLB", {"glb-180": "GLB 180", "glb-200": "GLB 200", "glb-220": "GLB 220", "glb-250": "GLB 250", "glb-250-plus": "GLB 250+", "glb-35-amg": "GLB 35 AMG", "glb-350": "GLB 350"}),
+        "classe-glc": ("Classe GLC", {"glc-200": "GLC 200", "glc-220": "GLC 220", "glc-250": "GLC 250", "glc-300": "GLC 300", "glc-350": "GLC 350", "glc-400": "GLC 400", "glc-43-amg": "GLC 43 AMG", "glc-450": "GLC 450", "glc-63-amg": "GLC 63 AMG"}),
+        "classe-gle": ("Classe GLE", {"gle-250": "GLE 250", "gle-300": "GLE 300", "gle-350": "GLE 350", "gle-400": "GLE 400", "gle-43-amg": "GLE 43 AMG", "gle-450": "GLE 450", "gle-500": "GLE 500", "gle-53-amg": "GLE 53 AMG", "gle-580": "GLE 580", "gle-63-amg": "GLE 63 AMG"}),
+        "classe-glk": ("Classe GLK", {"glk-200": "GLK 200", "glk-220": "GLK 220", "glk-250": "GLK 250", "glk-280": "GLK 280", "glk-300": "GLK 300", "glk-320": "GLK 320", "glk-350": "GLK 350"}),
+        "classe-gls": ("Classe GLS", {"gls-350": "GLS 350", "gls-400": "GLS 400", "gls-450": "GLS 450", "gls-500": "GLS 500", "gls-53-amg": "GLS 53 AMG", "gls-580": "GLS 580", "gls-600": "GLS 600", "gls-63-amg": "GLS 63 AMG", "gls-680": "GLS 680"}),
+        "classe-m": ("Classe M", {"ml-230": "ML 230", "ml-250": "ML 250", "ml-270": "ML 270", "ml-280": "ML 280", "ml-300": "ML 300", "ml-320": "ML 320", "ml-350": "ML 350", "ml-400": "ML 400", "ml-420": "ML 420", "ml-430": "ML 430", "ml-450": "ML 450", "ml-500": "ML 500", "ml-55": "ML 55 AMG", "ml-63": "ML 63 AMG"}),
+        "classe-r": ("Classe R", {"r-280": "R 280", "r-300": "R 300", "r-320": "R 320", "r-350": "R 350", "r-500": "R 500", "r-63-amg": "R 63 AMG"}),
+        "classe-s": ("Classe S", {"s-250": "S 250", "s-280": "S 280", "s-300": "S 300", "s-320": "S 320", "s-350": "S 350", "s-380": "S 380", "s-400": "S 400", "s-420": "S 420", "s-430": "S 430", "s-450": "S 450", "s-500": "S 500", "s-55": "S 55 AMG", "s-550": "S 550", "s-560": "S 560", "s-580": "S 580", "s-600": "S 600", "s-63": "S 63 AMG", "s-65": "S 65 AMG", "s-650": "S 650", "s-680": "S 680", "s-cabrio": "S Cabrio"}),
+        "classe-sl": ("Classe SL", {"sl-190": "SL 190", "sl-230": "SL 230", "sl-250": "SL 250", "sl-280": "SL 280", "sl-300": "SL 300", "sl-320": "SL 320", "sl-350": "SL 350", "sl-380": "SL 380", "sl-400": "SL 400", "sl-420": "SL 420", "sl-43": "SL 43 AMG", "sl-450": "SL 450", "sl-500": "SL 500", "sl-55": "SL 55 AMG", "sl-560": "SL 560", "sl-60": "SL 60 AMG", "sl-600": "SL 600", "sl-63-amg": "SL 63 AMG", "sl-65": "SL 65 AMG", "sl-680": "SL 680", "sl-70": "SL 70 AMG", "sl-73": "SL 73 AMG"}),
+        "classe-slc": ("Classe SLC", {"slc-180": "SLC 180", "slc-200": "SLC 200", "slc-250": "SLC 250", "slc-300": "SLC 300", "slc-350": "SLC 350", "slc-43-amg": "SLC 43 AMG", "slc-450": "SLC 450"}),
+        "classe-slk": ("Classe SLK", {"slk-200": "SLK 200", "slk-230": "SLK 230", "slk-250": "SLK 250", "slk-280": "SLK 280", "slk-300": "SLK 300", "slk-32": "SLK 32 AMG", "slk-320": "SLK 320", "slk-350": "SLK 350", "slk-55": "SLK 55 AMG"}),
+        "classe-t": ("Classe T", {"t-160": "T 160", "t-180": "T 180"}),
+        "classe-v": ("Classe V", {"v-200": "V 200", "v-220": "V 220", "v-230": "V 230", "v-250": "V 250", "v-280": "V 280", "v-300": "V 300"}),
+        "classe-x": ("Classe X", {"x-220": "X 220", "x-250": "X 250", "x-350": "X 350"}),
+    },
+    "porsche": {
+        "911-todos": ("911 (Todos)", {"964": "911 (964)", "991": "911 (991)", "porsche-992": "911 (992)", "993": "911 (993)", "996": "911 (996)", "997": "911 (997)", "911": "911 Série F", "911-serie-g": "911 Série G"}),
+    },
+}
