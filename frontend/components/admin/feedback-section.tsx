@@ -47,7 +47,7 @@ export function FeedbackSection({ data }: FeedbackSectionProps) {
       {totalHelp > 0 && (
         <div>
           <div className="mb-2 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground">
-            Analise util? ({totalHelp})
+            Análise útil? ({totalHelp})
           </div>
           <div className="flex gap-4">
             <div className="text-center">
@@ -63,7 +63,7 @@ export function FeedbackSection({ data }: FeedbackSectionProps) {
                 {notHelpful}
               </div>
               <div className="font-mono text-[9px] text-muted-foreground">
-                NAO
+                NÃO
               </div>
             </div>
             <div className="text-center">
@@ -80,7 +80,7 @@ export function FeedbackSection({ data }: FeedbackSectionProps) {
 
       {totalSat === 0 && totalHelp === 0 && (
         <div className="font-mono text-[11px] text-muted-foreground">
-          Sem feedback no periodo
+          Sem feedback no período
         </div>
       )}
     </div>

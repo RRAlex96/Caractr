@@ -16,7 +16,7 @@ export function FunnelChart({ steps }: FunnelChartProps) {
   return (
     <div className="mb-8 rounded-xl border border-border bg-card px-6 py-5">
       <div className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        Funil de conversao
+        Funil de conversão
       </div>
       <div className="flex flex-col gap-2.5">
         {steps.map((step, i) => (

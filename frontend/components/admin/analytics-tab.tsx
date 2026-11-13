@@ -36,7 +36,7 @@ export function AnalyticsTab({ data }: AnalyticsTabProps) {
             {(data.overview?.total_events ?? 0).toLocaleString()}
           </div>
           <div className="mt-2 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-            nos ultimos {data.period_days} dias
+            nos últimos {data.period_days} dias
           </div>
           <div className="mt-4 font-mono text-[10px] text-muted-foreground">
             Completaram wizard:{" "}

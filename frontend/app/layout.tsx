@@ -38,13 +38,15 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  // Google Search Console ownership check, when verifying by meta tag.
+  verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
   alternates: {
-    canonical: SITE_URL,
+    canonical: "/",   // home only: every section sets its own
   },
 }
 

@@ -90,7 +90,7 @@ export function ConciergeTable({ requests, token, onUpdate }: ConciergeTableProp
               Modelo
             </th>
             <th className="px-4 py-3 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-              Orcamento
+              Orçamento
             </th>
             <th className="px-4 py-3 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
               Status
@@ -290,7 +290,7 @@ export function ConciergeTable({ requests, token, onUpdate }: ConciergeTableProp
                               {req.consent_dealer ? (
                                 <span className="text-green-500">Sim</span>
                               ) : (
-                                <span className="text-zinc-500">Nao</span>
+                                <span className="text-zinc-500">Não</span>
                               )}
                             </span>
                             {req.session_id && (

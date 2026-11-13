@@ -22,7 +22,7 @@ export default function GlobalError({
         ERRO INESPERADO
       </h1>
       <p className="mb-9 max-w-[400px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Ocorreu um erro que nao conseguimos prever. Tenta novamente — se o
+        Ocorreu um erro que não conseguimos prever. Tenta novamente — se o
         problema persistir, contacta-nos.
       </p>
       <button

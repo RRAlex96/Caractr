@@ -8,10 +8,10 @@ import type { ReliabilityData, MarketData } from "@/lib/types"
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const DATA_QUALITY_LABELS: Record<string, { label: string; colorClass: string; hint: string }> = {
-  strong_data: { label: "Dados fortes",    colorClass: "text-success border-success/40", hint: "Dados extensos de multiplas fontes" },
-  robust:      { label: "Dados robustos",  colorClass: "text-success border-success/40", hint: "Multiplas fontes independentes" },
-  limited:     { label: "Dados limitados", colorClass: "text-warning border-warning/40", hint: "Poucas fontes disponiveis" },
-  prior_only:  { label: "Estimativa",      colorClass: "text-muted-foreground border-border", hint: "Baseado em padroes do segmento" },
+  strong_data: { label: "Dados fortes",    colorClass: "text-success border-success/40", hint: "Dados extensos de múltiplas fontes" },
+  robust:      { label: "Dados robustos",  colorClass: "text-success border-success/40", hint: "Múltiplas fontes independentes" },
+  limited:     { label: "Dados limitados", colorClass: "text-warning border-warning/40", hint: "Poucas fontes disponíveis" },
+  prior_only:  { label: "Estimativa",      colorClass: "text-muted-foreground border-border", hint: "Baseado em padrões do segmento" },
 }
 
 function toBarPct(v: number): number {
@@ -26,7 +26,7 @@ function freshnessLabel(asOf: string | null | undefined): string {
     const days = Math.round((now.getTime() - d.getTime()) / 86400000)
     if (days <= 35) return `dados de ${days < 7 ? "esta semana" : "este mês"}`
     const months = Math.round(days / 30)
-    return `dados de ha ${months} ${months === 1 ? "mes" : "meses"}`
+    return `dados de há ${months} ${months === 1 ? "mês" : "meses"}`
   } catch {
     return ""
   }
@@ -118,9 +118,9 @@ function MarketBlock({ market }: { market: MarketData }) {
 function VerificationBlock() {
   const items = [
     { id: "recalls", label: "Verificar recalls ativos (VIN check)" },
-    { id: "inspection", label: "Inspecao independente por mecanico" },
-    { id: "history", label: "Historico de manutencao documentado" },
-    { id: "vin", label: "Verificacao de VIN (roubo / acidente)" },
+    { id: "inspection", label: "Inspeção independente por mecânico" },
+    { id: "history", label: "Histórico de manutenção documentado" },
+    { id: "vin", label: "Verificação de VIN (roubo / acidente)" },
   ]
 
   const [checked, setChecked] = useState<Set<string>>(new Set())
@@ -229,7 +229,7 @@ export function TrustPanel({ reliability, market, modelName, reliabilityLimited,
 
       <div className="mt-4 border-t border-border pt-4">
         <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
-          Verificacao antes de comprar
+          Verificação antes de comprar
         </span>
         <VerificationBlock />
       </div>

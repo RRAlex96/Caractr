@@ -51,7 +51,7 @@ export function VerdictCard({
         <div className="flex flex-col gap-1">
           {fit && (
             <p className="font-mono text-[8px] uppercase tracking-[1.5px] text-muted-foreground">
-              Negocio
+              Negócio
             </p>
           )}
           <span
@@ -110,7 +110,7 @@ export function VerdictCard({
           listing.listing_age_days != null
             ? listing.listing_age_days <= 7
               ? "publicado esta semana"
-              : `ha ${listing.listing_age_days} dias`
+              : `há ${listing.listing_age_days} dias`
             : null,
         ]
           .filter(Boolean)

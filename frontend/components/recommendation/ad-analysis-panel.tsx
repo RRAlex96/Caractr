@@ -47,7 +47,7 @@ export function AdAnalysisPanel({
         setResult(data)
       }
     } catch {
-      setError("Erro ao analisar. Verifica a ligacao e tenta novamente.")
+      setError("Erro ao analisar. Verifica a ligação e tenta novamente.")
     } finally {
       setLoading(false)
     }
@@ -123,7 +123,7 @@ export function AdAnalysisPanel({
               {tierConfig && (
                 <div className="flex flex-col items-start">
                   <span className="mb-0.5 font-mono text-[8px] uppercase tracking-[1px] text-muted-foreground/50">
-                    Negocio
+                    Negócio
                   </span>
                   <span
                     className={cn(
@@ -206,7 +206,7 @@ export function AdAnalysisPanel({
             {result.deal?.market_avg_price != null && (
               <div>
                 <p className="mb-0.5 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground">
-                  Referencia mercado
+                  Referência mercado
                   <span className="ml-1.5 text-[8px] normal-case opacity-40">
                     {result.deal.market_data_source === "live" ? "tempo real" : "histórico"}
                   </span>
@@ -219,7 +219,7 @@ export function AdAnalysisPanel({
             {result.analysis?.spec_tier && (
               <div>
                 <p className="mb-0.5 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground">
-                  Versao
+                  Versão
                 </p>
                 <p className="font-mono text-[13px] font-semibold">
                   {result.analysis.trim_level || result.analysis.spec_tier.toUpperCase()}

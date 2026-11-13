@@ -126,7 +126,7 @@ function AnalisarContent() {
       {/* ── Intro ── */}
       <div className="mb-5 h-0.5 w-12 rounded-full bg-gold" />
       <h1 className="mb-5 font-display text-[clamp(36px,6vw,64px)] font-extrabold leading-[0.92] tracking-tight">
-        ANALISAR<br />ANUNCIO
+        ANALISAR<br />ANÚNCIO
       </h1>
       <p className="mb-10 max-w-[460px] text-[15px] font-light leading-relaxed text-muted-foreground">
         Cola o link de qualquer anúncio — Standvirtual, OLX ou qualquer stand.
@@ -304,7 +304,7 @@ function AnalisarContent() {
                     onClick={() => setShowQuick(true)}
                     className="rounded-full border border-gold px-4 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10"
                   >
-                    Resposta rapida
+                    Resposta rápida
                   </button>
                   <Link
                     href="/escolher"

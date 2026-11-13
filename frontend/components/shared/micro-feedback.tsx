@@ -6,7 +6,7 @@ import { Analytics } from "@/lib/analytics"
 
 const FEEDBACK_REASONS = [
   "Preço parece errado",
-  "Informacao incompleta",
+  "Informação incompleta",
   "Não concordo com o veredicto",
 ]
 

@@ -15,7 +15,7 @@ export default function NotFound() {
           href="/"
           className="rounded-full bg-gold px-8 py-3.5 text-[13px] font-semibold tracking-wide text-background transition-colors hover:bg-gold-dark"
         >
-          Voltar ao inicio
+          Voltar ao início
         </Link>
         <Link
           href="/analisar"

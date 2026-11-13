@@ -15,7 +15,7 @@ export function SellerRead({ sellerAnalysis, sellerRead, className }: SellerRead
       {sellerAnalysis && (
         <div className="rounded-xl border border-border p-4 md:p-5">
           <p className="mb-2 font-mono text-[9px] uppercase tracking-[1.5px] text-muted-foreground">
-            Analise do vendedor
+            Análise do vendedor
           </p>
           <p className="text-[13px] leading-relaxed text-muted-foreground">
             {sellerAnalysis}

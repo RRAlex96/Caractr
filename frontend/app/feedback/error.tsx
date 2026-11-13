@@ -23,7 +23,7 @@ export default function FeedbackError({
         ERRO NO FEEDBACK
       </h2>
       <p className="mb-9 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Nao conseguimos enviar o teu feedback. Tenta novamente.
+        Não conseguimos enviar o teu feedback. Tenta novamente.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         <button
@@ -36,7 +36,7 @@ export default function FeedbackError({
           href="/"
           className="rounded-full border border-border px-7 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-gold/40 hover:text-gold"
         >
-          Voltar ao inicio
+          Voltar ao início
         </Link>
       </div>
     </div>

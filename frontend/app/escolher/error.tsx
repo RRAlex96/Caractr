@@ -19,10 +19,10 @@ export default function EscolherError({
         ALGO CORREU MAL
       </p>
       <h2 className="mb-4 font-display text-[clamp(24px,4vw,40px)] font-extrabold tracking-tight text-foreground">
-        ERRO NO QUESTIONARIO
+        ERRO NO QUESTIONÁRIO
       </h2>
       <p className="mb-9 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-        Nao conseguimos processar as tuas respostas. As tuas escolhas foram
+        Não conseguimos processar as tuas respostas. As tuas escolhas foram
         guardadas — tenta novamente.
       </p>
       <button
