@@ -13,92 +13,112 @@
   "price": 21900,
   "seller_type": "stand",
   "photo_count": 57,
-  "listing_age_days": 2
+  "listing_age_days": 1
  },
  "deal": {
-  "tier": "razoavel",
-  "score": 0.3292,
-  "price_delta": -0.3415,
-  "price_delta_pct": 6.8,
+  "tier": "forte",
+  "score": 0.4638,
+  "price_delta": -0.0723,
+  "price_delta_pct": 1.4,
   "km_per_year": 14167.0,
-  "market_avg_price": 20500.0,
-  "market_median_price": null,
-  "market_sample_count": 55,
-  "market_data_source": "db",
-  "market_data_age_days": 37,
-  "market_data_stale": true,
+  "market_avg_price": 21477,
+  "market_median_price": 21588,
+  "market_sample_count": 54,
+  "market_data_source": "live",
+  "market_data_age_days": null,
+  "market_data_stale": false,
   "market_fuel_type": "Híbrido (Gasolina)",
-  "generation_year_start": 2018,
+  "market_km_comparison": null,
+  "market_year_comparison": {
+   "basis": "adjusted",
+   "car_year": 2020,
+   "car_km": 85000,
+   "median_year": 2021.0,
+   "year_from": 2019,
+   "year_to": 2025,
+   "km_from": 7000,
+   "km_to": 195000,
+   "count": 54,
+   "excluded_count": 1,
+   "pool_count": 55,
+   "per_year_pct": 4.4,
+   "per_10k_km_pct": -2.8,
+   "margin_pct": 2.0
+  },
+  "market_power_comparison": {
+   "car_power_hp": 122,
+   "power_from": 103,
+   "power_to": 141,
+   "pool_count": 55
+  },
+  "generation_year_start": 2019,
   "generation_year_end": null
  },
  "analysis": {
-  "verdict": "razoavel",
-  "verdict_reason": "Motor 2ZR-FXE ultra fiável com 85k km, mas está 6.8% acima da mediana (€21.900) e a garantia é negociada.",
+  "verdict": "forte",
+  "verdict_reason": "Motor 1.8 Híbrido (2ZR-FXE) ultraconfiável, preço ajustado ao mercado e 85k km com garantia Toyota Relax possível.",
   "green_flags": [
-   "Motor 1.8 Hybrid (2ZR-FXE) de 122cv de guerra, indestrutível com consumo abaixo dos 4.5L/100km.",
-   "Quilometragem realista (85.000 km em 4 anos), longe de ser carro de frota TVDE desgastado.",
-   "Equipamento de topo 'Exclusive' com o ecossistema multimédia atualizado (Apple CarPlay/Android Auto)."
+   "Motor 1.8 Hybrid (2ZR-FXE) de 122cv de extrema fiabilidade mecânica e baixos consumos.",
+   "Quilometragem (85.000 km) dentro da média esperada para o ano (14k km/ano), sem sinais de uso intensivo TVDE.",
+   "Versão Exclusive bem equipada, já com integração Apple CarPlay/Android Auto de origem."
   ],
   "red_flags": [
-   "Preço de €21.900 está €1.400 acima da mediana de mercado para o Corolla de 2020.",
-   "Garantia de 18 meses 'por mútuo acordo' é código de stand para tentar passar a garantia a custo do comprador ou cortar na cobertura."
+   "Garantia de 18 meses negociada por 'mútuo acordo' — exige confirmação da cobertura real (se é total ou apenas caixa/motor).",
+   "Ausência de histórico explícito de revisões na marca para validar a extensão de garantia da bateria híbrida."
   ],
-  "seller_analysis": "Anúncio típico de stand intermédio com texto pré-formatado e copy-paste. Omitiu fotos reais no texto e tenta mascarar a garantia legal obrigatória usando o termo 'por mútuo acordo'. O tom é genérico e sem grande detalhe sobre o histórico.",
-  "profile_fit": "Perfeito para quem quer zero dores de cabeça na oficina, faz muita cidade e valoriza conforto, sem prescindir de conectividade moderna.",
+  "seller_analysis": "O stand faz uma descrição genérica e padronizada, destacando apenas o equipamento de série mais comercial. A menção a garantia por 'mútuo acordo' sugere que o valor base pode não incluir a garantia completa. Está há apenas 1 dia no mercado, pelo que a margem inicial de negociação pode ser curta.",
+  "profile_fit": "Excelente opção para quem procura um familiar compacto, automático, económico na cidade e de manutenção previsível e barata.",
   "trim_level": "Exclusive",
   "spec_tier": "alto",
   "trim_includes": [
-   "Carregador de smartphone wireless",
-   "Chave inteligente (Keyless Entry/Go)",
-   "Bancos aquecidos",
-   "Sensores de estacionamento dianteiros e traseiros",
-   "Faróis Bi-LED",
-   "Toyota Safety Sense (Assistência de faixa e travagem autónoma)"
+   "Carregador de smartphone Wireless",
+   "Integração Apple CarPlay e Android Auto",
+   "Ecrã tátil multimédia Toyota Touch 2",
+   "Painel de instrumentos digital",
+   "Toyota Safety Sense (sistemas de ajuda à condução)",
+   "Ar condicionado automático bi-zona"
   ],
   "optional_extras": [
-   "Integração Apple CarPlay e Android Auto",
-   "Controlo por voz estendido"
+   "Pintura metalizada/pérola (dependendo da cor do veículo)"
   ],
-  "equipment_note": "Muito bem equipado — a versão Exclusive é topo de gama e já traz o conforto todo de série, justificando parte do valor extra.",
+  "equipment_note": "Muito bem equipado — a versão Exclusive é o topo de gama do 1.8 Híbrido em 2020, trazendo já o carregador wireless e o pack tecnológico de série.",
   "key_extras": [
    "Android Auto",
    "Apple CarPlay",
-   "Carregamento Wireless",
    "Bluetooth",
+   "Carregamento Wireless",
    "Computador de Bordo",
    "Controlo por voz"
   ],
   "spec_value_assessment": "adequado",
   "engine_code": "2ZR-FXE",
-  "engine_analysis": "O motor 1.8 Hybrid (2ZR-FXE com caixa e-CVT) é uma rocha. Não tem embraiagem, alternador nem correia de distribuição tradicional, o que reduz os custos de manutenção a quase nada.",
-  "extras_analysis": "A versão Exclusive vem recheada. O facto de ter CarPlay e Android Auto de origem resolve a pior falha do sistema multimédia nativo da Toyota dessa época.",
-  "negotiation_script": "Boas! Tenho interesse no Corolla de 2020. Vi que está anunciado por €21.900, o que fica um pouco acima da média para 85 mil km. Se fecharmos negócio com a garantia total de 18 meses incluída sem truques, consigo avançar nos €20.500. Diga-me se faz sentido para vocês.",
-  "verdict_narrative": "É um grande carro com um motor indestrutível. O preço pedido de €21.900 está puxado em relação ao mercado, mas a versão Exclusive compensa parte disso pelo equipamento. Se me ouvires, só compras isto se baixarem para os €20.500-€21.000 e te derem a garantia por escrito sem tretas de 'mútuo acordo'.",
-  "seller_read": "Vendedor profissional a tentar puxar a margem para cima aproveitando a reputação de fiabilidade da Toyota. A conversa da garantia 'por mútuo acordo' significa que vão tentar cobrar mais para dar a garantia total de 18 meses."
+  "engine_analysis": "O motor 1.8 Híbrido 2ZR-FXE com caixa e-CVT é à prova de bala. Não tem embraiagem, alternador ou correia de distribuição tradicional, minimizando avarias. A ter em atenção apenas a limpeza do filtro de arrefecimento da bateria HV.",
+  "extras_analysis": "Tratando-se da versão Exclusive, o carro vem praticamente completo de fábrica para este motor. O valor pedido reflete o nível de equipamento superior em relação às versões Comfort ou Active.",
+  "negotiation_script": "Boas! Vi o Corolla 1.8 Exclusive de 2020 que publicaram recentemente. Tenho interesse no carro, mas gostava de confirmar se tem o livro de revisões completo na Toyota para manter a garantia da bateria híbrida. Como o valor está ligeiramente acima da média de mercado, pergunto se fecham negócio nos 21.000€ com os 18 meses de garantia incluídos no preço? Obrigado!",
+  "verdict_narrative": "É uma das compras mais racionais que podes fazer no mercado de usados em Portugal. O motor 1.8 híbrido não dá dores de cabeça e a versão Exclusive garante-te todo o conforto moderno. O preço está alinhado com o mercado pelo nível de equipamento — tenta só arredondar o preço e garantir a caderneta de revisões em dia.",
+  "seller_read": "Stand profissional a usar um modelo de anúncio pré-formatado. O tom é neutro e focado em atrair contactos rápidos (anúncio recente), mas a ressalva da garantia exige esclarecimento no local."
  },
  "inspection_checklist": [
-  "Pedir o Histórico de Manutenção na marca para confirmar o 'Health Check' anual da bateria de tração HV.",
-  "Verificar o filtro de refrigeração da bateria híbrida sob o banco traseiro (se está obstruído com cotão/pelos).",
-  "Confirmar se o software do Toyota Touch 2 tem a atualização de firmware efetuada para Apple CarPlay/Android Auto funcional.",
-  "Inspecionar desgaste dos discos de travão (em híbridos duram muito, se estiverem muito gastos a quilometragem pode ser duvidosa).",
-  "Verificar batidas de pedras no para-brisas na zona da câmara do Toyota Safety Sense."
+  "Verificar histórico de manutenção na Toyota para validar o programa Toyota Relax (garantia até 10 anos/160k km).",
+  "Inspecionar a grelha/filtro de ventilação da bateria híbrida por baixo dos bancos traseiros (acumulação de cotão/poeira).",
+  "Testar o estado da bateria de 12V no compartimento do motor (avaria comum se o carro estiver muito tempo parado no stand).",
+  "Verificar desgaste dos discos de travão (devido à travagem regenerativa, costumam durar muito, mas podem criar ferrugem se pouco usados).",
+  "Confirmar o funcionamento do ecrã central e ligação por cabo ao Apple CarPlay / Android Auto."
  ],
  "negotiation_tips": [
-  "Usa os €20.500 da mediana de mercado como a tua âncora de negociação.",
-  "Exige o relatório do teste de saúde da bateria híbrida feito na Toyota — se não tiverem, pede €300 de desconto para seres tu a fazer.",
-  "Não pague nem mais um cêntimo pela garantia de 18 meses; a lei em Portugal exige 3 anos (ou 18 meses por acordo), eles têm de cobrir o carro sem cobrar extra por isso."
+  "Esclarece logo o que significa a garantia por 'mútuo acordo' para não teres surpresas de custos extra no contrato.",
+  "Usa o argumento das revisões na Toyota: se faltar alguma, podes pedir um desconto para fazer o check-up do sistema híbrido.",
+  "O carro entrou há 1 dia no mercado; mostra disponibilidade para fechar negócio rápido em troca de um pequeno desconto."
  ],
  "negotiation": {
   "asking_price": 21900,
-  "opening_offer": 19600,
-  "fair_value": 20500,
-  "walk_away": 20500,
-  "potential_saving": 2300,
-  "leverage": [
-   "Está uns 7% acima de carros parecidos — mostra-lhe os comparáveis"
-  ],
+  "opening_offer": 21050,
+  "fair_value": 21600,
+  "walk_away": 21600,
+  "potential_saving": 850,
+  "leverage": [],
   "confidence": "alta",
-  "sample_count": 55
+  "sample_count": 54
  },
  "anomaly": null,
  "price_history": null,
@@ -131,10 +151,10 @@
  "_data_warnings": [],
  "fit": null,
  "reliability": {
-  "score": 8.79,
-  "ci_low": 7.36,
+  "score": 9.2,
+  "ci_low": 8.5,
   "ci_high": 10.0,
-  "data_quality": "limited"
+  "data_quality": "prior_only"
  },
  "dealbreakers": {
   "has_dealbreaker": false,
