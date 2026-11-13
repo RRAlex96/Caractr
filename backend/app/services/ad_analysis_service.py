@@ -524,6 +524,46 @@ def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tu
     return None
 
 
+# A generation row wider than this is a long-lived or catch-all generation (a
+# curator "Geração principal" 1988–now row put a 2018 BMW 530e up against
+# 2017–2024 cars). Above it the comparison is narrowed around the car's own year.
+_WIDE_GENERATION_YEARS = 8
+_WIDE_GENERATION_TOLERANCE = 2
+_NO_GENERATION_TOLERANCE = 3
+
+
+def _comparison_year_window(
+    year: Optional[int],
+    gen_year_start: Optional[int],
+    gen_year_end: Optional[int],
+    current_year: Optional[int] = None,
+) -> tuple:
+    """
+    (year_from, year_to, label) the market comparison is restricted to.
+    year_to None = open-ended (still-current generation).
+
+      - normal generation      -> the generation window
+      - generation > 8 years   -> car's year ±2, kept inside the generation
+      - no generation record   -> car's year ±3
+      - nothing known          -> (None, None, "")
+    """
+    if gen_year_start is None:
+        if not year:
+            return (None, None, "")
+        t = _NO_GENERATION_TOLERANCE
+        return (int(year) - t, int(year) + t, f"±{t} years")
+
+    label = f"gen {gen_year_start}-{gen_year_end or 'now'}"
+    span = (gen_year_end or current_year or datetime.now().year) - gen_year_start
+    if not year or span <= _WIDE_GENERATION_YEARS:
+        return (gen_year_start, gen_year_end, label)
+
+    t = _WIDE_GENERATION_TOLERANCE
+    year_from = max(gen_year_start, int(year) - t)
+    year_to = int(year) + t if gen_year_end is None else min(gen_year_end, int(year) + t)
+    return (year_from, year_to, f"±{t} years within wide {label}")
+
+
 def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) -> dict:
     """
     Fetch market price statistics for a model/year combination.
@@ -629,6 +669,8 @@ async def _fetch_live_market_data(
     Filters comparables progressively to ensure like-for-like pricing:
       1. Generation window (year_start–year_end from generations table) when available,
          else ±3 year fallback — so a Golf Mk7 (2012–2019) only compares with Mk7 listings.
+         A generation wider than 8 years is narrowed to the car's year ±2
+         (see _comparison_year_window).
       2. Fuel type match (diesel / gasolina / híbrido / elétrico)
       3. Engine variant hint match in listing title (e.g. '1.6 TDI', '2.0 TSI')
 
@@ -650,7 +692,11 @@ async def _fetch_live_market_data(
     model_key   = model_search.lower().replace(" ", "-")       # -> "serie-3"
     fuel_key    = (fuel_type or "").lower().replace(" ", "")[:8]
     engine_key  = (engine_hint or "").lower().replace(" ", "")[:8]
-    gen_key     = f"{gen_year_start or 'x'}-{gen_year_end or 'now'}"
+    # The effective comparison window (not the raw generation) keys the cache:
+    # two cars of one wide generation are compared against different years.
+    cmp_year_from, cmp_year_to, cmp_label = _comparison_year_window(
+        year, gen_year_start, gen_year_end)
+    gen_key     = f"{cmp_year_from or 'x'}-{cmp_year_to or 'now'}"
     cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_key}_{gen_key}_{fuel_key}_{engine_key}"
     now = time.time()
 
@@ -667,17 +713,11 @@ async def _fetch_live_market_data(
     try:
         from app.scrapers.dispatcher import fetch_listings_all_sources
 
-        # Pass generation year bounds directly into the search URL so
-        # Standvirtual/OLX return only listings from this generation.
-        # Fall back to ±3 window if no generation record exists.
-        scrape_year_from: Optional[int] = None
-        scrape_year_to:   Optional[int] = None
-        if gen_year_start is not None:
-            scrape_year_from = gen_year_start
-            scrape_year_to   = gen_year_end   # None = open-ended (still-current gen)
-        elif year:
-            scrape_year_from = year - 3
-            scrape_year_to   = year + 3
+        # Pass the comparison year bounds directly into the search URL so
+        # Standvirtual/OLX return only listings from this generation (or, for a
+        # wide generation / no generation record, from around the car's year).
+        scrape_year_from: Optional[int] = cmp_year_from
+        scrape_year_to:   Optional[int] = cmp_year_to   # None = open-ended (still-current gen)
 
         listings = await fetch_listings_all_sources(
             brand=brand_name,
@@ -703,24 +743,15 @@ async def _fetch_live_market_data(
         # The search URL already scopes results by year, so listings whose year we
         # couldn't parse (common on OLX cards) are kept — only listings with a parsed
         # year clearly OUTSIDE the window are dropped. This preserves sample size.
-        if year and len(pool) >= 5:
-            if gen_year_start is not None:
-                gen_end = gen_year_end if gen_year_end else 9999
-                year_pool = [
-                    l for l in pool
-                    if (not l.get("year")) or (gen_year_start <= int(l["year"]) <= gen_end)
-                ]
-                label = f"gen {gen_year_start}-{gen_year_end or 'now'}"
-            else:
-                year_pool = [
-                    l for l in pool
-                    if (not l.get("year")) or (abs(int(l["year"]) - int(year)) <= 3)
-                ]
-                label = "±3 years"
-
+        if year and cmp_year_from is not None and len(pool) >= 5:
+            cmp_end = cmp_year_to if cmp_year_to else 9999
+            year_pool = [
+                l for l in pool
+                if (not l.get("year")) or (cmp_year_from <= int(l["year"]) <= cmp_end)
+            ]
             if len(year_pool) >= 3:
                 pool = year_pool
-                print(f"[MARKET] Year guard ({label}) -> {len(pool)} listings")
+                print(f"[MARKET] Year guard ({cmp_label}) -> {len(pool)} listings")
 
         # ── Filter 2: fuel type ───────────────────────────────────────────────
         if fuel_type and len(pool) >= 4:
