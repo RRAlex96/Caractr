@@ -1,6 +1,6 @@
 # Migration v5.8 — changeover years
 
-Companion to `migration_v58_changeover_years.sql`. **Not applied to production yet — awaiting approval.**
+Companion to `migration_v58_changeover_years.sql`. **Applied to production on 2026-11-13.**
 
 Consecutive generations of a model shared their boundary year (Clio IV 2012–2019, Clio V 2019–now). The lookup returns the newest row containing the car's year, so every car registered in a changeover year was treated as the newer generation and priced against it.
 
