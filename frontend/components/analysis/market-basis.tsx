@@ -1,7 +1,7 @@
 "use client"
 
 import { cn, formatKm } from "@/lib/utils"
-import type { AnalysisDeal, AnalysisListing } from "@/lib/types"
+import type { AnalysisDeal, AnalysisListing, MarketYearComparison } from "@/lib/types"
 
 interface MarketBasisProps {
   deal: AnalysisDeal
@@ -16,6 +16,20 @@ const FUEL_LABEL: Record<string, string> = {
   "híbrido (plug-in)": "híbrido plug-in",
   "elétrico": "elétrico",
   gpl: "GPL",
+}
+
+// Why the listings' prices could not be adjusted to the car's year (the
+// backend's `not_adjusted`), said after a year mismatch. Only "few" is about
+// how many listings there are.
+const NOT_ADJUSTED_REASON: Record<NonNullable<MarketYearComparison["not_adjusted"]>, string> = {
+  few: "São poucos para ajustar o preço ao ano com confiança.",
+  outside:
+    "O ano e a quilometragem deste carro ficam fora do que esses anúncios cobrem, por isso não ajustámos o preço ao ano.",
+  unstable:
+    "Os preços desses anúncios não seguem um padrão claro o suficiente para ajustar o preço ao ano com confiança.",
+  single:
+    "Esses anúncios variam pouco em ano e quilometragem, o que não chega para estimar quanto pesa cada ano no preço.",
+  unknown: "Sem a quilometragem deste carro, não conseguimos ajustar o preço ao ano.",
 }
 
 const pct = (value: number) =>
@@ -60,8 +74,9 @@ export function MarketBasis({ deal, listing, className }: MarketBasisProps) {
         Não avaliámos o preço face ao mercado: os{" "}
         <span className={num}>{yr.count}</span> anúncios comparáveis são
         sobretudo de {Math.round(yr.median_year)} (entre {yr.year_from} e{" "}
-        {yr.year_to}) e este carro é de {yr.car_year}. São poucos para
-        ajustar o preço ao ano com confiança.
+        {yr.year_to}) e este carro é de {yr.car_year}.{" "}
+        {(yr.not_adjusted && NOT_ADJUSTED_REASON[yr.not_adjusted]) ||
+          "Não foi possível ajustar o preço ao ano com confiança."}
       </p>
     )
   }
