@@ -1776,7 +1776,9 @@ def _with_stored_engine(row: dict) -> dict:
 
 
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
-    """A listing already in the DB, read back instead of scraped again.
+    """A listing already in the DB, as stored. It is fetched again before it
+    is analysed (_refetch_stored_listing); this row is what the analysis falls
+    back on when that fetch fails.
 
     The row's id comes with it: the analysis that follows is stored on that
     row (and gets its permalink) like the analysis of a fresh scrape. Without
@@ -2094,11 +2096,15 @@ def _get_or_create_model(
         return None
 
 
-async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[dict]:
+async def _scrape_and_store_listing(db: Session, listing_url: str, refetch: bool = False) -> Optional[dict]:
     """
     Fetch the listing detail page via the appropriate scraper (SV or OLX),
     infer model from URL slugs or title, store in raw_listings + normalized_listings.
     Returns the normalized row dict.
+
+    refetch: the listing is already stored and is being fetched again for its
+    current state. A fetch that brings no usable price then writes nothing and
+    returns None — see the guard below.
     """
     # Detect source and validate
     source = detect_source(listing_url) or "desconhecido"
@@ -2196,6 +2202,15 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     if _data_warnings:
         print(f"[VALIDATION] {listing_url}: {_data_warnings}")
+
+    # A stored listing fetched again: when the page did not come back, or came
+    # back without a usable price, nothing below may run. It would replace the
+    # stored description with a blank and the stored model with a guess from
+    # the URL. The caller keeps the stored row.
+    if refetch and not price:
+        print(f"[AD_ANALYSIS] Re-fetch of {listing_url} brought no price "
+              f"({_extraction_method or 'no method'}) — stored listing kept")
+        return None
 
     # Insert raw_listing (source-tagged correctly)
     raw_id = db.execute(text("""
@@ -2338,6 +2353,48 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     }
 
 
+# A stored listing is fetched again within this long; past it the analysis goes
+# ahead on the stored row instead of failing on the pipeline's overall limit.
+_REFETCH_TIMEOUT_SECONDS = 30
+# What the stored row lends a re-fetch that missed it: the same fields the row's
+# own update keeps (COALESCE), and the engine facts of its last analysis.
+_REFETCH_KEEP_KEYS = ("year", "km") + _LISTING_ENGINE_KEYS
+
+
+async def _refetch_stored_listing(db: Session, listing_url: str, stored: dict) -> dict:
+    """A listing already in the DB whose analysis is stale or missing: fetched
+    again, so the analysis is of the listing as it is now — its price today, or
+    the fact that it is gone — and the price history gains an observation.
+
+    The stored row used to be analysed as it was, so a car reduced or sold
+    since was judged on the price first seen. It is now only the fallback:
+    when the fetch fails, times out or brings no price, the stored row is
+    returned (and was not written to). A field the fetch missed that the row
+    has (year, km, fuel, engine facts) is taken from the row."""
+    fresh = None
+    try:
+        fresh = await asyncio.wait_for(
+            _scrape_and_store_listing(db, listing_url, refetch=True),
+            timeout=_REFETCH_TIMEOUT_SECONDS,
+        )
+    except Exception as e:  # incl. the timeout; never worse than the read-back
+        print(f"[AD_ANALYSIS] Re-fetch of {listing_url} failed ({type(e).__name__}: {e}) — stored listing kept")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    if not fresh:
+        return stored
+    if fresh.get("_gone"):
+        return fresh
+    for key in _REFETCH_KEEP_KEYS:
+        if fresh.get(key) is None and stored.get(key) is not None:
+            fresh[key] = stored[key]
+    if stored.get("price") and fresh.get("price") != stored.get("price"):
+        print(f"[AD_ANALYSIS] Stored listing re-fetched: price {stored.get('price')} -> {fresh.get('price')}")
+    return fresh
+
+
 def _store_analysis(db: Session, normalized_id: int, llm_result: dict, deal_tier: str, deal_score: float) -> None:
     """Persist LLM analysis and deal tier back to DB."""
     db.execute(text("""
@@ -2455,8 +2512,12 @@ async def _analyse_listing_inner(
         # Always re-scrape on force_refresh (bypasses stale cached scrape data)
         normalized = await _scrape_and_store_listing(db, listing_url)
     else:
-        normalized = _resolve_model_from_url(db, listing_url)
-        if not normalized:
+        # Reached only without a fresh cached analysis. A listing seen before
+        # is fetched again rather than analysed on what was first scraped.
+        stored = _resolve_model_from_url(db, listing_url)
+        if stored:
+            normalized = await _refetch_stored_listing(db, listing_url, stored)
+        else:
             normalized = await _scrape_and_store_listing(db, listing_url)
 
     if normalized and normalized.get("_gone"):
