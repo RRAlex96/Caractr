@@ -30,6 +30,7 @@ SEED_FILES = [
     "seeds/migration_v56_split_wide_generations.sql",  # split the >12-year catch-all windows
     "seeds/migration_v57_close_replaced_generations.sql",  # close replaced / discontinued generations
     "seeds/migration_v58_changeover_years.sql",  # one generation per changeover year
+    "seeds/migration_v59_generation_fuel.sql",  # fuel_type column; Fiat 500e is electric-only
 ]
 
 

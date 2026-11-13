@@ -503,22 +503,48 @@ def _known_issues_prompt_note(matched: list) -> str:
             "menciona-as nos red_flags, engine_analysis e inspection_checklist: " + " | ".join(parts))
 
 
-def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tuple]:
+def _pick_generation(rows: list, fuel_type: Optional[str] = None):
+    """
+    Choose among generation rows that all contain the car's year.
+
+    Usually there is one. Two cars sold side by side under one model name
+    overlap (the petrol Fiat 500 ran to 2024, the electric 500e started in
+    2020); such a row carries `fuel_type`. A fuel-specific generation is chosen
+    only for a car of that fuel; otherwise a generation with no fuel restriction
+    wins, and a fuel-specific one is the last resort. Ties go to the newest.
+    """
+    from app.services.known_issues import normalize_fuel
+
+    car_fuel = normalize_fuel(fuel_type)
+
+    def rank(row) -> int:
+        gen_fuel = normalize_fuel(row.get("fuel_type"))
+        if not gen_fuel:
+            return 1
+        return 0 if gen_fuel == car_fuel else 2
+
+    ordered = sorted(rows, key=lambda r: (rank(r), -(r["year_start"] or 0)))
+    return ordered[0] if ordered else None
+
+
+def _get_generation_window(db: Session, model_id: int, year: int,
+                           fuel_type: Optional[str] = None) -> Optional[tuple]:
     """
     Return (year_start, year_end, generation_id) for the generation that contains `year`.
     year_end may be NULL (current gen) — treated as present year.
-    Returns None if no generation record found.
+    When more than one generation contains the year, the car's fuel decides
+    (see _pick_generation). Returns None if no generation record found.
     """
-    row = db.execute(text("""
-        SELECT id, year_start, year_end
+    rows = db.execute(text("""
+        SELECT id, year_start, year_end, fuel_type
         FROM generations
         WHERE model_id = :model_id
           AND year_start <= :year
           AND (year_end IS NULL OR year_end >= :year)
         ORDER BY year_start DESC
-        LIMIT 1
-    """), {"model_id": model_id, "year": year}).mappings().fetchone()
+    """), {"model_id": model_id, "year": year}).mappings().fetchall()
 
+    row = _pick_generation([dict(r) for r in rows], fuel_type)
     if row:
         return (row["year_start"], row["year_end"], row["id"])
     return None
@@ -1677,7 +1703,7 @@ async def _analyse_listing_inner(
     gen_year_end:   Optional[int] = None
     generation_id:  Optional[int] = None
     if model_id and year:
-        gen_window = _get_generation_window(db, model_id, year)
+        gen_window = _get_generation_window(db, model_id, year, fuel_type)
         if gen_window:
             gen_year_start, gen_year_end, generation_id = gen_window
             print(f"[ANALYSIS] Generation window: {gen_year_start}–{gen_year_end or 'now'} "
