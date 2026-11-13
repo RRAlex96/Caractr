@@ -401,3 +401,14 @@ def test_a_small_budget_may_buy_an_older_car():
     row, _ = price_for_budget(old, 5000, 5750, this_year=2026)       # 17 years old: allowed under 8 000
     assert row["year"] == 2009
     assert price_for_budget(_years((2006, 4500)), 5000, 5750, this_year=2026) is None   # 20 years: not even then
+
+
+def test_load_models_sql_keeps_litres_and_kwh_apart():
+    from app.services.recommend_service import LOAD_MODELS_SQL
+    sql = str(LOAD_MODELS_SQL)
+    assert "avg_kwh" in sql and "best_kwh" in sql
+    # plug-in lab figures and electric kWh are not in the litres average
+    assert sql.count("e.fuel_type <> 'eletrico'") == 2
+    assert sql.count("e.consumption_mixed < 3.5") == 2
+    # nothing that needs a column older databases do not have
+    assert "plug_in" not in sql

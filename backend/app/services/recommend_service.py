@@ -443,10 +443,21 @@ LOAD_MODELS_SQL = text("""
     SELECT
         vm.id, vm.name AS model_name, b.name AS brand_name,
         vm.body_type, vm.segment,
-        AVG(e.consumption_mixed)::float AS avg_consumption,
+        -- Consumption is litres/100 km for combustion engines and kWh/100 km for
+        -- electric ones: the two are never averaged together (a 208 with a petrol,
+        -- a diesel and an electric version came out at "8.6"). A plug-in hybrid's
+        -- homologated figure (0.6-2.5 L, battery full) is left out of both: it
+        -- made an X5 look as frugal as a city car.
+        AVG(e.consumption_mixed) FILTER (
+            WHERE e.fuel_type <> 'eletrico'
+              AND NOT (e.fuel_type LIKE 'h%' AND e.consumption_mixed < 3.5))::float AS avg_consumption,
+        AVG(e.consumption_mixed) FILTER (WHERE e.fuel_type = 'eletrico')::float AS avg_kwh,
         AVG(e.reliability_score)::float AS avg_reliability,
         AVG(e.maintenance_cost_year)::float AS avg_maintenance,
-        MIN(e.consumption_mixed)::float AS best_consumption,
+        MIN(e.consumption_mixed) FILTER (
+            WHERE e.fuel_type <> 'eletrico'
+              AND NOT (e.fuel_type LIKE 'h%' AND e.consumption_mixed < 3.5))::float AS best_consumption,
+        MIN(e.consumption_mixed) FILTER (WHERE e.fuel_type = 'eletrico')::float AS best_kwh,
         MAX(e.power_hp) AS max_power,
         dc.comfort_score, dc.driving_fun_score,
         dc.city_score, dc.highway_score, dc.family_score,
@@ -622,10 +633,14 @@ def load_models(db: Session) -> list:
             "max_price": typical["p90"],
             "price_year": typical["year"],
             "prices_by_year": years or [],
-            "avg_consumption": float(row.avg_consumption) if row.avg_consumption else 7.0,
+            # litres/100 km; for a model sold only as an electric car, kWh/100 km
+            # (which _build_model_vector converts: anything above 10 is kWh)
+            "avg_consumption": (float(row.avg_consumption) if row.avg_consumption
+                                else float(row.avg_kwh) if row.avg_kwh else 7.0),
             "avg_reliability": float(row.avg_reliability) if row.avg_reliability else 5.0,
             "avg_maintenance": float(row.avg_maintenance) if row.avg_maintenance else 500.0,
             "best_consumption": float(row.best_consumption) if row.best_consumption else None,
+            "best_kwh": float(row.best_kwh) if row.best_kwh else None,
             "max_power": int(row.max_power) if row.max_power else None,
             "comfort_score": int(row.comfort_score) if row.comfort_score else 5,
             "driving_fun_score": int(row.driving_fun_score) if row.driving_fun_score else 5,
@@ -781,10 +796,10 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
         interaction += 0.10
 
     # EV/hybrid boost for city + economy context
-    # Detects EVs (best_consumption stored in kWh > 10) and efficient hybrids (< 5 L/100km)
+    # A model with an electric version, or an efficient one (< 5 L/100km)
     if profile.get("economy", 0) > 0.18:
         best_c = model.get("best_consumption")
-        if best_c and (best_c > 10.0 or best_c < 5.0):  # EV (kWh) or efficient hybrid
+        if model.get("best_kwh") or (best_c and (best_c > 10.0 or best_c < 5.0)):
             boost = 0.08 if ctx == "cidade" else 0.04
             interaction += boost
 
@@ -1279,10 +1294,18 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
 
     for dim in dims_to_cover:
         if dim == "economy":
+            # Homologated figures, and said to be: they are not what the car
+            # does on the road, and "among the best in class" was never checked.
             if m["best_consumption"]:
                 t = [
-                    f"Consumo real a partir de {m['best_consumption']}L/100km.",
-                    f"Gasta {m['best_consumption']}L/100km em uso misto — dos melhores da classe.",
+                    f"Consumo homologado a partir de {m['best_consumption']:g} L/100 km.",
+                    f"Há versões a gastar {m['best_consumption']:g} L/100 km (valor homologado).",
+                ]
+                reasons.append(t[mid % 2])
+            elif m.get("best_kwh"):
+                t = [
+                    f"Elétrico: cerca de {m['best_kwh']:g} kWh/100 km (valor homologado).",
+                    f"Sem combustível: gasta cerca de {m['best_kwh']:g} kWh/100 km.",
                 ]
                 reasons.append(t[mid % 2])
             elif m["avg_maintenance"]:
