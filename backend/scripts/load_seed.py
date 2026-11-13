@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SEED_FILES = [
     "seeds/full_deploy_schema.sql",         # schema (17 tables) + full catalogue
     "seeds/migration_v51_generations.sql",  # generation windows
+    "seeds/migration_v56_split_wide_generations.sql",  # split the >12-year catch-all windows
 ]
 
 
