@@ -461,17 +461,20 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
     """), {"mid": model_id}).mappings().fetchall()
     info["known_issues"], info["fix_cost_estimates"] = _filter_model_issues(issue_rows, year, fuel)
 
-    # Enrich with Bayesian reliability data from generations
+    # Reliability shown in the trust panel: the curated per-engine score for
+    # this model (the same one the recommender ranks on), with the spread
+    # across its engines as the range, labelled as an estimate. The count-based
+    # generations.reliability_score is not shown — every recall or complaint
+    # record counted as a failure with no exposure, so well-documented cars
+    # scored worst (Honda CR-V 1.4/10) and undocumented ones best.
     if model_id:
         trust_row = db.execute(text("""
             SELECT
-                ROUND(AVG(reliability_score)::numeric, 2)  AS score,
-                ROUND(MIN(reliability_ci_low)::numeric, 2)  AS ci_low,
-                ROUND(MAX(reliability_ci_high)::numeric, 2) AS ci_high,
-                (SELECT reliability_data_quality FROM generations
-                 WHERE model_id = :mid AND reliability_data_quality IS NOT NULL
-                 ORDER BY year_start DESC LIMIT 1) AS data_quality
-            FROM generations
+                ROUND(AVG(reliability_score)::numeric, 1)                      AS score,
+                ROUND(GREATEST(1, MIN(reliability_score) - 0.5)::numeric, 1)   AS ci_low,
+                ROUND(LEAST(10, MAX(reliability_score) + 0.5)::numeric, 1)     AS ci_high,
+                'prior_only'                                                   AS data_quality
+            FROM engines
             WHERE model_id = :mid AND reliability_score IS NOT NULL
         """), {"mid": model_id}).mappings().fetchone()
 
