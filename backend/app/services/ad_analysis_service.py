@@ -1689,7 +1689,151 @@ def _models_compatible(extracted: str, matched: str) -> bool:
     if e == m or e in m or m in e:
         return True
     et, mt = e.split(), m.split()
-    return bool(et and mt and et[-1] == mt[-1])
+    # A shared last word only identifies the model when it is not a body style:
+    # a BMW "640 Gran Coupé" is not a "Série 2 Gran Coupé".
+    return bool(et and mt and et[-1] == mt[-1] and et[-1] not in _BODY_STYLE_WORDS)
+
+
+# Body styles, raised-suspension lines and powertrain badges: the same model
+# in the catalogue ("A3 Sportback" is an A3, "Niro EV" a Niro). Deliberately
+# short. Words that can name a different car are NOT here: "Cross" (Corolla
+# Cross), "Sport" (Range Rover Sport), "Grand" (Grand Vitara), "Plus" (Golf
+# Plus), "Verso", "Picasso", "E-Tech" (the Mégane E-Tech is another car).
+_BODY_STYLE_PHRASES = (
+    "cross country", "sport tourer", "sports tourer", "touring sports",
+    "station wagon", "sport turismo",
+)
+_BODY_STYLE_WORDS = frozenset({
+    "sportback", "avant", "limousine", "cabrio", "cabriolet", "coupe", "roadster",
+    "sw", "break", "st", "cw", "fastback", "tourer", "touring", "caravan", "variant",
+    "combi", "sedan", "estate", "hatchback", "crossback",
+    "allroad", "alltrack", "allstreet", "citycarver", "x-perience", "active",
+    "ev", "electric", "hybrid", "phev", "n", "amg",
+})
+
+_BRAND_ALIASES = {"vw": "volkswagen", "mercedes": "mercedes-benz", "merc": "mercedes-benz"}
+
+_MINI_HATCH_WORDS = frozenset({"one", "cooper", "john", "works", "jcw"})
+_MINI_OTHER_MODELS = frozenset({"clubman", "countryman", "paceman", "aceman", "coupe", "roadster"})
+
+
+def _norm_name(s: Optional[str]) -> str:
+    """Accent-free, lower-case, single-spaced: 'Citroën' -> 'citroen', 'Série  3' -> 'serie 3'."""
+    return re.sub(r"\s+", " ", _strip_accents(s or "").lower()).strip()
+
+
+def _core_model_name(name: str) -> str:
+    """A normalised model name without body-style words: 'a3 sportback' -> 'a3'."""
+    for phrase in _BODY_STYLE_PHRASES:
+        name = name.replace(phrase, " ")
+    return " ".join(w for w in name.split() if w not in _BODY_STYLE_WORDS)
+
+
+def match_catalogue_model(
+    catalogue: list, brand_name: str, model_name: str, model_first_word: str
+) -> Optional[dict]:
+    """
+    Pure matcher behind _resolve_vehicle_model. `catalogue` is every
+    vehicle_models row as {id, brand_name, model_name, body_type}.
+
+    Names are compared without accents on BOTH sides. The SQL this replaces
+    stripped accents from the listing only, so nothing matched a catalogue
+    name that has one: every Citroën, Renault Mégane and Scénic, and every BMW
+    "Série" (so every 320, 118, 530 ...) missed and became a stub model.
+
+    Strict on purpose — a wrong match corrupts the whole analysis, a miss only
+    loses the catalogue extras. A listing matches a model when:
+      1. BMW: its number names a series we have ("320" -> "Série 3"); checked
+         first, so a stub named "530" cannot capture the 530s. Two models of
+         one series (Série 2 Active Tourer / Gran Coupé) need the body words.
+      2. its name is the catalogue name (this also finds stubs), or
+      3. its name without body-style words is ("A3 Sportback" -> "A3").
+      4. Mercedes: a class letter -> "Classe X"; MINI: a hatch trim -> "Cooper".
+    The old substring and any-word matches are gone: they made a C4 Cactus a
+    C4, a Range Rover a Range Rover Sport and a Kangoo E-Tech a Renault 5.
+    """
+    brand = _norm_name(brand_name)
+    brand = _BRAND_ALIASES.get(brand, brand)
+    model = _norm_name(model_name)
+    first = _norm_name(model_first_word)
+    if not brand or not first or not model:
+        return None
+
+    rows = []
+    for r in catalogue:
+        rb = _norm_name(r.get("brand_name"))
+        if rb and (brand == rb or brand in rb.split("-") or rb in brand.split()):
+            rows.append({**r, "_name": _norm_name(r.get("model_name")),
+                         "_stub": not (r.get("body_type") or "").strip()})
+    if not rows:
+        return None
+    real = [r for r in rows if not r["_stub"]]
+    tokens = model.split()
+
+    def out(row: dict) -> dict:
+        return {"id": row["id"], "brand_name": row["brand_name"], "model_name": row["model_name"]}
+
+    def named(name: str, pool: list = real) -> Optional[dict]:
+        return next((r for r in pool if r["_name"] == name), None)
+
+    # 1. BMW number -> series
+    if brand == "bmw":
+        m = re.match(r"^(\d)[1-9]\d(?!\d)", first)
+        if m:
+            series = _norm_name(_BMW_SERIES_MAP.get(m.group(1)))
+            cands = [r for r in real if r["_name"] == series or r["_name"].startswith(series + " ")]
+            if len(cands) == 1:
+                hit = cands[0]
+            else:
+                scored = sorted(((len(set(tokens) & set(r["_name"].split())), r) for r in cands),
+                                key=lambda t: -t[0])
+                hit = scored[0][1] if scored and scored[0][0] > 0 and (
+                    len(scored) == 1 or scored[0][0] > scored[1][0]) else None
+            if hit:
+                print(f"[MODEL] BMW variant '{model_name}' -> '{hit['model_name']}'")
+                return out(hit)
+            return named(model, rows) and out(named(model, rows))   # a stub from an earlier analysis
+
+    # 2. the catalogue name — with and without the brand repeated in front ("DS 7" -> "7")
+    names = [model]
+    for b in {brand, _norm_name(brand_name)}:
+        if model.startswith(b + " "):
+            names.append(model[len(b) + 1:])
+    for name in names:
+        hit = named(name) or named(name, rows)
+        if hit:
+            return out(hit)
+
+    # 3. the name without body-style words
+    for name in names:
+        core = _core_model_name(name)
+        hit = named(core) if core and core != name else None
+        if hit:
+            return out(hit)
+
+    # 4. Mercedes: "A 180", "A180", "Classe A" -> "Classe A"; "Classe CLA" -> "CLA"
+    if brand == "mercedes-benz":
+        key = tokens[1] if tokens[0] == "classe" and len(tokens) > 1 else tokens[0]
+        letters = re.match(r"^[a-z]+", key)
+        key = letters.group(0) if letters else key
+        classe = _norm_name(_MERC_CLASS_MAP.get(key))
+        if classe:
+            hit = (named(f"{key} coupe") if "coupe" in tokens else None) or named(classe)
+            if hit:
+                print(f"[MODEL] Mercedes variant '{model_name}' -> '{hit['model_name']}'")
+                return out(hit)
+        elif len(key) >= 2:
+            hit = named(key)
+            if hit:
+                return out(hit)
+
+    # MINI: the hatch is sold by trim ("One", "Cooper S", "John Cooper Works")
+    if brand == "mini" and set(tokens) & _MINI_HATCH_WORDS and not set(tokens) & _MINI_OTHER_MODELS:
+        hit = named("cooper")
+        if hit:
+            return out(hit)
+
+    return None
 
 
 def _resolve_vehicle_model(
@@ -1710,94 +1854,16 @@ def _resolve_vehicle_model(
     if not brand_name or not model_first_word:
         return None
 
-    # Strip accents so 'Citroën' matches 'Citroen', 'Série' matches 'Serie'
-    brand_norm = _strip_accents(brand_name).lower()
-
-    def _query_model(model_pattern: str, exact: bool = False):
-        pattern_norm = _strip_accents(model_pattern).lower()
-        if exact:
-            return db.execute(text("""
-                SELECT vm.id, b.name as brand_name, vm.name as model_name
-                FROM vehicle_models vm
-                JOIN brands b ON b.id = vm.brand_id
-                WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) = :model
-                LIMIT 1
-            """), {
-                "brand": f"%{brand_norm}%",
-                "model": pattern_norm
-            }).mappings().fetchone()
-        return db.execute(text("""
-            SELECT vm.id, b.name as brand_name, vm.name as model_name
-            FROM vehicle_models vm
-            JOIN brands b ON b.id = vm.brand_id
-            WHERE LOWER(b.name) LIKE :brand AND LOWER(vm.name) LIKE :model
-            LIMIT 1
-        """), {
-            "brand": f"%{brand_norm}%",
-            "model": f"%{pattern_norm}%"
-        }).mappings().fetchone()
-
-    # ── Strategy 0: exact full model-name match ──
-    # Catches clean DB models and, crucially, models we auto-created on a
-    # previous analysis (idempotent — no duplicates).
-    full_row = _query_model(model_name, exact=True)
-    if full_row:
-        return full_row
-
-    # ── Strategy 1: direct match on first word ──
-    # Skip for single-letter tokens (too ambiguous for LIKE) and Mercedes
-    # (Mercedes needs specialized class mapping in Strategy 3). Loose matches
-    # are validated so a generic word ('range') can't resolve to a different
-    # model ('Range Rover Evoque' for a Velar).
-    if len(model_first_word) > 1 and "mercedes" not in brand_norm:
-        row = _query_model(model_first_word)
-        if row and _models_compatible(model_name, row["model_name"]):
-            return row
-
-    # ── Strategy 2: BMW variant number → series ──
-    if "bmw" in brand_norm:
-        # Extract the first digit from a 3-digit number: "116" → "1", "320" → "3"
-        variant_match = re.match(r"^(\d)\d{2}", model_first_word)
-        if variant_match:
-            series = _BMW_SERIES_MAP.get(variant_match.group(1))
-            if series:
-                row = _query_model(series)
-                if row:
-                    print(f"[MODEL] BMW variant '{model_name}' -> '{series}'")
-                    return row
-        # X-series: "X1", "X3", etc. — first word already works
-        # iX, i3, i4, i7 — try as-is
-        if model_first_word.startswith("i") and len(model_first_word) <= 3:
-            row = _query_model(model_first_word)
-            if row:
-                return row
-
-    # ── Strategy 3: Mercedes letter → Classe ──
-    if "mercedes" in brand_norm:
-        letter = model_first_word.lower()
-        classe = _MERC_CLASS_MAP.get(letter)
-        if classe:
-            row = _query_model(classe)
-            if row:
-                print(f"[MODEL] Mercedes variant '{model_name}' -> '{classe}'")
-                return row
-        # CLA, GLA, GLC, GLE, GLS — exact match to avoid 'CLA' matching 'Classe A'
-        if len(letter) >= 2:
-            row = _query_model(letter, exact=True)
-            if row:
-                return row
-
-    # ── Strategy 4: try each word of model_name (compatibility-validated) ──
-    words = model_name.lower().split()
-    for word in words[1:]:  # skip first word (already tried)
-        if len(word) >= 3:  # >=3 to avoid matching on noise like "d", "sb"
-            row = _query_model(word)
-            if row and _models_compatible(model_name, row["model_name"]):
-                print(f"[MODEL] Fuzzy match: '{model_name}' -> word '{word}'")
-                return row
-
-    print(f"[MODEL] No DB match for {brand_name} '{model_name}' (first_word='{model_first_word}')")
-    return None
+    catalogue = [dict(r) for r in db.execute(text("""
+        SELECT vm.id, b.name AS brand_name, vm.name AS model_name, vm.body_type
+        FROM vehicle_models vm
+        JOIN brands b ON b.id = vm.brand_id
+        ORDER BY vm.id
+    """)).mappings()]
+    row = match_catalogue_model(catalogue, brand_name, model_name, model_first_word)
+    if row is None:
+        print(f"[MODEL] No DB match for {brand_name} '{model_name}' (first_word='{model_first_word}')")
+    return row
 
 
 def _get_or_create_model(
@@ -1823,10 +1889,13 @@ def _get_or_create_model(
     model_clean = re.sub(r"\s+", " ", model_clean)[:40].strip()
 
     try:
-        brand_norm = _strip_accents(brand_clean).lower()
-        brand_row = db.execute(text(
-            "SELECT id, name FROM brands WHERE LOWER(name) = :b LIMIT 1"
-        ), {"b": brand_norm}).mappings().fetchone()
+        # Compared without accents on both sides — "Citroën" must find the
+        # existing brand, not create a second one.
+        brand_norm = _norm_name(brand_clean)
+        brand_norm = _BRAND_ALIASES.get(brand_norm, brand_norm)
+        brand_row = next((b for b in db.execute(text(
+            "SELECT id, name FROM brands ORDER BY id"
+        )).mappings() if _norm_name(b["name"]) == brand_norm), None)
         if brand_row:
             brand_id = brand_row["id"]
         else:
