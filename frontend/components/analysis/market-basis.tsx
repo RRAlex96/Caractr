@@ -55,13 +55,21 @@ export function MarketBasis({ deal, listing, className }: MarketBasisProps) {
   }
 
   if (yr?.basis === "mismatch") {
+    // Why the prices were not adjusted to the car's year instead. "Too few
+    // listings" was shown for every case, also with a large pool the car
+    // simply sits outside of.
+    const why =
+      yr.not_adjusted === "few"
+        ? "São poucos para ajustar o preço ao ano com confiança."
+        : yr.not_adjusted === "outside"
+          ? "O ano ou a quilometragem deste carro ficam fora do que estes anúncios cobrem, por isso não ajustámos o preço ao ano."
+          : "Não foi possível ajustar o preço ao ano com confiança."
     return (
       <p className={captionClass}>
         Não avaliámos o preço face ao mercado: os{" "}
         <span className={num}>{yr.count}</span> anúncios comparáveis são
         sobretudo de {Math.round(yr.median_year)} (entre {yr.year_from} e{" "}
-        {yr.year_to}) e este carro é de {yr.car_year}. São poucos para
-        ajustar o preço ao ano com confiança.
+        {yr.year_to}) e este carro é de {yr.car_year}. {why}
       </p>
     )
   }
