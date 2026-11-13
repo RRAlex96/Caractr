@@ -1,6 +1,6 @@
 # Migration v5.6 — proposed generation windows
 
-Companion to `migration_v56_split_wide_generations.sql`. **Not applied to production yet — awaiting approval.**
+Companion to `migration_v56_split_wide_generations.sql`. **Applied to production on 2026-11-13.**
 
 Five `generations` rows spanned more than 12 years. Ad analysis uses the generation window as the year guard of the live market comparison, so these rows compared a car with listings a decade or more apart.
 
