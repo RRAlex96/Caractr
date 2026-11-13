@@ -4,97 +4,116 @@
  "source": "standvirtual",
  "source_label": "Standvirtual",
  "source_domain": "",
- "source_url": "https://www.standvirtual.com/carros/anuncio/bmw-530-ver-e-pack-desportivo-m-ID8Q18eQ.html",
+ "source_url": "https://www.standvirtual.com/carros/anuncio/bmw-530-ver-e-iperformance-pack-m-ID8Q0tFo.html",
  "listing": {
   "brand_name": "BMW",
   "model_name": "530",
-  "year": 2022,
-  "km": 79296,
-  "price": 35900,
-  "seller_type": "stand",
-  "photo_count": 26,
-  "listing_age_days": 1
+  "year": 2018,
+  "km": 170000,
+  "price": 25400,
+  "seller_type": "desconhecido",
+  "photo_count": 28,
+  "listing_age_days": 0
  },
  "deal": {
-  "tier": "evitar",
-  "score": 0.0,
-  "price_delta": -0.9933,
-  "price_delta_pct": 19.9,
-  "km_per_year": 19824.0,
-  "market_avg_price": 30593,
-  "market_median_price": 29950,
-  "market_sample_count": 15,
+  "tier": "razoavel",
+  "score": 0.6819,
+  "price_delta": 0.7638,
+  "price_delta_pct": 15.3,
+  "km_per_year": 21250.0,
+  "market_avg_price": 29500,
+  "market_median_price": 29980,
+  "market_sample_count": 19,
   "market_data_source": "live",
   "market_data_age_days": null,
   "market_data_stale": false,
   "market_fuel_type": "Híbrido Plug-In",
-  "generation_year_start": null,
+  "generation_year_start": 1988,
   "generation_year_end": null
  },
  "analysis": {
-  "verdict": "evitar",
-  "verdict_reason": "Preço acima do mercado em mais de 10% — existem alternativas melhores.",
+  "verdict": "razoavel",
+  "verdict_reason": "Preço atrativo para um 530e Pack M nacional, mas os 170k km exigem verificação da bateria de alta tensão.",
   "green_flags": [
-   "Garantia incluída",
-   "Boas fotos do anúncio (26 imagens)",
-   "Bem equipado (6 extras identificados)",
-   "Anúncio recente — provavelmente não vendido ainda"
+   "Motor B48 2.0 Turbo + Elétrico (252cv) — mecânica muito mais fiável e refinada que a anterior geração N20",
+   "Carro de origem nacional com Pack M de fábrica",
+   "Preço 15.3% abaixo da mediana de mercado para um G30 530e",
+   "Garantia de stand profissional com oficina própria e possibilidade de devolução"
   ],
   "red_flags": [
-   "Preço acima do mercado — margem de negociação recomendada",
-   "Stand a pedir mais de 15% acima da média de mercado"
+   "170.000 km num PHEV de 2018 — degradação da bateria de alta tensão (9.2 kWh) pode limitar autonomia elétrica a <20km",
+   "Histórico de manutenções da caixa automática ZF8HP não mencionado (exige troca de óleo aos 80k-100k km)",
+   "Descrição de equipamento genérica, sem detalhar extras de topo (som, teto, assistentes)"
   ],
-  "seller_analysis": "Stand profissional. Garantia incluída — verificar período e cobertura. Apresentação cuidada.",
-  "profile_fit": "Análise baseada nas características do BMW 530.",
-  "trim_level": "Sport",
-  "spec_tier": "alto",
-  "trim_includes": [],
-  "optional_extras": [],
-  "equipment_note": null,
+  "seller_analysis": "Trata-se de um stand profissional com 10 anos no mercado e oficina própria, o que transmite alguma confiança e apoio no pós-venda. O texto é bastante comercial e focado em garantias da empresa, mas omite o histórico de revisões na marca e a saúde da bateria (SOH).",
+  "profile_fit": "Ideal para quem faz trajetos diários curtos com garagem para carregar e procura o conforto/estética do Série 5 Pack M a preço acessível. Menos recomendado se fizeres milhares de km diários em autoestrada sem carregar.",
+  "trim_level": "Pack M",
+  "spec_tier": "medio",
+  "trim_includes": [
+   "Parachoques e saias desportivas M",
+   "Bancos desportivos",
+   "Volante desportivo M em pele",
+   "Suspensão desportiva M",
+   "Forro do teto em preto (Anthracite)",
+   "Jantes de liga leve M 18\" ou 19\"",
+   "Soleiras das portas M"
+  ],
+  "optional_extras": [
+   "Estofos em pele",
+   "Sistema de Navegação Professional",
+   "Sensores de estacionamento dianteiros e traseiros"
+  ],
+  "equipment_note": "Equipamento médio para um Pack M — tem o aspeto desportivo e a pele, mas faltam-lhe extras chave como o teto de abrir, som Harman Kardon ou faróis LED adaptativos.",
   "key_extras": [
-   "GPS",
-   "Sensores de parque",
-   "Cruise control",
-   "Ar condicionado",
-   "Climatização bi-zona",
-   "Faróis LED"
+   "Pack M",
+   "Bancos em pele",
+   "Sistema de navegação",
+   "Sensores de estacionamento",
+   "Caixa automática ZF"
   ],
-  "spec_value_assessment": "abaixo_do_esperado",
-  "engine_code": "1.99",
-  "engine_analysis": "Motorização 1.99 (Híbrido Plug-In). Híbrido — verificar estado da bateria de alta tensão e ciclos de carga registados.",
-  "extras_analysis": "Extras identificados: GPS, Sensores de parque, Cruise control, Ar condicionado, Climatização bi-zona, Faróis LED. Equipamento acima da média para este modelo — valoriza o anúncio. Apesar do bom equipamento, o preço acima do mercado sugere margem para negociar.",
-  "negotiation_script": "Começa por oferecer €29,700. Argumentos: o preço está €5,307 acima da média de mercado. Num stand, pede garantia estendida ou revisão incluída como contrapartida.",
-  "verdict_narrative": "Este BMW 530 de 2022 não se recomenda nas condições atuais — procura alternativas semelhantes. A €35,900, está 17% acima da média (€30,593) — há margem para negociar. Equipamento acima da média (6 extras), o que valoriza este exemplar.",
-  "seller_read": "Descrição detalhada — sinal positivo de transparência por parte do vendedor. Com 26 fotos, mostra o carro em detalhe — bom indicador de confiança."
+  "spec_value_assessment": "adequado",
+  "engine_code": "B48B20A",
+  "engine_analysis": "O motor B48 2.0 Turbo é extremamente robusto e resolveu os problemas de corrente do N20. A ter em conta: fugas de anticongelante pelos tubos de plástico/flange do bloco e o estado de saúde da bateria do sistema eDrive.",
+  "extras_analysis": "Tem o Pack M que valoriza imenso a revenda e os estofos em pele. Contudo, é uma especificação base de Pack M, sem os assistentes de condução avançados ou tablier em pele.",
+  "negotiation_script": "Boas! Estava a ver o vosso BMW 530e Pack M de 2018. O carro parece ótimo, mas com 170 mil km tenho alguma preocupação com a autonomia real da bateria e com a manutenção da caixa ZF. Se o histórico de revisões estiver 100% em dia e o relatório da bateria for bom, fecho negócio por 24.000€ esta semana. O que me dizem?",
+  "verdict_narrative": "É um negócio honesto. Vais buscar a estética impecável do G30 Pack M e a fiabilidade do motor B48 por menos de 26k€. Os 170k km não assustam o motor a gasolina, mas tens de ter a certeza de que a bateria híbrida ainda faz perto de 25-30 km reais. Se passar no teste da bateria, vale a pena.",
+  "seller_read": "Stand focado em volume e facilidade de crédito que usa termos genéricos de marketing. O facto de ter oficina própria é um trunfo para tentar negociar a primeira revisão ou extensão de garantia do sistema elétrico."
  },
  "inspection_checklist": [
-  "Histórico de serviços — pedir caderneta ou registos de manutenção",
-  "Teste em estrada — verificar vibrações, ruídos e travagem"
+  "Testar autonomia elétrica máxima (carregar a 100% e ver quantos km reais faz)",
+  "Verificar fugas de líquido de refrigeração no circuito do motor B48 (junto ao filtro de óleo/flanges)",
+  "Confirmar se a caixa ZF8HP já mudou óleo e filtro (essencial a estes quilómetros)",
+  "Verificar desgaste dos discos de travão e folgas nos braços da suspensão frontal",
+  "Pedir o histórico de revisões BMW para confirmar se o plano de manutenção foi cumprido",
+  "Testar o ar condicionado em modo 100% elétrico (compressor elétrico custa caro)",
+  "Verificar estado dos pneus (consumo assimétrico típico do peso extra do sistema híbrido)"
  ],
  "negotiation_tips": [
-  "Anda uns 99% acima de carros parecidos. Leva-lhe alguns anúncios semelhantes e atira um valor à volta dos 33.500€ — com jeitinho costuma resultar."
+  "Usa os 170.000 km e a degradação da bateria híbrida como o teu principal argumento para baixar o preço.",
+  "Pergunta se o valor já inclui a garantia total de 18 meses por mútuo acordo ou se podes negociar garantia de stand sem cortes de cobertura.",
+  "Tenta incluir no preço final uma revisão completa com mudança de óleo da caixa automática na oficina deles."
  ],
  "negotiation": {
-  "asking_price": 35900,
-  "opening_offer": 28150,
-  "fair_value": 29950,
-  "walk_away": 29950,
-  "potential_saving": 7750,
+  "asking_price": 25400,
+  "opening_offer": 24250,
+  "fair_value": 30000,
+  "walk_away": 30000,
+  "potential_saving": 1150,
   "leverage": [
-   "Está uns 20% acima de carros parecidos — mostra-lhe os comparáveis",
+   "Está uns 15% abaixo da média — já é bom preço, confirma o estado",
    "Tem mais km do que a média para o ano"
   ],
   "confidence": "media",
-  "sample_count": 15
+  "sample_count": 19
  },
  "anomaly": null,
  "price_history": null,
  "cost_of_ownership": {
-  "monthly_running": 146,
+  "monthly_running": 238,
   "monthly_true": null,
   "annual_fuel": 1312,
   "annual_iuc": 440,
-  "annual_maintenance": null,
+  "annual_maintenance": 1100,
   "depreciation_monthly": null,
   "assumptions": {
    "km_year": 15000,
@@ -103,20 +122,32 @@
    "fuel_price": 1.75
   }
  },
- "maintenance_estimate": null,
+ "maintenance_estimate": 1100.0,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
- "_analysis_engine": "rule:gemini_error",
- "_llm_error": "LLMError:Gemini failed after 2 attempts: NotFound: 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use m",
+ "_analysis_engine": "gemini",
+ "_llm_error": null,
  "_extraction_method": "next_data",
  "_data_quality": {
-  "score": 0.96,
+  "score": 0.88,
   "grade": "A",
   "critical_filled": "5/5",
   "missing_critical": []
  },
  "_data_warnings": [],
  "fit": null,
- "reliability": null,
+ "reliability": {
+  "score": 6.56,
+  "ci_low": 5.78,
+  "ci_high": 7.32,
+  "data_quality": "limited"
+ },
+ "dealbreakers": {
+  "has_dealbreaker": false,
+  "recall_count": 0,
+  "critical_issue_count": 0,
+  "recalls": [],
+  "critical_issues": []
+ },
  "depreciation": null
 }
