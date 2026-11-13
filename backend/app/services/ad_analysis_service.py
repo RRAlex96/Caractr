@@ -990,6 +990,12 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
     Fetch market price statistics for a model/year combination.
     Includes freshness info: source and days since last update.
     Stale data (>14 days) is flagged so the live scraper knows to refresh.
+
+    Only measured rows count. The catalogue was seeded with placeholder rows
+    (source "Standvirtual/OLX 2025": round prices, round sample counts, one
+    model year each); a price verdict must never rest on those, so when
+    nothing measured exists this returns no reference and the verdict is
+    withheld.
     """
     if year:
         row = db.execute(text("""
@@ -1002,6 +1008,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
             FROM market_price_stats
             WHERE model_id = :model_id
               AND ABS(year - :year) <= 1
+              AND COALESCE(source, '') NOT LIKE 'Standvirtual/OLX%'
         """), {"model_id": model_id, "year": year}).mappings().fetchone()
     else:
         row = db.execute(text("""
@@ -1013,6 +1020,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
                    MAX(source) as source
             FROM market_price_stats
             WHERE model_id = :model_id
+              AND COALESCE(source, '') NOT LIKE 'Standvirtual/OLX%'
         """), {"model_id": model_id}).mappings().fetchone()
 
     if row and row["avg_price"]:
