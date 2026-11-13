@@ -213,6 +213,7 @@ INSTRUÇÕES IMPORTANTES:
    - "optional_extras": o que foi ADICIONADO além da versão (ex: teto panorâmico, som premium, bola de reboque, pack de assistência). Só o que a descrição revela como extra.
    Não repitas o mesmo item nos dois. Se não souberes a versão, deixa trim_includes vazio e lista tudo em optional_extras.
 4. AVALIA O PREÇO COM BASE NO EQUIPAMENTO: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
+5. NÃO ACUSES O VENDEDOR: nunca classifiques um custo ou uma prática como ilegal, abusivo, fraude ou burla, nem afirmes má-fé — não tens como o provar e o texto é público. Descreve o facto (ex: "há 300 € de despesas administrativas além do preço anunciado") e diz o que o comprador deve perguntar ou negociar.
 
 Responde APENAS com este JSON (sem texto extra, sem markdown):
 {{
