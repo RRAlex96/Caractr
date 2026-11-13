@@ -15,6 +15,7 @@ one search per car, a pause between cars. Do not run it in a loop.
 """
 import argparse
 import asyncio
+import inspect
 import json
 import os
 import re
@@ -73,6 +74,25 @@ SPLIT_CARS = [
 ]
 
 
+# Engine power (cv) the listing page would state for each car above; passed to
+# the comparison when it takes one (--no-power measures without it).
+POWER = {
+    "Renault Clio 2019 petrol": 100, "VW Golf 2017 diesel": 115, "Peugeot 208 2020 petrol": 101,
+    "BMW 530 2018 plug-in hybrid": 252, "Fiat 500 2018 petrol": 69, "Mercedes A 180 d 2019 diesel": 116,
+    "Nissan Qashqai 2018 diesel": 110, "Toyota Yaris 2021 hybrid": 116, "Dacia Sandero 2020 petrol": 73,
+    "Tesla Model 3 2021 electric": 325,
+    "BMW Serie 3 '320d Touring'": 190, "BMW Serie 1 '116d'": 116, "BMW Serie 5 '530e'": 252,
+    "Mercedes Classe A 'A 180 d'": 116, "Mercedes Classe C 'C 220 d'": 170, "Lexus NX 'NX 300h'": 197,
+    "Mercedes Classe A, no sub-model": 116,
+    "DS 7 Crossback diesel (other site)": 130, "DS 7 Crossback diesel (Standvirtual)": 130,
+    "DS 7 plug-in 2022 (Standvirtual)": 225, "MINI Cooper petrol (other site)": 136,
+    "MINI Cooper S petrol (Standvirtual)": 192, "MINI One petrol (Standvirtual)": 102,
+    "MINI JCW petrol (other site)": 231, "MINI Cooper D diesel (other site)": 116,
+    "MINI hatch, no trim in the title": 136,
+}
+USE_POWER = True
+
+
 def _search_total(html: str):
     """totalCount of the Standvirtual search embedded in a results page."""
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.S)
@@ -96,6 +116,9 @@ async def _measure(car) -> dict:
     extra = {}
     if title and hasattr(svc, "_market_trim"):
         extra["trim"] = svc._market_trim({"source_title": title}, None)
+    takes_power = "power_hp" in inspect.signature(svc._fetch_live_market_data).parameters
+    if USE_POWER and takes_power and POWER.get(label):
+        extra["power_hp"] = POWER[label]
     pages, fetched = [], {}
 
     # The page parser (the card parser before result pages were read from the
@@ -133,6 +156,7 @@ async def _measure(car) -> dict:
 
     pool = next(iter(svc._market_cache.values()), {}).get("pool", [])
     judged = svc._withhold_if_not_comparable(stats) if stats.get("median_price") else stats
+    power_comparison = stats.get("power_comparison")
     sample = judged.get("sample_count") or 0
     basis = ((stats.get("year_comparison") or {}).get("basis")
              or (stats.get("km_comparison") or {}).get("basis"))
@@ -140,6 +164,8 @@ async def _measure(car) -> dict:
     return {
         "label": label, "car": {"year": year, "km": km, "fuel": fuel, "engine_hint": hint, "title": title},
         "searched_as": sv_slug,
+        "power_hp": extra.get("power_hp"),
+        "power_comparison": power_comparison,
         "search_total": pages[0]["total"] if pages else None,
         "pages": pages,
         "fetched": len(listings),
@@ -183,5 +209,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", default="measurements")
     ap.add_argument("--only", default="", help="substring of a car label")
     ap.add_argument("--set", default="common", choices=["common", "series", "split"], dest="car_set")
+    ap.add_argument("--no-power", action="store_true", help="do not pass the cars' engine power")
     args = ap.parse_args()
+    USE_POWER = not args.no_power
     asyncio.run(_main(args.tag, args.out, args.only, args.car_set))

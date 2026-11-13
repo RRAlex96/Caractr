@@ -17,6 +17,18 @@ export interface AnalysisListing {
 }
 
 /**
+ * The engine-power band the comparable listings lie in (the car's power ±15%),
+ * when the listing states the car's power. pool_count is how many listings of
+ * that power were found.
+ */
+export interface MarketPowerComparison {
+  car_power_hp: number
+  power_from: number
+  power_to: number
+  pool_count: number
+}
+
+/**
  * How the car's mileage was taken into account in the market comparison.
  *  - band: only listings between km_from and km_to were compared
  *  - pool: too few in the band, but the car's km is typical of the whole pool
@@ -75,6 +87,7 @@ export interface AnalysisDeal {
   market_fuel_type: string | null
   market_km_comparison?: MarketKmComparison | null
   market_year_comparison?: MarketYearComparison | null
+  market_power_comparison?: MarketPowerComparison | null
   generation_year_start: number | null
   generation_year_end: number | null
 }

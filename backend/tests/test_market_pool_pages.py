@@ -280,7 +280,7 @@ def test_dispatcher_passes_the_page_cap_to_standvirtual_only(monkeypatch):
         "Renault", "Clio", max_per_source=160, year_from=2017, year_to=2021,
         fuel_type="Gasolina", max_pages=4))
     assert len(merged) == 2
-    assert seen["sv"] == ("Renault", "Clio", None, 160, 2017, 2021, "Gasolina", None, 4)
+    assert seen["sv"] == ("Renault", "Clio", None, 160, 2017, 2021, "Gasolina", None, 4, None)
     assert seen["olx"] == ("Renault", "Clio", None, 160, 2017, 2021, "Gasolina")
 
 

@@ -23,7 +23,8 @@ const pct = (value: number) =>
 
 /**
  * Transparency caption: what the market number is actually compared to.
- * "Comparado com 16 anúncios de BMW 530 híbrido plug-in · 2017–2023, com o
+ * "Comparado com 16 anúncios de BMW 530 híbrido plug-in · 2017–2023 · 214–290 cv
+ *  (este tem 252 cv), com o
  *  preço de cada um ajustado ao ano e aos quilómetros deste carro (2018,
  *  170 000 km). Neste modelo, cada ano de diferença pesa cerca de 8,2% no
  *  preço e cada 10 000 km cerca de 1,3%. Margem da referência: ±3,5%."
@@ -33,6 +34,7 @@ const pct = (value: number) =>
 export function MarketBasis({ deal, listing, className }: MarketBasisProps) {
   const km = deal.market_km_comparison
   const yr = deal.market_year_comparison
+  const pw = deal.market_power_comparison
   const captionClass = cn(
     "px-1 text-[11px] font-light leading-relaxed text-muted-foreground/60",
     className
@@ -81,13 +83,17 @@ export function MarketBasis({ deal, listing, className }: MarketBasisProps) {
     range = ` · anos próximos de ${listing.year}`
   }
 
+  // Only listings of about the car's engine power were compared.
+  const power = pw ? ` · ${pw.power_from}–${pw.power_to} cv (este tem ${pw.car_power_hp} cv)` : ""
+
   if (yr?.basis === "adjusted") {
     const excluded = yr.excluded_count || 0
     return (
       <p className={captionClass}>
         Comparado com <span className={num}>{n}</span> anúncios de {model}
         {fuel ? ` ${fuel}` : ""}
-        {range}, com o preço de cada um ajustado ao ano e aos quilómetros
+        {range}
+        {power}, com o preço de cada um ajustado ao ano e aos quilómetros
         deste carro ({yr.car_year}
         {yr.car_km ? `, ${formatKm(yr.car_km)}` : ""}).
         {yr.per_year_pct != null && yr.per_10k_km_pct != null && (
@@ -122,6 +128,7 @@ export function MarketBasis({ deal, listing, className }: MarketBasisProps) {
       Comparado com <span className={num}>{n}</span> anúncios de {model}
       {fuel ? ` ${fuel}` : ""}
       {range}
+      {power}
       {yr?.basis === "near" ? ` (o ano deste carro, ${yr.car_year}, e os vizinhos)` : ""}
       {mileage}.
     </p>

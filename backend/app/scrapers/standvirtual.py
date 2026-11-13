@@ -180,6 +180,7 @@ def _build_search_url(
     fuel_type: Optional[str] = None,
     model_slug_override: Optional[str] = None,
     page: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> str:
     brand_slug = _make_slug(brand)
     # Prefer SV's own model slug (from the listing) when provided — it's exact
@@ -214,6 +215,10 @@ def _build_search_url(
         params.append(f"search[filter_float_first_registration_year:to]={year_to}")
     for i, value in enumerate(_sv_fuel_values(fuel_type)):
         params.append(f"search[filter_enum_fuel_type][{i}]={value}")
+    # Engine power in cv, (from, to): only listings of about the car's power.
+    if power_range:
+        params.append(f"search[filter_float_engine_power:from]={int(power_range[0])}")
+        params.append(f"search[filter_float_engine_power:to]={int(power_range[1])}")
     # No search[order]: the site's default order ("relevance_web") is kept, so
     # the pages fetched are not skewed towards cheap, recent or low-km cars.
     if page > 1:
@@ -449,6 +454,19 @@ def _search_is_scoped(meta: dict) -> bool:
     return "filter_enum_make" in applied and "filter_enum_model" in applied
 
 
+def _card_power_hp(value: str, display: str) -> Optional[int]:
+    """Engine power of a search result in cv ("200" / "200 cv"). A value the
+    site labels in kW is converted; anything implausible is dropped."""
+    m = re.search(r"\d{2,4}", value or display or "")
+    if not m:
+        return None
+    power = int(m.group(0))
+    label = (display or "").lower()
+    if "kw" in label and "cv" not in label:
+        power = round(power * 1.36)
+    return power if 30 <= power <= 1200 else None
+
+
 def _listings_from_search(search: dict) -> list[dict]:
     """
     Listings of a results page from the search data itself, in the shape
@@ -477,6 +495,7 @@ def _listings_from_search(search: dict) -> list[dict]:
             "title": node.get("title") or "",
             # The site's model of the listing; for a series search, the sub-model.
             "sv_model_slug": value("model") or None,
+            "engine_power_hp": _card_power_hp(value("engine_power"), value("engine_power", "displayValue")),
             "price": int(price) if isinstance(price, (int, float)) and price > 0 else None,
             "year": _parse_year(value("first_registration_year")),
             "km": _parse_km(value("mileage")),
@@ -557,12 +576,15 @@ async def fetch_listings(
     fuel_type: Optional[str] = None,
     model_slug: Optional[str] = None,
     max_pages: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> list[dict]:
     """
     Fetch listings from Standvirtual for a given brand/model.
     year_from / year_to / fuel_type are passed as URL filters so only the correct
     generation and fuel variant are fetched. model_slug overrides the model path
     with SV's own slug, so models missing from our map still search correctly.
+
+    power_range, (from, to) in cv, scopes the search to that engine power.
 
     max_pages > 1 also fetches the following result pages (up to that many in
     all) when the search reports more results than the first page holds.
@@ -571,7 +593,7 @@ async def fetch_listings(
     """
     def page_url(page: int) -> str:
         return _build_search_url(brand, model, budget_max, year_from, year_to,
-                                 fuel_type, model_slug, page)
+                                 fuel_type, model_slug, page, power_range)
 
     search_url = page_url(1)
 
