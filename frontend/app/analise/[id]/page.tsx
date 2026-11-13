@@ -88,5 +88,5 @@ export default async function AnalisePage({ params }: PageProps) {
     )
   }
 
-  return <AnalysisView data={data} analysisId={numId} />
+  return <AnalysisView data={data} analysisId={numId} shared />
 }

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { PageViewTracker } from "@/components/shared/page-view-tracker"
 
 const SITE_URL = "https://caractr.pt"
 const SITE_NAME = "Caractr"
@@ -62,6 +63,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#09090B" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans text-foreground antialiased")}>
+        <PageViewTracker />
         <TooltipProvider delay={300}>
           <Navbar />
           <main className="flex-1">{children}</main>

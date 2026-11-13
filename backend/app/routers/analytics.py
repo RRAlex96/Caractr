@@ -25,7 +25,11 @@ _KNOWN_EVENTS = frozenset({
     "model_clicked", "model_expanded", "model_analysis_started",
     # Analysis
     "ad_analysis_requested",
-    "analysis_started", "analysis_completed", "analysis_shared",
+    "analysis_started", "analysis_completed", "analysis_failed", "analysis_shared",
+    # Share loop: a visit to a shared analysis, and its click through to /analisar
+    "shared_analysis_viewed", "shared_cta_clicked",
+    # Buyer Pass: interest recorded before checkout exists
+    "pass_interest",
     "analysis_feedback", "analysis_feedback_reason",
     # Trust panel
     "trust_panel_viewed", "trust_panel_feedback",

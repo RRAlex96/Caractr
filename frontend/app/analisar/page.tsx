@@ -85,14 +85,21 @@ function AnalisarContent() {
     setError("")
     setResult(null)
     const profile = profileOverride || userProfile
+    Analytics.analysisStarted(targetUrl, !!profile)
     try {
       const data = await analyseUrl(targetUrl, {
         userProfile: profile as any,
       })
-      if (data.error) setError(data.error)
-      else setResult(data)
+      if (data.error) {
+        setError(data.error)
+        Analytics.analysisFailed(targetUrl, data.error)
+      } else {
+        setResult(data)
+        Analytics.analysisCompleted(targetUrl, data.deal?.tier, !!data.from_cache, data.analysis_id)
+      }
     } catch {
-      setError("Erro ao analisar. Verifica a ligacao e tenta novamente.")
+      setError("Erro ao analisar. Verifica a ligação e tenta novamente.")
+      Analytics.analysisFailed(targetUrl, "network")
     } finally {
       setLoading(false)
     }

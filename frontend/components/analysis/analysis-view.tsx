@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import type { AnalysisResult } from "@/lib/types"
+import { Analytics } from "@/lib/analytics"
 
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
@@ -27,13 +29,20 @@ import { WizardBridge } from "@/components/shared/wizard-bridge"
 interface AnalysisViewProps {
   data: AnalysisResult
   analysisId: number
+  /** True on a real permalink (/analise/[id]) — the examples page reuses this view. */
+  shared?: boolean
 }
 
-export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
+export function AnalysisView({ data, analysisId, shared = false }: AnalysisViewProps) {
   const tier = data.deal?.tier || "razoavel"
   const brand = data.listing?.brand_name || ""
   const model = data.listing?.model_name || ""
   const year = data.listing?.year
+
+  // A visit to a shared analysis: the share loop's second half.
+  useEffect(() => {
+    if (shared) Analytics.sharedAnalysisViewed(analysisId)
+  }, [shared, analysisId])
 
   return (
     <main className="min-h-screen">
@@ -42,6 +51,7 @@ export function AnalysisView({ data, analysisId }: AnalysisViewProps) {
         <div className="mb-3">
           <Link
             href="/analisar"
+            onClick={() => shared && Analytics.sharedCtaClicked(analysisId)}
             className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[1.5px] text-muted-foreground transition-colors hover:text-gold"
           >
             ← Analisar outro
