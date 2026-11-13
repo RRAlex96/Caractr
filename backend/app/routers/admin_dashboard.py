@@ -27,6 +27,10 @@ def _auth(x_admin_token: str = Header(...)):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+# Events from a browser opened once with ?internal=1 are ours, not visitors'.
+_NOT_INTERNAL = "COALESCE(properties->>'internal', '') <> 'true'"
+
+
 @router.get("/health/extraction", dependencies=[Depends(_auth)])
 async def health_extraction():
     """
@@ -59,7 +63,7 @@ def get_dashboard(
             COUNT(*) FILTER (WHERE event_name = 'analysis_completed') AS analyses_completed,
             COUNT(*) AS total_events
         FROM analytics_events
-        WHERE created_at >= NOW() - INTERVAL '{days} days'
+        WHERE {_NOT_INTERNAL} AND created_at >= NOW() - INTERVAL '{days} days'
     """)).mappings().fetchone()
 
     concierge_count = db.execute(text(f"""
@@ -72,7 +76,7 @@ def get_dashboard(
     funnel_raw = db.execute(text(f"""
         SELECT event_name, COUNT(DISTINCT anon_id) AS unique_users
         FROM analytics_events
-        WHERE created_at >= NOW() - INTERVAL '{days} days'
+        WHERE {_NOT_INTERNAL} AND created_at >= NOW() - INTERVAL '{days} days'
           AND event_name IN (
             'selector_started', 'selector_completed', 'results_viewed',
             'model_clicked', 'ad_analysis_requested', 'concierge_interest'
@@ -119,7 +123,7 @@ def get_dashboard(
         SELECT DATE(created_at) AS day, COUNT(*) AS events,
                COUNT(DISTINCT anon_id) AS users
         FROM analytics_events
-        WHERE created_at >= NOW() - INTERVAL '{days} days'
+        WHERE {_NOT_INTERNAL} AND created_at >= NOW() - INTERVAL '{days} days'
         GROUP BY DATE(created_at)
         ORDER BY day
     """)).mappings().fetchall()
@@ -234,7 +238,7 @@ def get_dashboard(
             COUNT(*) FILTER (WHERE properties->>'helpful' = 'false') AS not_helpful,
             COUNT(*) AS total
         FROM analytics_events
-        WHERE event_name = 'analysis_feedback'
+        WHERE {_NOT_INTERNAL} AND event_name = 'analysis_feedback'
           AND created_at >= NOW() - INTERVAL '{days} days'
     """)).mappings().fetchone()
 
@@ -244,7 +248,7 @@ def get_dashboard(
                properties->>'value' AS val,
                COUNT(*) AS cnt
         FROM analytics_events
-        WHERE event_name = 'selector_step_completed'
+        WHERE {_NOT_INTERNAL} AND event_name = 'selector_step_completed'
           AND created_at >= NOW() - INTERVAL '{days} days'
           AND properties->>'field' IS NOT NULL
         GROUP BY properties->>'field', properties->>'value'
