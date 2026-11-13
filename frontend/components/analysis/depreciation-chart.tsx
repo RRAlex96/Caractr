@@ -23,7 +23,7 @@ export function DepreciationChart({
   currentPrice,
   className,
 }: DepreciationChartProps) {
-  const { curve, future_value, annual_pct, annual_pct_label, holds_value, loses_fast } = depreciation
+  const { curve, future_value, annual_pct, holds_value, loses_fast } = depreciation
 
   // Build chart data from curve points
   const chartData = (curve || []).map((pt) => ({
@@ -67,11 +67,12 @@ export function DepreciationChart({
 
       {/* Annual rate */}
       <div className="mb-4 flex items-baseline gap-2">
+        {/* annual_pct is a fraction (0.078 = 7.8% a year) */}
         <span className="font-mono text-2xl font-bold text-foreground">
-          {annual_pct.toFixed(1)}%
+          {(annual_pct * 100).toFixed(1).replace(".", ",")}%
         </span>
         <span className="font-mono text-[10px] text-muted-foreground/60">
-          {annual_pct_label || "/ ano"}
+          por ano de idade
         </span>
       </div>
 
@@ -138,7 +139,7 @@ export function DepreciationChart({
             {futureData.map((fp) => (
               <div key={fp.year} className="bg-card p-3 text-center">
                 <p className="mb-1 font-mono text-[10px] text-muted-foreground">
-                  {fp.year}
+                  {fp.year === 1 ? "Daqui a 1 ano" : `Daqui a ${fp.year} anos`}
                 </p>
                 <p className="font-mono text-sm font-bold text-foreground">
                   {formatPrice(fp.value)}
