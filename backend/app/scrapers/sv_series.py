@@ -24,6 +24,8 @@ from app.scrapers.sv_series_data import SV_SERIES
 # "A 45 AMG", "NX 450h" for "NX 450h+"): never required, but they count when
 # choosing between two sub-models.
 _OPTIONAL_WORDS = {"amg", "plus", "todos"}
+# A bare class letter is a series only when a body style follows ("E Coupé").
+_BODY_WORDS = {"coupe", "cabrio", "cabriolet", "limousine", "station", "break", "sw", "sedan", "all"}
 # A number followed by one of these is a quantity, not a sub-model ("320 cv").
 _UNITS = r"(?:cv|hp|kw|km|kms|nm|mil|cc|cm3|eur|euros?)\b"
 
@@ -45,8 +47,7 @@ def _series_aliases(make: str, series_name: str) -> list[str]:
     if make == "mercedes-benz" and name.startswith("classe "):
         letters = name[7:]
         aliases += [f"{letters} class", f"{letters} klasse"]
-        if len(letters) >= 2:                                 # "CLA", "GLC"; never a bare "A"
-            aliases.append(letters)
+        aliases.append(letters)                               # "CLA", "GLC"; a bare letter: see find_series
     if name.endswith(" todos"):                               # "911 (Todos)"
         aliases.append(name[:-6])
     return aliases
@@ -62,7 +63,13 @@ def find_series(make: Optional[str], model_name: Optional[str]) -> Optional[str]
     best = None
     for series_id, (series_name, _) in SV_SERIES.get(make or "", {}).items():
         for alias in _series_aliases(make, series_name):
-            if (model == alias or model.startswith(alias + " ")) and (best is None or len(alias) > best[0]):
+            if model == alias:
+                matched = len(alias) >= 2                     # never a bare "A"
+            elif model.startswith(alias + " "):
+                matched = len(alias) >= 2 or model.split()[1] in _BODY_WORDS
+            else:
+                matched = False
+            if matched and (best is None or len(alias) > best[0]):
                 best = (len(alias), series_id)
     return best[1] if best else None
 

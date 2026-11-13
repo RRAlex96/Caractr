@@ -14,12 +14,14 @@ import httpx
 import asyncio
 import math
 import re
+import unicodedata
 import json
 import random
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
+from app.scrapers.sv_models import find_make, find_model
 from app.scrapers.sv_series import find_series, find_variant
 
 # Playwright import is lazy — only loaded when fetch_listings actually needs it.
@@ -76,84 +78,22 @@ USER_AGENTS = [
 BASE_URL = "https://www.standvirtual.com"
 SEARCH_URL = f"{BASE_URL}/carros"
 
-# Brand slug mappings (Standvirtual uses lowercase slugs)
-BRAND_SLUGS = {
-    "BMW": "bmw",
-    "Mercedes-Benz": "mercedes-benz",
-    "Audi": "audi",
-    # The site's make id is "vw". "/carros/volkswagen/golf" is not recognised
-    # and silently returns every car on the site (see _search_is_scoped).
-    "Volkswagen": "vw",
-    "Toyota": "toyota",
-    "Honda": "honda",
-    "Mazda": "mazda",
-    "Volvo": "volvo",
-    "Peugeot": "peugeot",
-    "Renault": "renault",
-    "Ford": "ford",
-    "Opel": "opel",
-    "SEAT": "seat",
-    "Skoda": "skoda",
-    "Hyundai": "hyundai",
-    "Kia": "kia",
-    "Fiat": "fiat",
-    "Dacia": "dacia",
-    "Citroen": "citroen",
-    "Nissan": "nissan",
-    "Alfa Romeo": "alfa-romeo",
-    "MINI": "mini",
-    "Cupra": "cupra",
-    "Tesla": "tesla",
-    "Subaru": "subaru",
-    "Suzuki": "suzuki",
-    "Land Rover": "land-rover",
-    "Porsche": "porsche",
-    "Lexus": "lexus",
-    "MG": "mg",
-}
-
-# Model slug mappings for common models. Series ("Serie 3", "Classe A") are not
-# here: the site does not take them as a path slug (see sv_series.py).
-MODEL_SLUGS = {
-    "Golf": "golf",
-    "Passat": "passat",
-    "Polo": "polo",
-    "Tiguan": "tiguan",
-    "Corolla": "corolla",
-    "Yaris": "yaris",
-    "RAV4": "rav4",
-    "Civic": "civic",
-    "CR-V": "cr-v",
-    "CX-5": "cx-5",
-    "XC60": "xc60",
-    "308": "308",
-    "3008": "3008",
-    "Clio": "clio",
-    "Megane": "megane",
-    "Focus": "focus",
-    "Astra": "astra",
-    "Leon": "leon",
-    "Octavia": "octavia",
-    "i30": "i30",
-    "Tucson": "tucson",
-    "Ceed": "ceed",
-    "Sportage": "sportage",
-    "Panda": "panda",
-    "Duster": "duster",
-    "A3": "a3",
-    "A4": "a4",
-    "Q5": "q5",
-    "Giulia": "giulia",
-}
-
-
 def _random_ua() -> str:
     return random.choice(USER_AGENTS)
 
 
+def _plain_slug(name: str) -> str:
+    """A name as a URL slug: no accents, lower case, spaces to hyphens. Only a
+    guess — used for a name the site's list does not have."""
+    text = unicodedata.normalize("NFKD", name or "")
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return text.strip().lower().replace(" ", "-")
+
+
 def _make_slug(brand: str) -> str:
-    """The site's make id for one of our brand names."""
-    return BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
+    """The site's make id for one of our brand names ("Volkswagen" -> "vw",
+    "Citroën" -> "citroen"); a plain slug when the site has no such make."""
+    return find_make(brand) or _plain_slug(brand)
 
 
 def sv_model_slug_for(brand: str, model: str, *texts: Optional[str]) -> Optional[str]:
@@ -235,7 +175,7 @@ def _build_search_url(
 ) -> str:
     brand_slug = _make_slug(brand)
     # Prefer SV's own model slug (from the listing) when provided — it's exact
-    # for any model, including ones not in our MODEL_SLUGS map (e.g. 'velar').
+    # for any model, including ones the site's list does not have yet.
     series_id = None
     if model_slug_override:
         model_slug = model_slug_override.strip()
@@ -246,8 +186,11 @@ def _build_search_url(
         model_slug = find_variant(brand_slug, model_clean)
         if not model_slug:
             series_id = find_series(brand_slug, model_clean)
+        # Any other model: its id in the site's own list ("XC40" -> "xc-40"),
+        # else a plain slug, which the site may not know (the search is then
+        # discarded as unscoped, see _search_is_scoped).
         if not model_slug and not series_id:
-            model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
+            model_slug = find_model(brand_slug, model_clean) or _plain_slug(model_clean)
     url = f"{SEARCH_URL}/{brand_slug}" + (f"/{model_slug}" if not series_id else "")
     params = []
     if series_id:

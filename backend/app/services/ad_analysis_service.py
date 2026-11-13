@@ -1089,7 +1089,7 @@ async def _fetch_live_market_data(
     # Use the FULL model name (accent-stripped) for both search and cache key.
     # Using only the first word collapsed "Serie 1"/"Serie 3"/"Serie 5" into one
     # bucket ("serie") — mixing all BMW series into one search and one cache entry.
-    # The scrapers' MODEL_SLUGS map full names ("Serie 3" -> "serie-3") for a
+    # The scrapers resolve full names against the site's own list for a
     # precise search.
     model_search = _strip_accents(model_name).strip()          # "Série 3" -> "Serie 3"
     model_key   = model_search.lower().replace(" ", "-")       # -> "serie-3"

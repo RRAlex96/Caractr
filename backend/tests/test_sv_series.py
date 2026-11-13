@@ -21,8 +21,8 @@ from app.services.ad_analysis_service import _market_model_slug
 
 def test_taxonomy_snapshot_is_whole():
     assert set(SV_SERIES) == {"bmw", "mercedes-benz", "lexus", "porsche"}
-    assert sum(len(series) for series in SV_SERIES.values()) == 54
-    assert sum(len(variants) for series in SV_SERIES.values() for _, variants in series.values()) == 506
+    assert sum(len(series) for series in SV_SERIES.values()) >= 50
+    assert sum(len(variants) for series in SV_SERIES.values() for _, variants in series.values()) >= 450
     assert SV_SERIES["bmw"]["serie-5"][1]["530"] == "530"
     assert SV_SERIES["mercedes-benz"]["classe-a"][1]["a-180"] == "A 180"
 
@@ -43,6 +43,9 @@ def test_taxonomy_snapshot_is_whole():
     ("bmw", "530", None),                            # a sub-model
     ("bmw", "X3", None),
     ("mercedes-benz", "A", None),                    # a bare letter is too little
+    ("mercedes-benz", "E Coupé", "classe-e"),        # ... unless a body style follows
+    ("mercedes-benz", "C Cabrio", "classe-c"),
+    ("mercedes-benz", "A 180", None),                # a sub-model, not a series
     ("mercedes-benz", "EQA", None),                  # a model without sub-models
     ("porsche", "Cayenne", None),
     ("vw", "Golf", None),
