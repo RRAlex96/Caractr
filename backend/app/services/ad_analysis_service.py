@@ -1088,10 +1088,10 @@ def _stored_market_data(
     live search. Used when the live search fails or times out, so the price
     verdict does not depend on the marketplace answering this minute.
 
-    Same rules: the comparison year window, the car's fuel, and its engine
-    power band (strict). Without the car's power, the site's sub-model or
-    body variant when the listing gave one; a series or a trim-priced model
-    with neither is not compared at all. The year and mileage step is the
+    Same rules: the comparison year window, the car's fuel, its engine power
+    band (strict), and the site's sub-model or body variant when the listing
+    gave one. A series or a trim-priced model with neither power nor
+    sub-model is not compared at all. The year and mileage step is the
     same function. Returns {} when fewer than 3 stored listings qualify or the
     snapshot is older than _STORED_POOL_MAX_AGE_DAYS.
     """
@@ -1127,7 +1127,10 @@ def _stored_market_data(
     if power_range:
         where.append("engine_power_hp BETWEEN :p_from AND :p_to")
         params["p_from"], params["p_to"] = power_range
-    elif variants:
+    # The site's own model of the listing, as the live search uses it: an
+    # Astra hatch is compared with hatches, not with the Sports Tourer the
+    # snapshot also files under "Astra" (the estate asks about 6% more).
+    if variants:
         where.append("variant = ANY(:variants)")
         params["variants"] = variants
     try:

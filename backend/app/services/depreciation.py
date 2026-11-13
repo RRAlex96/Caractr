@@ -36,6 +36,13 @@ MIN_LISTINGS    = 40   # listings behind the whole curve
 MIN_RATE, MAX_RATE = 0.03, 0.25   # a plausible yearly loss; outside it, no figure
 MAX_RATE_ERROR  = 0.03  # standard error of the yearly rate the fit may have
 MAX_OBSERVATION_AGE_DAYS = 60
+# "Holds its value" / "loses value fast" are said of about one generation in
+# seven each. On the snapshot of 2026-11-13 (154 generations with a rate) the
+# rates run from 3.6% to 13.3% a year, median 7.5%, 15th and 85th percentiles
+# 5.6% and 10.2%. The old cut-offs (under 8%, over 15%) called 58% of
+# generations value-holders and none fast losers.
+HOLDS_VALUE_BELOW = 0.055
+LOSES_FAST_ABOVE = 0.10
 
 
 def _compute_annual_depreciation(year_prices: list[tuple]) -> Optional[dict]:
@@ -243,8 +250,8 @@ def get_depreciation_for_generation(db: Session, generation_id: int) -> Optional
     return {
         "annual_pct": pct,
         "annual_pct_label": f"{pct * 100:.1f}%/ano",
-        "holds_value": pct < 0.08,
-        "loses_fast": pct > 0.15,
+        "holds_value": pct < HOLDS_VALUE_BELOW,
+        "loses_fast": pct > LOSES_FAST_ABOVE,
         "curve": curve,
         "as_of": str(row["depreciation_as_of"]) if row["depreciation_as_of"] else None,
     }

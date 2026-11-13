@@ -199,6 +199,16 @@ def test_stored_pool_is_scoped_like_the_live_comparison():
     assert (db.params["p_from"], db.params["p_to"]) == svc._power_range(115)
     assert "extraction_method = 'search_snapshot'" in db.sql
     assert stats["power_comparison"]["car_power_hp"] == 115
+    assert "variants" not in db.params                      # no site model known: every body variant
+
+
+def test_stored_pool_keeps_to_the_listings_own_body_variant():
+    rows = [(14000 + 200 * i, 100000 + 4000 * i, 2017 + i % 3, 2.0) for i in range(12)]
+    db = _FakeDb(rows)
+    assert _stored(db, sv_model_slug="golf-variant")
+    assert db.params["variants"] == ["golf-variant"] and "p_from" in db.params
+    assert _stored(db, model_name="Cooper", brand_name="MINI", sv_model_slug="mini-3p--mini-5p")
+    assert db.params["variants"] == ["mini-3p", "mini-5p"]
 
 
 def test_stored_pool_needs_three_listings():
