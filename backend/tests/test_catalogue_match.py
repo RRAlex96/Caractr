@@ -21,6 +21,9 @@ def _cat():
         ("Toyota", "Corolla", "compacto"), ("Toyota", "Yaris", "citadino"), ("Toyota", "Yaris Cross", "suv"),
         ("DS", "7", "suv"), ("MINI", "Cooper", "citadino"), ("MINI", "Countryman", "suv"), ("Volvo", "V60", "carrinha"), ("Skoda", "Octavia", "compacto"),
         ("Peugeot", "308", "compacto"), ("Peugeot", "3008", "suv"), ("Fiat", "500", "citadino"), ("Fiat", "500X", "suv"),
+        ("Peugeot", "208", "citadino"), ("Peugeot", "E-308", "compacto"), ("Opel", "Mokka", "suv"),
+        ("Opel", "Grandland", "suv"), ("Kia", "Niro", "suv"), ("Hyundai", "Kona", "suv"), ("MG", "HS", "suv"),
+        ("Honda", "Jazz", "citadino"),
     ]
     return [{"id": i + 1, "brand_name": b, "model_name": m, "body_type": body} for i, (b, m, body) in enumerate(rows)]
 
@@ -77,6 +80,22 @@ def _match(brand, model):
     ("Volvo", "V60 Cross Country", "Volvo V60"),
     ("Peugeot", "3008", "Peugeot 3008"),
     ("Peugeot", "308 SW", "Peugeot 308"),
+    # the electric version filed under its own name
+    ("Peugeot", "e-208", "Peugeot 208"),
+    ("Peugeot", "E-308", "Peugeot E-308"),          # its own catalogue model: the exact name wins
+    ("Peugeot", "e-308 SW", "Peugeot E-308"),
+    ("Peugeot", "e-3008", "Peugeot 3008"),
+    ("Citroën", "ë-C4", "Citroën C4"),
+    ("Opel", "Mokka-e", "Opel Mokka"),
+    ("Fiat", "500e", "Fiat 500"),
+    ("Kia", "e-Niro", "Kia Niro"),
+    ("Volkswagen", "e-Golf", "Volkswagen Golf"),
+    # another name the market uses
+    ("Hyundai", "Kauai", "Hyundai Kona"),
+    ("Hyundai", "Kauai Electric", "Hyundai Kona"),
+    ("MG", "EHS", "MG HS"),
+    ("Opel", "Grandland X", "Opel Grandland"),
+    ("Renault", "Scenic E-Tech", "Renault Scénic"),
 ])
 def test_matches(brand, model, expected):
     assert _match(brand, model) == expected
@@ -101,6 +120,12 @@ def test_matches(brand, model, expected):
     ("BMW", "Série 2"),
     ("Audi", "TT RS Coupé"),
     ("Tesla", "Model X"),             # brand not in this catalogue at all
+    ("Honda", "e"),                   # a model of its own, not "the electric nothing"
+    ("Audi", "e-tron"),
+    ("Fiat", "500e C"),               # the electric convertible
+    ("Citroën", "ë-C4 X"),            # the C4 X is another body, not in this catalogue
+    ("Fiat", "600e"),
+    ("Opel", "Combo-e Life"),
 ])
 def test_unknown_models_do_not_match_something_else(brand, model):
     assert _match(brand, model) is None

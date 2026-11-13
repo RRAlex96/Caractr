@@ -13,112 +13,110 @@
   "price": 6990,
   "seller_type": "stand",
   "photo_count": 37,
-  "listing_age_days": 1
+  "listing_age_days": 3
  },
  "deal": {
   "tier": "cuidado",
-  "score": 0.65,
-  "price_delta": 1.0,
-  "price_delta_pct": 43.8,
+  "score": 0.15,
+  "price_delta": 0.0,
+  "price_delta_pct": null,
   "km_per_year": 25143.0,
-  "market_avg_price": 13615,
-  "market_median_price": 12445,
-  "market_sample_count": 10,
+  "market_avg_price": null,
+  "market_median_price": null,
+  "market_sample_count": null,
   "market_data_source": "live",
   "market_data_age_days": null,
   "market_data_stale": false,
   "market_fuel_type": "Diesel",
+  "market_km_comparison": {
+   "car_km": 251426,
+   "km_from": 175000,
+   "km_to": 327000,
+   "in_band_count": 2,
+   "pool_count": 24,
+   "pool_median_km": 121568,
+   "basis": "mismatch"
+  },
+  "market_year_comparison": null,
+  "market_power_comparison": {
+   "car_power_hp": 95,
+   "power_from": 80,
+   "power_to": 110,
+   "pool_count": 24
+  },
   "generation_year_start": 2014,
   "generation_year_end": null
  },
  "analysis": {
   "verdict": "cuidado",
-  "verdict_reason": "Preço tentador (€6.990) para a versão Lounge, mas com 251k km no motor 1.3 Multijet e risco de DPF.",
+  "verdict_reason": "Motor 1.3 Multijet muito submetido a esforço nesta carroçaria, com quilometragem elevada (251k km) e risco de FAP.",
   "green_flags": [
-   "Motor 1.3 Multijet (199B1000) de 95cv — conhecido pela enorme durabilidade do bloco e consumos baixíssimos.",
-   "Versão Lounge (topo de gama de série) com bom nível de equipamento como climatização automática e cruise control.",
-   "Preço 43.8% abaixo da mediana de mercado, refletindo a alta quilometragem de forma justa."
+   "Motor 1.3 Multijet (199B1000/A3000) com transmissão por corrente, sem caixa DCT (tem caixa manual de 5V)",
+   "Preço (€6.990) acessível para o ano e segmento SUV urbano",
+   "Nível de equipamento Lounge de fábrica traz um recheio de série muito completo"
   ],
   "red_flags": [
-   "Quilometragem muito elevada (251.426 km) — turbocompressor, embraiagem e injetores em fim de vida útil provável.",
-   "Filtro de Partículas (DPF) e válvula EGR propensos a entupimento grave com esta quilometragem.",
-   "Histórico de manutenção oculto no anúncio, vital para verificar a corrente de distribuição deste motor."
+   "Quilometragem alta (251.426 km) num motor de pequena cilindrada a puxar o peso de um SUV",
+   "Elevado risco de saturação da FAP/EGR se o uso anterior tiver sido maioritariamente urbano",
+   "Histórico de manutenção omitido num motor sensível ao estado do óleo (lubrificação da corrente e turbo)"
   ],
-  "seller_analysis": "Stand profissional a vender um carro de retoma com muita rodagem a preço 'para despachar'. A descrição é standard e automatizada, omitindo o estado mecânico real. O atendimento 'apenas por agendamento' sugere uma operação pequena ou sem espaço físico grande.",
-  "profile_fit": "Ideal para quem faz muitos quilómetros em estrada/autoestrada, tem orçamento curto e guarda uma margem financeira (€1.000) para eventuais reparações mecânicas.",
+  "seller_analysis": "O anúncio é de um stand profissional que utiliza um texto standard e automático. Atendimento mediante agendamento indica operação pequena ou sem espaço próprio. Omite completamente o histórico de revisões e estado real da mecânica.",
+  "profile_fit": "Para quem faz muitos km em estrada nacional/autoestrada e procura um SUV vistoso a preço baixo, assumindo fundo de reserva para reparações.",
   "trim_level": "Lounge",
   "spec_tier": "alto",
   "trim_includes": [
-   "Jantes de liga leve de 18''",
+   "Jantes de liga leve 18''",
    "Climatização automática bi-zona",
-   "Cruise control",
-   "Volante desportivo em pele multifunções",
+   "Cruise Control",
    "Sensores de estacionamento traseiros",
-   "Sistema Uconnect com ecrã tátil",
-   "Lane Assist (aviso de transposição de faixa)"
+   "Volante multifunções em pele",
+   "Vidros escurecidos"
   ],
   "optional_extras": [
-   "Pintura Cinzenta Metálica"
+   "Lane Assist (Aviso de transposição de faixa)",
+   "Pintura metalizada Cinzenta"
   ],
-  "equipment_note": "Muito bem equipado de origem por ser a versão topo Lounge, trazendo jantes 18, ar condicionado automático e ajudas à condução.",
+  "equipment_note": "Está muito bem equipado por ser o topo de gama Lounge, trazendo conforto e ajudas à condução invulgares nesta faixa de preço.",
   "key_extras": [
    "Jantes 18",
    "Climatização automática",
    "Cruise control",
-   "Lane Assist",
-   "Sensores de estacionamento traseiros",
-   "Hill descent control",
+   "Sensores estacionamento",
+   "Lane assist",
    "Volante em pele"
   ],
   "spec_value_assessment": "acima_do_esperado",
   "engine_code": "199B1000",
-  "engine_analysis": "O 1.3 Multijet II de 95cv usa corrente de distribuição (não correia). Com +250k km, é crítico ouvir se a corrente bate a frio e verificar o turbo e DPF.",
-  "extras_analysis": "A versão Lounge é o topo da gama 500X na altura, portanto traz o equipamento desejado. Fica a faltar apenas estofos em pele integrais ou teto panorâmico.",
-  "negotiation_script": "Boas! Vi o vosso Fiat 500X Lounge de 2016. O carro parece estimado mas já conta com 251 mil km, o que vai exigir atenção imediata à distribuição e FAP. Têm o histórico de revisões comprovado? Se a mecânica estiver em ordem, fecho negócio por 6.200€ esta semana. Abraço.",
-  "verdict_narrative": "É um SUV bonito e muito bem equipado por menos de 7 mil euros, o que é raro em Portugal. No entanto, os 251k km exigem caução: o motor 1.3 aguenta muito, mas os periféricos (turbo, FAP, corrente) custam dinheiro. Se tiveres margem para reparações, vale a pena ver.",
-  "seller_read": "O stand sabe que o valor comercial cai bastante com 250k km e quer uma venda rápida de retoma. A conversa de 'muito estimado' é standard; tens de ser tu a validar o estado mecânico real."
+  "engine_analysis": "O 1.3 Multijet de 95cv é económico, mas curto para o peso do 500X. A corrente de distribuição exige trocas de óleo rigorosas (máx. 15k km) para não folgar; a EGR e FAP entopem facilmente.",
+  "extras_analysis": "Sendo a versão Lounge, vem praticamente cheia de equipamento de fábrica. O Lane Assist adiciona valor tecnológico. Faltam bancos em pele ou teto de abrir para ser full extras total.",
+  "negotiation_script": "Boas! Vi o 500X 1.3 Multijet que têm anunciado por €6.990. O carro parece estimado mas já conta com 251 mil km, o que no motor 1.3 exige atenção à corrente e FAP. Se o livro de revisões estiver em dia e me garantirem a garantia por mútuo acordo, fecho negócio pelos €6.200 esta semana. O que me dizem?",
+  "verdict_narrative": "O preço atrai, o equipamento Lounge é excelente e o visual do 500X agrada. Contudo, 251k km num motor 1.3 a puxar este peso é muito desgaste acumulado. Só vale a pena se tiver comprovativo de trocas de óleo frequentes e kit de distribuição mudado. Se fazes muita cidade, esquece devido ao filtro de partículas.",
+  "seller_read": "Texto gerado por software de gestão de stocks. O vendedor destaca o equipamento mas esconde o estado mecânico atrás da clássica frase 'informações devem ser confirmadas'."
  },
  "inspection_checklist": [
-  "Escutar ruídos metálicos no arranque a frio (corrente de distribuição a folgar).",
-  "Verificar se há fumo preto ou azulado na aceleração (turbo e injetores).",
-  "Verificar no quadrante se a luz do DPF/FAP acende ou se há erros de regeneração.",
-  "Testar o ecrã do Uconnect para garantir que não congela (bug comum).",
-  "Verificar folgas e barulhos em piso irregular (silentblocks e casquilhos frontais gastam rápido neste modelo).",
-  "Pedir comprovativo da última troca de óleo (este motor estraga a corrente se usar óleo errado)."
+  "Escutar ruídos metálicos de corrente a chocalhar no arranque a frio (motor 1.3 Multijet)",
+  "Verificar no Uconnect e quadrante se há luzes de avaria de motor ou FAP/DPF ligadas",
+  "Testar folgas nos silentblocks e braços da suspensão dianteira em piso irregular",
+  "Verificar estado dos tubos do intercooler e fugas de óleo junto ao turbocompressor",
+  "Confirmar a última troca de óleo e especificação do lubrificante usado (crítico para a corrente)"
  ],
  "negotiation_tips": [
-  "Usa a barreira psicológica dos 250.000 km para descer o valor — o stand sabe que é difícil vender com esta rodagem.",
-  "Pergunta logo pela garantia: se for 'sem garantia para revenda', exige pelo menos 800€ a 1.000€ de desconto.",
-  "Menciona que a substituição da corrente preventivamente te vai custar ~500€ e usa isso na negociação."
+  "Usa a marca dos 250.000 km como principal argumento psicológico para baixar o preço abaixo dos €6.500.",
+  "Exige ver o livro de revisões para confirmar a manutenção da corrente de distribuição.",
+  "Pergunta se o valor anunciado já inclui a garantia obrigatória por lei ou se cobram 'despesas administrativas' à parte."
  ],
- "negotiation": {
-  "asking_price": 6990,
-  "opening_offer": 6700,
-  "fair_value": 12450,
-  "walk_away": 12450,
-  "potential_saving": 290,
-  "leverage": [
-   "Está uns 44% abaixo da média — já é bom preço, confirma o estado",
-   "Tem mais km do que a média para o ano"
-  ],
-  "confidence": "media",
-  "sample_count": 10
- },
- "anomaly": {
-  "level": "warning",
-  "title": "Preço abaixo do mercado",
-  "message": "Está abaixo da média do mercado. Pode ser bom negócio — confirma o estado real, a documentação e o histórico de manutenção antes de avançar."
- },
+ "negotiation": null,
+ "anomaly": null,
  "price_history": {
-  "observations": 3,
-  "tracked_days": 37,
+  "observations": 4,
+  "tracked_days": 39,
   "first_price": 7750,
   "current_price": 6990,
   "drop_total": 760,
   "last_change": {
    "from": 7750,
    "to": 6990,
-   "days_ago": 0
+   "days_ago": 1
   },
   "relisted_before": false,
   "rollback_suspected": false
@@ -152,10 +150,10 @@
  "_data_warnings": [],
  "fit": null,
  "reliability": {
-  "score": 4.77,
-  "ci_low": 4.09,
-  "ci_high": 5.46,
-  "data_quality": "limited"
+  "score": 6.8,
+  "ci_low": 6.3,
+  "ci_high": 7.3,
+  "data_quality": "prior_only"
  },
  "dealbreakers": {
   "has_dealbreaker": false,

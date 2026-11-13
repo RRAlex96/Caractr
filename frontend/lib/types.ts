@@ -209,6 +209,8 @@ export interface MarketData {
   p50: number
   band?: MarketBand | null
   as_of?: string | null
+  /** Registration year the price is for (recommendation cards). */
+  year?: number | null
 }
 
 export interface NegotiationNumbers {
@@ -283,6 +285,8 @@ export interface AnalysisResult {
 export interface PriceRange {
   min: number
   max: number
+  /** Registration year the range is for: the newest the budget buys. */
+  year?: number | null
 }
 
 export interface Recommendation {

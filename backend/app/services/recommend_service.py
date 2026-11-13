@@ -17,6 +17,8 @@ from sqlalchemy import text
 import uuid
 import json
 import math
+from datetime import datetime
+from typing import Optional
 
 from app.services.dealbreakers import get_dealbreakers
 
@@ -441,17 +443,25 @@ LOAD_MODELS_SQL = text("""
     SELECT
         vm.id, vm.name AS model_name, b.name AS brand_name,
         vm.body_type, vm.segment,
-        AVG(e.consumption_mixed)::float AS avg_consumption,
+        -- Consumption is litres/100 km for combustion engines and kWh/100 km for
+        -- electric ones: the two are never averaged together (a 208 with a petrol,
+        -- a diesel and an electric version came out at "8.6"). A plug-in hybrid's
+        -- homologated figure (0.6-2.5 L, battery full) is left out of both: it
+        -- made an X5 look as frugal as a city car.
+        AVG(e.consumption_mixed) FILTER (
+            WHERE e.fuel_type <> 'eletrico'
+              AND NOT (e.fuel_type LIKE 'h%' AND e.consumption_mixed < 3.5))::float AS avg_consumption,
+        AVG(e.consumption_mixed) FILTER (WHERE e.fuel_type = 'eletrico')::float AS avg_kwh,
         AVG(e.reliability_score)::float AS avg_reliability,
         AVG(e.maintenance_cost_year)::float AS avg_maintenance,
-        MIN(e.consumption_mixed)::float AS best_consumption,
+        MIN(e.consumption_mixed) FILTER (
+            WHERE e.fuel_type <> 'eletrico'
+              AND NOT (e.fuel_type LIKE 'h%' AND e.consumption_mixed < 3.5))::float AS best_consumption,
+        MIN(e.consumption_mixed) FILTER (WHERE e.fuel_type = 'eletrico')::float AS best_kwh,
         MAX(e.power_hp) AS max_power,
         dc.comfort_score, dc.driving_fun_score,
         dc.city_score, dc.highway_score, dc.family_score,
         dc.description AS character_desc,
-        (SELECT mp.avg_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS avg_price,
-        (SELECT mp.min_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS min_price,
-        (SELECT mp.max_price FROM market_price_stats mp WHERE mp.model_id = vm.id ORDER BY mp.year DESC LIMIT 1) AS max_price,
         -- Reliability shown on the card: the curated per-engine score the ranking
         -- already uses, with the spread across the model's engines as its range.
         -- The count-based generations.reliability_score is NOT shown: it adds a
@@ -485,6 +495,9 @@ LOAD_MODELS_SQL = text("""
     JOIN brands b ON b.id = vm.brand_id
     LEFT JOIN engines e ON e.model_id = vm.id
     LEFT JOIN driving_character dc ON dc.model_id = vm.id
+    -- A model with no body type is a stub created from a listing the catalogue
+    -- could not place; it is never recommended.
+    WHERE COALESCE(vm.body_type, '') <> ''
     GROUP BY vm.id, vm.name, b.name, vm.body_type, vm.segment,
              dc.comfort_score, dc.driving_fun_score, dc.city_score,
              dc.highway_score, dc.family_score, dc.description
@@ -492,9 +505,98 @@ LOAD_MODELS_SQL = text("""
 """)
 
 
+# Measured prices only: the median, p10 and p90 of the listings of a model and
+# registration year in the last market snapshot ("aggregated"). The seeded
+# placeholder rows and the pools single analyses used to write are not prices
+# of the model.
+PRICES_BY_YEAR_SQL = text("""
+    SELECT model_id, year, avg_price, min_price, max_price, sample_count, updated_at
+    FROM market_price_stats
+    WHERE source = 'aggregated' AND year IS NOT NULL AND avg_price IS NOT NULL
+    ORDER BY model_id, year
+""")
+
+
+def load_prices_by_year(db: Session) -> dict:
+    """{model_id: [{year, p50, p10, p90, n, as_of}, ...] oldest year first}."""
+    prices: dict = {}
+    for r in db.execute(PRICES_BY_YEAR_SQL).fetchall():
+        p50 = int(r.avg_price)
+        prices.setdefault(r.model_id, []).append({
+            "year": int(r.year), "p50": p50,
+            "p10": int(r.min_price) if r.min_price else p50,
+            "p90": int(r.max_price) if r.max_price else p50,
+            "n": int(r.sample_count or 0),
+            "as_of": str(r.updated_at.date()) if r.updated_at else None,
+        })
+    return prices
+
+
+# Below this many models with a measured price, the snapshot has not been
+# loaded into this database yet and the catalogue's old single price per model
+# is used instead (see load_models). A loaded snapshot prices ~190 models.
+_MIN_MODELS_WITH_MEASURED_PRICE = 50
+
+LEGACY_PRICE_SQL = text("""
+    SELECT DISTINCT ON (model_id) model_id, avg_price, min_price, max_price
+    FROM market_price_stats
+    WHERE avg_price IS NOT NULL
+    ORDER BY model_id, year DESC NULLS LAST
+""")
+
+
+# A model is recommended at a registration year no older than this. Without
+# it, the year a family budget "buys" of a Porsche Cayenne is 2008: true, and
+# not advice. Small budgets buy older cars, so the limit is wider for them.
+_MAX_AGE_YEARS = 12
+_MAX_AGE_YEARS_SMALL_BUDGET = 18
+_SMALL_BUDGET = 8000
+
+
+def price_for_budget(prices_by_year: list, budget_max: int, stretch_limit: float,
+                     this_year: Optional[int] = None):
+    """
+    (price row, is_stretch) for the car of this model the budget buys: the
+    newest registration year whose median price fits the budget; failing that,
+    the newest within the stretch limit. None when every year we have a price
+    for costs more, or when the only years that fit are older than the age
+    limit (_MAX_AGE_YEARS).
+
+    A used model has no single price. The catalogue used to carry one
+    (placeholder) figure per model, mostly for 2022, so a 12 000 EUR budget
+    never saw a Golf at all; it buys a 2016 one.
+    """
+    this_year = this_year or datetime.now().year
+    max_age = _MAX_AGE_YEARS if budget_max >= _SMALL_BUDGET else _MAX_AGE_YEARS_SMALL_BUDGET
+    prices_by_year = [y for y in prices_by_year if y["year"] >= this_year - max_age]
+    in_budget = [y for y in prices_by_year if y["p50"] <= budget_max]
+    if in_budget:
+        return max(in_budget, key=lambda y: y["year"]), False
+    stretch = [y for y in prices_by_year if y["p50"] <= stretch_limit]
+    if stretch:
+        return max(stretch, key=lambda y: y["year"]), True
+    return None
+
+
+def _with_price(m: dict, row: dict) -> dict:
+    """A copy of the model priced at one registration year."""
+    return {**m,
+            "avg_price": row["p50"], "min_price": row["p10"], "max_price": row["p90"],
+            "price_year": row["year"],
+            "market_p50": row["p50"],
+            "market_band": {"p10": row["p10"], "p90": row["p90"], "sample_count": row["n"]},
+            "market_as_of": row["as_of"]}
+
+
 def load_models(db: Session) -> list:
     """Load all models with aggregated data, grouped by model."""
     rows = db.execute(LOAD_MODELS_SQL).fetchall()
+    prices = load_prices_by_year(db)
+    legacy: dict = {}
+    if len(prices) < _MIN_MODELS_WITH_MEASURED_PRICE:
+        # No snapshot in this database yet: one price per model, as before.
+        prices = {}
+        legacy = {r.model_id: r for r in db.execute(LEGACY_PRICE_SQL).fetchall()}
     # Models with a critical known failure (the deal-breaker tier — only sourced
     # research or a human can set it). Recalls are deliberately NOT here: they
     # are normally fixed free at the dealer, so they warn but never demote.
@@ -505,9 +607,19 @@ def load_models(db: Session) -> list:
     """)).fetchall()}
     models = []
     for row in rows:
-        avg_price = int(row.avg_price) if row.avg_price else None
-        if not avg_price:
-            continue  # skip models without price data (hard constraint)
+        years = prices.get(row.id)
+        if years:
+            # Until a budget picks the year (apply_hard_constraints), the model
+            # is priced at the registration year most on sale.
+            typical = max(years, key=lambda y: (y["n"], y["year"]))
+        elif row.id in legacy:
+            old = legacy[row.id]
+            typical = {"p50": int(old.avg_price), "year": None,
+                       "p10": int(old.min_price or old.avg_price),
+                       "p90": int(old.max_price or old.avg_price)}
+        else:
+            continue  # no price: the model cannot be placed in a budget
+        avg_price = typical["p50"]
         
         m = {
             "id": row.id,
@@ -517,12 +629,18 @@ def load_models(db: Session) -> list:
             "body_type": row.body_type or "compacto",
             "segment": row.segment or "medio",
             "avg_price": avg_price,
-            "min_price": int(row.min_price) if row.min_price else avg_price,
-            "max_price": int(row.max_price) if row.max_price else avg_price,
-            "avg_consumption": float(row.avg_consumption) if row.avg_consumption else 7.0,
+            "min_price": typical["p10"],
+            "max_price": typical["p90"],
+            "price_year": typical["year"],
+            "prices_by_year": years or [],
+            # litres/100 km; for a model sold only as an electric car, kWh/100 km
+            # (which _build_model_vector converts: anything above 10 is kWh)
+            "avg_consumption": (float(row.avg_consumption) if row.avg_consumption
+                                else float(row.avg_kwh) if row.avg_kwh else 7.0),
             "avg_reliability": float(row.avg_reliability) if row.avg_reliability else 5.0,
             "avg_maintenance": float(row.avg_maintenance) if row.avg_maintenance else 500.0,
             "best_consumption": float(row.best_consumption) if row.best_consumption else None,
+            "best_kwh": float(row.best_kwh) if row.best_kwh else None,
             "max_power": int(row.max_power) if row.max_power else None,
             "comfort_score": int(row.comfort_score) if row.comfort_score else 5,
             "driving_fun_score": int(row.driving_fun_score) if row.driving_fun_score else 5,
@@ -587,6 +705,12 @@ def apply_hard_constraints(models: list, answers: dict) -> tuple:
 
     passed, stretch = [], []
     for m in models:
+        # Price the model at the newest registration year the budget buys.
+        if m.get("prices_by_year"):
+            fit = price_for_budget(m["prices_by_year"], budget_max, stretch_limit)
+            if fit is None:
+                continue
+            m = _with_price(m, fit[0])
         if m["avg_price"] > stretch_limit:
             continue
         # Budget floor: when the user has real budget (>=25k), exclude deeply-under-budget models
@@ -672,10 +796,10 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
         interaction += 0.10
 
     # EV/hybrid boost for city + economy context
-    # Detects EVs (best_consumption stored in kWh > 10) and efficient hybrids (< 5 L/100km)
+    # A model with an electric version, or an efficient one (< 5 L/100km)
     if profile.get("economy", 0) > 0.18:
         best_c = model.get("best_consumption")
-        if best_c and (best_c > 10.0 or best_c < 5.0):  # EV (kWh) or efficient hybrid
+        if model.get("best_kwh") or (best_c and (best_c > 10.0 or best_c < 5.0)):
             boost = 0.08 if ctx == "cidade" else 0.04
             interaction += boost
 
@@ -927,7 +1051,9 @@ def _build_llm_prompt(top5: list, profile: dict, answers: dict) -> str:
             "segment": m["segment"],
             "score": round(m["_score"], 3),
             "dimensions": {dim_pt.get(k, k): round(v, 2) for k, v in mv.items()},
-            "price_range": f"€{m['min_price']:,}–€{m['max_price']:,}" if m.get("min_price") else "N/D",
+            "price_range": (f"€{m['min_price']:,}–€{m['max_price']:,}"
+                            + (f" (de {m['price_year']})" if m.get("price_year") else "")
+                            if m.get("min_price") else "N/D"),
             "is_wildcard": m.get("is_wildcard", False),
         })
 
@@ -1067,6 +1193,7 @@ def generate_all_explanations(top5: list, profile: dict, answers: dict, llm_resu
                 "p50":          m["market_p50"],
                 "band":         m["market_band"],
                 "as_of":        m["market_as_of"],
+                "year":         m.get("price_year"),
             }
 
         results.append({
@@ -1080,7 +1207,7 @@ def generate_all_explanations(top5: list, profile: dict, answers: dict, llm_resu
             "headline": headline,
             "reasons": reasons[:3],
             "tradeoff": tradeoff,
-            "price_range": {"min": m["min_price"], "max": m["max_price"]},
+            "price_range": {"min": m["min_price"], "max": m["max_price"], "year": m.get("price_year")},
             "is_stretch": m.get("is_stretch", False),
             "is_wildcard": m.get("is_wildcard", False),
             "reliability": reliability_trust,
@@ -1167,10 +1294,18 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
 
     for dim in dims_to_cover:
         if dim == "economy":
+            # Homologated figures, and said to be: they are not what the car
+            # does on the road, and "among the best in class" was never checked.
             if m["best_consumption"]:
                 t = [
-                    f"Consumo real a partir de {m['best_consumption']}L/100km.",
-                    f"Gasta {m['best_consumption']}L/100km em uso misto — dos melhores da classe.",
+                    f"Consumo homologado a partir de {m['best_consumption']:g} L/100 km.",
+                    f"Há versões a gastar {m['best_consumption']:g} L/100 km (valor homologado).",
+                ]
+                reasons.append(t[mid % 2])
+            elif m.get("best_kwh"):
+                t = [
+                    f"Elétrico: cerca de {m['best_kwh']:g} kWh/100 km (valor homologado).",
+                    f"Sem combustível: gasta cerca de {m['best_kwh']:g} kWh/100 km.",
                 ]
                 reasons.append(t[mid % 2])
             elif m["avg_maintenance"]:
@@ -1230,16 +1365,19 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
     if len(reasons) < 3 and m["avg_price"]:
         budget_max = int(answers.get("p8_budget_max", 25000))
         price = _fmt_eur(m["avg_price"])
+        # The price is the median of one registration year; say which.
+        what = (f"Um de {m['price_year']} custa tipicamente {price}" if m.get("price_year")
+                else f"Preço médio de {price}")
         if m["avg_price"] <= budget_max * 0.85:
             t = [
-                f"Preço médio de {price} — bem abaixo do teu limite.",
-                f"A {price}, sobra margem no orçamento.",
+                f"{what} — bem abaixo do teu limite.",
+                f"{what}: sobra margem no orçamento.",
             ]
             reasons.append(t[mid % 2])
         elif m["avg_price"] <= budget_max:
             t = [
-                f"Preço médio de {price} — dentro do teu orçamento.",
-                f"A {price}, encaixa no que definiste.",
+                f"{what} — dentro do teu orçamento.",
+                f"{what}: encaixa no que definiste.",
             ]
             reasons.append(t[mid % 2])
 

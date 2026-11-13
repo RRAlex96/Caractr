@@ -90,7 +90,9 @@ function MarketBlock({ market }: { market: MarketData }) {
         <span className="font-mono text-[22px] font-bold text-foreground">
           {formatPrice(market.p50)}
         </span>
-        <span className="font-mono text-[10px] text-muted-foreground/60">mediana</span>
+        <span className="font-mono text-[10px] text-muted-foreground/60">
+          {market.year ? `mediana de ${market.year}` : "mediana"}
+        </span>
         {sampleCount && (
           <span className="ml-auto font-mono text-[10px] text-gold">
             {sampleCount} anúncios

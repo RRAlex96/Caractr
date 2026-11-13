@@ -416,15 +416,34 @@ def _filter_model_issues(rows, year: Optional[int], fuel: Optional[str]) -> tupl
     return ("; ".join(descs) or None), ("; ".join(costs) or None)
 
 
+def _catalogue_model_id(db: Session, brand_name: str, model_name: str) -> Optional[int]:
+    """The catalogue model with this brand and name, compared without accents
+    or case on BOTH sides. The SQL this replaces lower-cased the catalogue
+    name but stripped accents from the given one only, so "Série 3", "Citroën"
+    and "Mégane" never found their own row: those cars were analysed with no
+    reliability score, maintenance estimate, known issues or recalls."""
+    brand, model = _norm_name(brand_name), _norm_name(model_name)
+    if not brand or not model:
+        return None
+    for row in db.execute(text("""
+        SELECT vm.id, b.name AS brand_name, vm.name AS model_name
+        FROM vehicle_models vm JOIN brands b ON b.id = vm.brand_id
+        ORDER BY vm.id
+    """)).mappings():
+        if _norm_name(row["brand_name"]) == brand and _norm_name(row["model_name"]) == model:
+            return row["id"]
+    return None
+
+
 def _get_model_info(db: Session, brand_name: str, model_name: str,
                     year: int | None = None, fuel: str | None = None) -> dict:
     """Fetch model reliability info, known issues, maintenance cost, and Bayesian trust data.
 
     `year`/`fuel` (the listing's, when known) filter the known issues and
     recalls to ones that can apply to this car."""
-    # Strip accents so 'Citroën' matches 'Citroen' in DB, 'Série 3' matches 'Serie 3'
-    brand_norm = _strip_accents(brand_name).lower()
-    model_norm = _strip_accents(model_name).lower()
+    catalogue_id = _catalogue_model_id(db, brand_name, model_name)
+    if catalogue_id is None:
+        return {"reliability_score": None, "known_issues": None}
     row = db.execute(text("""
         SELECT vm.id,
                AVG(e.reliability_score)::float           AS avg_reliability,
@@ -439,10 +458,9 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
         JOIN brands b ON b.id = vm.brand_id
         LEFT JOIN engines e ON e.model_id = vm.id
         LEFT JOIN driving_character dc ON dc.model_id = vm.id
-        WHERE LOWER(b.name) = LOWER(:brand) AND LOWER(vm.name) = LOWER(:model)
+        WHERE vm.id = :id
         GROUP BY vm.id
-        LIMIT 1
-    """), {"brand": brand_norm, "model": model_norm}).mappings().fetchone()
+    """), {"id": catalogue_id}).mappings().fetchone()
 
     if not row:
         return {"reliability_score": None, "known_issues": None}
@@ -991,11 +1009,12 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
     Includes freshness info: source and days since last update.
     Stale data (>14 days) is flagged so the live scraper knows to refresh.
 
-    Only measured rows count. The catalogue was seeded with placeholder rows
-    (source "Standvirtual/OLX 2025": round prices, round sample counts, one
-    model year each); a price verdict must never rest on those, so when
-    nothing measured exists this returns no reference and the verdict is
-    withheld.
+    Only rows written by an earlier live comparison ("live_scraped") count,
+    and only analyses cached before the car's own reference was kept with them
+    still read this. Not the seeded placeholder rows (source "Standvirtual/OLX
+    2025"), and not the snapshot's "aggregated" rows either: those are the
+    price of a model and year across every fuel and engine — right for a
+    recommendation card, not a like-for-like reference for one car.
     """
     if year:
         row = db.execute(text("""
@@ -1008,7 +1027,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
             FROM market_price_stats
             WHERE model_id = :model_id
               AND ABS(year - :year) <= 1
-              AND COALESCE(source, '') NOT LIKE 'Standvirtual/OLX%'
+              AND source = 'live_scraped'
         """), {"model_id": model_id, "year": year}).mappings().fetchone()
     else:
         row = db.execute(text("""
@@ -1020,7 +1039,7 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
                    MAX(source) as source
             FROM market_price_stats
             WHERE model_id = :model_id
-              AND COALESCE(source, '') NOT LIKE 'Standvirtual/OLX%'
+              AND source = 'live_scraped'
         """), {"model_id": model_id}).mappings().fetchone()
 
     if row and row["avg_price"]:
@@ -1044,6 +1063,97 @@ def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) ->
                 result["stale"] = True
         return result
     return {}
+
+
+_STORED_POOL_MAX_AGE_DAYS = 45
+
+
+def _stored_market_data(
+    db: Session,
+    model_id: Optional[int],
+    brand_name: str,
+    model_name: str,
+    year: Optional[int],
+    fuel_type: Optional[str] = None,
+    gen_year_start: Optional[int] = None,
+    gen_year_end: Optional[int] = None,
+    sv_model_slug: Optional[str] = None,
+    km: Optional[int] = None,
+    trim: Optional[str] = None,
+    power_hp: Optional[int] = None,
+) -> dict:
+    """
+    The like-for-like comparison of _fetch_live_market_data, run on the
+    listings the last market snapshot stored (price_observations) instead of a
+    live search. Used when the live search fails or times out, so the price
+    verdict does not depend on the marketplace answering this minute.
+
+    Same rules: the comparison year window, the car's fuel, its engine power
+    band (strict), and the site's sub-model or body variant when the listing
+    gave one. A series or a trim-priced model with neither power nor
+    sub-model is not compared at all. The year and mileage step is the
+    same function. Returns {} when fewer than 3 stored listings qualify or the
+    snapshot is older than _STORED_POOL_MAX_AGE_DAYS.
+    """
+    if not model_id or not year:
+        return {}
+    from app.scrapers.standvirtual import _sv_fuel_values, is_series_model, search_needs_trim
+
+    model_search = _strip_accents(model_name or "").strip()
+    power_range = _power_range(power_hp)
+    variants = [v for v in (sv_model_slug or "").strip().lower().split("--") if v]
+    if not power_range:
+        # A MINI hatch is compared within its trim, which stored listings do
+        # not carry; a series only within a sub-model.
+        if search_needs_trim(brand_name, model_search, sv_model_slug):
+            return {}
+        if not variants and is_series_model(brand_name, model_search):
+            return {}
+
+    year_from, year_to, _ = _comparison_year_window(year, gen_year_start, gen_year_end)
+    where = ["model_id = :model_id", "extraction_method = 'search_snapshot'",
+             "price > 1000", "observed_at > now() - make_interval(days => :max_age)"]
+    params: dict = {"model_id": model_id, "max_age": _STORED_POOL_MAX_AGE_DAYS}
+    if year_from is not None:
+        where.append("vehicle_year >= :year_from")
+        params["year_from"] = year_from
+    if year_to is not None:
+        where.append("vehicle_year <= :year_to")
+        params["year_to"] = year_to
+    powertrains = _sv_fuel_values(fuel_type)
+    if powertrains:
+        where.append("powertrain = ANY(:powertrains)")
+        params["powertrains"] = powertrains
+    if power_range:
+        where.append("engine_power_hp BETWEEN :p_from AND :p_to")
+        params["p_from"], params["p_to"] = power_range
+    # The site's own model of the listing, as the live search uses it: an
+    # Astra hatch is compared with hatches, not with the Sports Tourer the
+    # snapshot also files under "Astra" (the estate asks about 6% more).
+    if variants:
+        where.append("variant = ANY(:variants)")
+        params["variants"] = variants
+    try:
+        rows = db.execute(text(f"""
+            SELECT price, km, vehicle_year,
+                   EXTRACT(EPOCH FROM (now() - observed_at)) / 86400 AS age_days
+            FROM price_observations
+            WHERE {' AND '.join(where)}
+        """), params).fetchall()
+    except Exception as e:
+        # The snapshot columns do not exist before the first load.
+        db.rollback()
+        print(f"[MARKET] Stored pool unavailable: {e}")
+        return {}
+    if len(rows) < 3:
+        return {}
+    pool = [{"price": int(r[0]), "km": r[1], "year": _int_or_none(r[2])} for r in rows]
+    label = f"stored:{model_id}:{year_from or 'x'}-{year_to or 'now'}"
+    stats = _market_stats_from_pool(pool, km, label, year)
+    stats["source"] = "snapshot"
+    stats["age_days"] = int(min(float(r[3]) for r in rows))
+    stats["stale"] = False
+    return _with_power_comparison(stats, power_hp, power_range, pool)
 
 
 def _extract_engine_hint(text: str) -> Optional[str]:
@@ -1713,6 +1823,28 @@ _BODY_STYLE_WORDS = frozenset({
 
 _BRAND_ALIASES = {"vw": "volkswagen", "mercedes": "mercedes-benz", "merc": "mercedes-benz"}
 
+# Another name the market uses for a catalogue model, (brand, name as listed)
+# -> catalogue name. Checked on 2026-11-13 against every model name on
+# Standvirtual: the Hyundai Kona is sold in Portugal as the Kauai, the plug-in
+# MG HS as the EHS, the 2017-2021 Opel Grandland as the Grandland X, the
+# electric Renault Scénic as the Scenic E-Tech.
+_MODEL_NAME_ALIASES = {
+    ("hyundai", "kauai"): "kona",
+    ("mg", "ehs"): "hs",
+    ("opel", "grandland x"): "grandland",
+    ("renault", "scenic e-tech"): "scenic",
+}
+
+
+def _electric_twin(name: str) -> Optional[str]:
+    """The model an electric version is named after, when the name is nothing
+    but that model with an "e": 'e-208' -> '208', 'mokka-e' -> 'mokka',
+    '500e' -> '500'. None otherwise — and 'megane e-tech' is not one (it is a
+    different car from the Mégane)."""
+    m = re.fullmatch(r"e[- ](.+)", name) or re.fullmatch(r"(.+)-e", name) or re.fullmatch(r"(\d{3,4})e", name)
+    return m.group(1).strip() if m and m.group(1).strip() else None
+
+
 _MINI_HATCH_WORDS = frozenset({"one", "cooper", "john", "works", "jcw"})
 _MINI_OTHER_MODELS = frozenset({"clubman", "countryman", "paceman", "aceman", "coupe", "roadster"})
 
@@ -1747,7 +1879,9 @@ def match_catalogue_model(
          first, so a stub named "530" cannot capture the 530s. Two models of
          one series (Série 2 Active Tourer / Gran Coupé) need the body words.
       2. its name is the catalogue name (this also finds stubs), or
-      3. its name without body-style words is ("A3 Sportback" -> "A3").
+      3. its name without body-style words is ("A3 Sportback" -> "A3"), or it
+         is another name for the model: a market alias ("Kauai" -> "Kona") or
+         the electric version under its own name ("e-208" -> "208").
       4. Mercedes: a class letter -> "Classe X"; MINI: a hatch trim -> "Cooper".
     The old substring and any-word matches are gone: they made a C4 Cactus a
     C4, a Range Rover a Range Rover Sport and a Kangoo E-Tech a Renault 5.
@@ -1810,6 +1944,16 @@ def match_catalogue_model(
         hit = named(core) if core and core != name else None
         if hit:
             return out(hit)
+
+    # 3b. another name for a catalogue model: a market alias ("Kauai" is the
+    # Kona), or the electric version filed under its own name ("e-208" is a
+    # 208, "Mokka-e" a Mokka). With and without body-style words.
+    for name in names:
+        for candidate in (name, _core_model_name(name)):
+            other = _MODEL_NAME_ALIASES.get((brand, candidate)) or _electric_twin(candidate)
+            hit = named(other) if other else None
+            if hit:
+                return out(hit)
 
     # 4. Mercedes: "A 180", "A180", "Classe A" -> "Classe A"; "Classe CLA" -> "CLA"
     if brand == "mercedes-benz":
@@ -2339,43 +2483,28 @@ async def _analyse_listing_inner(
     elif DISABLE_LIVE_MARKET and brand_name:
         print(f"[ANALYSIS] Live market scrape disabled (DISABLE_LIVE_MARKET=true) — using DB only")
 
-    # Write live result back to DB so future requests skip scraping. The row is
-    # shared by every car of this model and year, so it gets the whole pool's
-    # stats, not the ones narrowed to this car's mileage.
-    if market_stats.get("source") == "live" and model_id and market_stats.get("avg_price"):
-        db_stats = market_stats.get("pool_stats") or market_stats
-        try:
-            db.execute(
-                text("""
-                    INSERT INTO market_price_stats
-                        (model_id, year, avg_price, min_price, max_price, sample_count, source, updated_at)
-                    VALUES
-                        (:model_id, :year, :avg_price, :min_price, :max_price, :sample_count, 'live_scraped', NOW())
-                    ON CONFLICT (model_id, year) DO UPDATE SET
-                        avg_price    = EXCLUDED.avg_price,
-                        min_price    = EXCLUDED.min_price,
-                        max_price    = EXCLUDED.max_price,
-                        sample_count = EXCLUDED.sample_count,
-                        source       = 'live_scraped',
-                        updated_at   = NOW()
-                """),
-                {
-                    "model_id":     model_id,
-                    "year":         year,
-                    "avg_price":    db_stats["avg_price"],
-                    "min_price":    db_stats.get("min_price"),
-                    "max_price":    db_stats.get("max_price"),
-                    "sample_count": db_stats.get("sample_count", 0),
-                },
-            )
-            db.commit()
-        except Exception:
-            db.rollback()  # non-critical — analysis continues regardless
-
-    if not market_stats and model_id:
-        market_stats = _get_market_stats(db, model_id, year)
-        if market_stats:
-            market_stats["source"] = "db"
+    # No live comparison (the marketplace did not answer, or timed out): the
+    # same comparison on the listings the last market snapshot stored. The old
+    # fallback, a stored row of the model and year whatever the fuel or engine,
+    # is gone: it was not like-for-like. Live results are no longer written
+    # back to market_price_stats either — that row is shared by every car of
+    # the model and year, and one car's pool (its fuel, its power band)
+    # overwrote it.
+    if not market_stats.get("avg_price") and model_id:
+        stored = _stored_market_data(
+            db, model_id, brand_name, model_name, year,
+            fuel_type=fuel_type,
+            gen_year_start=gen_year_start,
+            gen_year_end=gen_year_end,
+            sv_model_slug=_market_model_slug(normalized, brand_name, model_name, listing_url),
+            km=normalized.get("km"),
+            trim=_market_trim(normalized, listing_url),
+            power_hp=normalized.get("engine_power_hp"),
+        )
+        if stored:
+            print(f"[ANALYSIS] Live comparison unavailable — using the stored snapshot "
+                  f"({stored.get('sample_count')} listings, {stored.get('age_days')} days old)")
+            market_stats = stored
 
     # Listings that are not comparable with this car in mileage or model year:
     # no price reference at all, rather than a wrong one.

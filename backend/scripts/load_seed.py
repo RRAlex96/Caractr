@@ -31,6 +31,11 @@ SEED_FILES = [
     "seeds/migration_v57_close_replaced_generations.sql",  # close replaced / discontinued generations
     "seeds/migration_v58_changeover_years.sql",  # one generation per changeover year
     "seeds/migration_v59_generation_fuel.sql",  # fuel_type column; Fiat 500e is electric-only
+    "seeds/migration_v60_merge_bmw_530.sql",  # no-op on a fresh database (no stub model to merge)
+    "seeds/migration_v61_engines_and_character.sql",  # engines + character for the models that had none
+    # migration_v62_remove_seeded_prices.sql is NOT loaded here: it removes the
+    # placeholder prices and refuses to run until a market snapshot has been
+    # loaded and aggregated (scripts/market_snapshot.py, then monthly_refresh).
 ]
 
 

@@ -10,8 +10,9 @@ refreshes production when backend/.env points at production:
     python -m scripts.monthly_refresh --skip market,nhtsa
 
 Steps (each isolated — one failing never skips the others; all idempotent):
-  1. market       scrape listings → price_observations (validated: right
-                  brand/model/years, no placeholders)
+  1. market       every listing of the catalogue's makes on Standvirtual →
+                  price_observations (scripts/market_snapshot.py; ~45 min;
+                  the listings read are kept in backend/snapshots/)
   2. aggregate    robust prices → market_price_stats + generation bands
   3. depreciation curves from the clean observations
   4. safety_gate  newest ~350 EU Safety Gate alerts (≈ last 3 weeks)
@@ -64,8 +65,11 @@ def _steps():
     from app.scrapers.safety_gate import ingest_safety_gate
     from app.services.depreciation import run_depreciation_curves
     from app.services.market_aggregator import run_aggregation
-    from app.services.market_scraper_runner import run_market_scraper
-    from app.services.reliability_runner import run_reliability_scorer
+
+    def scorer(db):
+        # Imported here: it needs scipy, which a skipped scorer step should not.
+        from app.services.reliability_runner import run_reliability_scorer
+        return run_reliability_scorer(db)
 
     def curator(db):
         if not os.getenv("GEMINI_API_KEY"):
@@ -76,19 +80,43 @@ def _steps():
             raise RuntimeError(report["error"])
         return {k: report[k] for k in ("gaps", "researched", "saved", "queued", "errors")}
 
+    def market(db):
+        import asyncio
+        from datetime import date
+        from sqlalchemy import text
+        from app.services import market_snapshot
+
+        catalogue = [dict(r) for r in db.execute(text("""
+            SELECT vm.id, b.name AS brand_name, vm.name AS model_name, vm.body_type
+            FROM vehicle_models vm JOIN brands b ON b.id = vm.brand_id ORDER BY vm.id
+        """)).mappings()]
+        folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "snapshots")
+        os.makedirs(folder, exist_ok=True)
+        # One file a month: a run interrupted halfway resumes where it stopped.
+        path = os.path.join(folder, f"standvirtual_{date.today():%Y_%m}.jsonl")
+        report = asyncio.run(market_snapshot.collect(catalogue, path, log=lambda s: print(s, flush=True)))
+        incomplete = [m for m, r in report["makes"].items() if not r["complete"]]
+        with open(path, encoding="utf-8") as f:
+            import json
+            records = [json.loads(line) for line in f if line.strip()]
+        counts = market_snapshot.load(db, records)
+        if incomplete:
+            raise RuntimeError(f"makes not read to the end (run again to resume): {incomplete}; loaded {counts}")
+        return counts
+
     def retention(_db):
         from app.main import _run_data_retention_sync
         _run_data_retention_sync()
         return "ok"
 
     return [
-        ("market",       _session_step(run_market_scraper)),
+        ("market",       _session_step(market)),
         ("aggregate",    _session_step(run_aggregation)),
         ("depreciation", _session_step(run_depreciation_curves)),
         ("safety_gate",  _session_step(lambda db: ingest_safety_gate(db, max_pages=10, sleep_seconds=1.0))),
         ("nhtsa",        _session_step(lambda db: ingest_nhtsa_all(db, sleep_seconds=0.4))),
         ("curator",      _session_step(curator)),
-        ("scorer",       _session_step(run_reliability_scorer)),
+        ("scorer",       _session_step(scorer)),
         ("retention",    retention),
     ]
 

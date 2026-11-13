@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 MIN_SAMPLE_SIZE = 3    # minimum listings for a statistics row
 MIN_PUBLISH_SAMPLE = 6  # clean listings needed before a fresh price replaces market_price_stats
 MAD_OUTLIER_Z   = 3.5  # z-score threshold for MAD outlier removal
+# Only listings seen this recently count: a price is what the car is listed at
+# now, and price_observations keeps a listing's row after it has sold.
+MAX_OBSERVATION_AGE_DAYS = 60
+# An aggregated price nothing has refreshed for this long is removed.
+MAX_PRICE_AGE_DAYS = 75
 
 # Map seller_type → price_context (the CHECK constraint on market_price_stats_history)
 _SELLER_TO_CONTEXT = {
@@ -156,8 +161,9 @@ def run_aggregation(db: Session) -> dict:
             WHERE price IS NOT NULL
               AND price BETWEEN 500 AND 500000
               AND generation_id IS NOT NULL
+              AND observed_at > now() - make_interval(days => :max_age)
             ORDER BY generation_id, vehicle_year
-        """)).fetchall()
+        """), {"max_age": MAX_OBSERVATION_AGE_DAYS}).fetchall()
         stats["observations_used"] = len(po_rows)
     except Exception as e:
         logger.warning(f"price_observations query failed (table may not exist): {e}")
@@ -293,6 +299,9 @@ def run_aggregation(db: Session) -> dict:
                 FROM market_price_stats_history
                 WHERE observed_month = :month
                   AND sample_count >= :min_n
+                  -- every seller type together; the per-seller rows repeat
+                  -- the same listings
+                  AND price_context = 'todos'
                 GROUP BY generation_id
             ) sub
             WHERE g.id = sub.generation_id
@@ -325,6 +334,34 @@ def run_aggregation(db: Session) -> dict:
     return stats
 
 
+def model_year_stats(groups: dict) -> dict:
+    """
+    {(model_id, year): stats or None} from {(model_id, year): [prices]}.
+
+    A year with at least MIN_PUBLISH_SAMPLE clean listings is priced on its
+    own. A thinner one — a low-volume model has two or three listings in most
+    years — is priced on its own listings plus those of the year before and
+    the year after, and failing that of two years each side, when together
+    they reach the threshold. Without this, an Audi Q5 had a price for 2011
+    and 2017 and none in between, and a budget that buys a 2015 one was shown
+    the 2011. A year with no listing of its own gets no row, and None is
+    returned when even five years together are too few: no price is better
+    than one from three listings.
+    """
+    out: dict = {}
+    for (model_id, year), prices in groups.items():
+        st = _compute_stats(prices)
+        for reach in (1, 2):
+            if st and st["n"] >= MIN_PUBLISH_SAMPLE:
+                break
+            pooled = list(prices)
+            for step in range(1, reach + 1):
+                pooled += groups.get((model_id, year - step), []) + groups.get((model_id, year + step), [])
+            st = _compute_stats(pooled) if len(pooled) > len(prices) else st
+        out[(model_id, year)] = st if st and st["n"] >= MIN_PUBLISH_SAMPLE else None
+    return out
+
+
 def _refresh_market_price_stats(db: Session) -> dict:
     """
     Upsert market_price_stats from price_observations aggregated by (model_id, year).
@@ -343,15 +380,15 @@ def _refresh_market_price_stats(db: Session) -> dict:
             FROM price_observations
             WHERE model_id IS NOT NULL AND vehicle_year IS NOT NULL
               AND price BETWEEN 500 AND 500000
-        """)).fetchall()
+              AND observed_at > now() - make_interval(days => :max_age)
+        """), {"max_age": MAX_OBSERVATION_AGE_DAYS}).fetchall()
         groups: dict[tuple, list[float]] = {}
         for model_id, year, price in obs:
             groups.setdefault((model_id, year), []).append(float(price))
 
         rows = []
-        for (model_id, year), prices in groups.items():
-            st = _compute_stats(prices)
-            if not st or st["n"] < MIN_PUBLISH_SAMPLE:
+        for (model_id, year), st in model_year_stats(groups).items():
+            if st is None:
                 skipped += 1
                 continue
             rows.append((model_id, year, st["n"], st["p50"], st["p10"], st["p90"]))
@@ -366,12 +403,16 @@ def _refresh_market_price_stats(db: Session) -> dict:
                     (:model_id, :year, :avg, :mn, :mx,
                      :cnt, 'aggregated', NOW())
                 ON CONFLICT (model_id, year) DO UPDATE SET
-                    avg_price    = EXCLUDED.avg_price,
-                    min_price    = EXCLUDED.min_price,
-                    max_price    = EXCLUDED.max_price,
-                    sample_count = EXCLUDED.sample_count,
-                    source       = 'aggregated',
-                    updated_at   = NOW()
+                    avg_price     = EXCLUDED.avg_price,
+                    min_price     = EXCLUDED.min_price,
+                    max_price     = EXCLUDED.max_price,
+                    sample_count  = EXCLUDED.sample_count,
+                    source        = 'aggregated',
+                    -- the row it replaces may be a seeded one tied to one
+                    -- engine and to private sellers; this one is neither
+                    engine_id     = NULL,
+                    price_context = 'todos',
+                    updated_at    = NOW()
             """), {
                 "model_id": model_id,
                 "year":     year,
@@ -382,13 +423,21 @@ def _refresh_market_price_stats(db: Session) -> dict:
             })
             upserted += 1
 
+        # A model-year whose listings have thinned out below the publish
+        # threshold keeps its last price for a while, then loses it.
+        expired = db.execute(text("""
+            DELETE FROM market_price_stats
+            WHERE source = 'aggregated'
+              AND updated_at < now() - make_interval(days => :max_age)
+        """), {"max_age": MAX_PRICE_AGE_DAYS}).rowcount
+
         db.commit()
     except Exception as e:
         logger.warning(f"market_price_stats refresh failed: {e}")
         db.rollback()
         return {"error": str(e)}
 
-    return {"upserted": upserted, "skipped_thin_or_noisy": skipped}
+    return {"upserted": upserted, "skipped_thin_or_noisy": skipped, "expired": expired}
 
 
 def get_price_band_for_listing(
