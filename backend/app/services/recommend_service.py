@@ -1171,11 +1171,19 @@ def generate_all_explanations(top5: list, profile: dict, answers: dict, llm_resu
             tradeoff = llm_rec.get("tradeoff", "")
         else:
             # ── Template fallback ──
+            # What the headline and the reasons say this car is good at: the
+            # trade-off must not then call the same thing its weak point (a BMW
+            # X1 read "Espaço e conforto para quem carrega o mundo" and, below,
+            # "Espaço não é o ponto forte").
+            praised = set()
+            n_keys = len(used_headline_keys)
             headline = _pick_headline(m, profile_top1, profile_top2, model_best, model_2nd, model_3rd, used_headline_keys)
-            reasons  = _build_reasons(m, profile, profile_top1, profile_top2, answers)
+            if len(used_headline_keys) > n_keys:
+                praised.update(used_headline_keys[-1][0])
+            reasons  = _build_reasons(m, profile, profile_top1, profile_top2, answers, praised)
             if m.get("is_wildcard"):
                 reasons.append("Fora da tua zona habitual, mas vale a pena olhar.")
-            tradeoff = _build_tradeoff(m, profile, top5, answers, used_tradeoff_dims)
+            tradeoff = _build_tradeoff(m, profile, top5, answers, used_tradeoff_dims, praised)
 
         # Build trust panel data
         reliability_trust = None
@@ -1283,8 +1291,10 @@ def _fmt_eur(n) -> str:
     return f"{int(n):,}".replace(",", " ") + " €"
 
 
-def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: dict) -> list:
-    """Build 2-3 concrete reasons from templates with variation."""
+def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: dict,
+                   praised: Optional[set] = None) -> list:
+    """Build 2-3 concrete reasons from templates with variation. `praised`, when
+    given, receives the dimensions a reason was written about."""
     reasons = []
     m = model
     mid = m["id"]  # used to pick template A vs B
@@ -1293,6 +1303,7 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
     dims_to_cover = [top1, top2]
 
     for dim in dims_to_cover:
+        before = len(reasons)
         if dim == "economy":
             # Homologated figures, and said to be: they are not what the car
             # does on the road, and "among the best in class" was never checked.
@@ -1361,6 +1372,10 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
         elif dim == "status":
             reasons.append(f"{m['brand_name']} — uma marca que dispensa apresentações neste segmento.")
 
+        # only the first three reasons are shown
+        if praised is not None and len(reasons) > before and before < 3:
+            praised.add(dim)
+
     # Fill with price context if < 3 reasons
     if len(reasons) < 3 and m["avg_price"]:
         budget_max = int(answers.get("p8_budget_max", 25000))
@@ -1388,13 +1403,20 @@ def _build_reasons(model: dict, profile: dict, top1: str, top2: str, answers: di
     return reasons[:3]
 
 
-def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_dims: set) -> str:
+def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_dims: set,
+                    praised: Optional[set] = None) -> str:
     """
     Build tradeoff with comparative reference when gap is significant.
     Tracks used dimensions to avoid identical tradeoffs across models.
+
+    `praised` is what this car's headline and reasons said it is good at. Such
+    a dimension can still be the trade-off when another of the five is clearly
+    better at it ("not as roomy as the Octavia" does not deny that it is
+    roomy), but never as a flat "X is not its strong point".
     """
     mv = model["vector"]
     m = model
+    praised = praised or set()
 
     # Stretch: always gets price-based tradeoff
     if m.get("is_stretch"):
@@ -1410,55 +1432,54 @@ def _build_tradeoff(model: dict, profile: dict, all5: list, answers: dict, used_
             gaps.append((d, profile[d] - mv[d]))
     gaps.sort(key=lambda x: x[1], reverse=True)  # biggest gap first
 
-    # Pick the first gap dimension not already used by another model
-    chosen_dim = None
-    chosen_gap = 0
-    for dim, gap in gaps:
-        if dim not in used_dims:
-            chosen_dim = dim
-            chosen_gap = gap
-            break
-
-    # If all dims used (5 models, 6 dims — shouldn't happen), pick biggest gap
-    if not chosen_dim and gaps:
-        chosen_dim = gaps[0][0]
-        chosen_gap = gaps[0][1]
-
-    if not chosen_dim:
-        return "Compromissos mínimos para o teu perfil."
-
-    used_dims.add(chosen_dim)
-
-    # Comparative tradeoff: find best model in this dimension among the other 4
-    best_in_dim = None
-    best_val = 0
-    for other in all5:
-        if other["id"] == model["id"]:
-            continue
-        oval = other["vector"].get(chosen_dim, 0)
-        if oval > best_val:
-            best_val = oval
-            best_in_dim = other
-
-    dim_pt = {
+    dim_names = {
         "economy": "económico", "comfort": "confortável", "driving": "emocionante",
         "practical": "espaçoso", "status": "vistoso", "reliability": "fiável",
-    }.get(chosen_dim, "forte")
+    }
+    strength_names = {
+        "economy": "economia", "comfort": "conforto", "driving": "condução",
+        "practical": "espaço", "status": "presença", "reliability": "fiabilidade",
+    }
 
-    # If there's a meaningfully better model, do comparative
-    if best_in_dim and best_val > mv.get(chosen_dim, 0) + 0.08:
-        model_best_dim = max(mv, key=mv.get)
-        comp_pt = {
-            "economy": "economia", "comfort": "conforto", "driving": "condução",
-            "practical": "espaço", "status": "presença", "reliability": "fiabilidade",
-        }.get(model_best_dim, "outras áreas")
-        return f"Não é tão {dim_pt} como o {best_in_dim['full_name']}, mas compensa em {comp_pt}."
+    def comparative(dim: str) -> Optional[str]:
+        """'Not as <dim> as <the best of the other four>', when one is clearly better."""
+        best_in_dim, best_val = None, 0
+        for other in all5:
+            if other["id"] == model["id"]:
+                continue
+            oval = other["vector"].get(dim, 0)
+            if oval > best_val:
+                best_val, best_in_dim = oval, other
+        if not best_in_dim or best_val <= mv.get(dim, 0) + 0.08:
+            return None
+        # what this car has instead: its strongest side other than the one being compared
+        own = max((d for d in mv if d != dim), key=mv.get, default=None)
+        comp_pt = strength_names.get(own, "outras áreas")
+        return f"Não é tão {dim_names.get(dim, 'forte')} como o {best_in_dim['full_name']}, mas compensa em {comp_pt}."
 
-    # Generic tradeoff for this dimension
-    templates = TRADEOFF_TEMPLATES.get(chosen_dim, [
-        "Como todos os carros, tem compromissos — mas os que importam para ti estão cobertos."
-    ])
-    return templates[model["id"] % len(templates)]
+    def wording(dim: str) -> Optional[str]:
+        text = comparative(dim)
+        if text:
+            return text
+        if dim in praised:
+            return None
+        templates = TRADEOFF_TEMPLATES.get(dim, [
+            "Como todos os carros, tem compromissos — mas os que importam para ti estão cobertos."
+        ])
+        return templates[model["id"] % len(templates)]
+
+    # The biggest gap not already used by another model; then (5 models, 6
+    # dimensions, some of them praised) one another model has used.
+    for allow_used in (False, True):
+        for dim, _gap in gaps:
+            if not allow_used and dim in used_dims:
+                continue
+            text = wording(dim)
+            if text:
+                used_dims.add(dim)
+                return text
+
+    return "Compromissos mínimos para o teu perfil."
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
