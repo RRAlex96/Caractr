@@ -264,13 +264,16 @@ async def _call_gemini_analysis(prompt: str) -> dict:
     """
     try:
         from app.services.llm_client import generate_json, LLMError, QuotaExhaustedError
+        usage: dict = {}
         result = await asyncio.wait_for(
-            asyncio.to_thread(generate_json, prompt, 8192),
+            asyncio.to_thread(generate_json, prompt, 8192, usage),
             timeout=90,
         )
         if not isinstance(result, dict) or not result.get("verdict"):
             print(f"[AD_ANALYSIS] Gemini returned unexpected structure: {str(result)[:200]}")
             return {}
+        if usage:
+            result["_llm_usage"] = usage   # cached with the analysis: real cost per analysis
         print(f"[AD_ANALYSIS] Gemini OK — verdict={result.get('verdict')}, "
               f"engine={result.get('engine_code')}, extras={len(result.get('key_extras', []))}")
         return result
