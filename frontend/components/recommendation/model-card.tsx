@@ -51,6 +51,7 @@ export function ModelCard({
           </h3>
           {rec.price_range && (
             <span className="font-mono text-[11px] text-gold">
+              {rec.price_range.year ? `De ${rec.price_range.year}: ` : ""}
               {rec.price_range.min?.toLocaleString("pt-PT")} — {rec.price_range.max?.toLocaleString("pt-PT")} EUR
             </span>
           )}

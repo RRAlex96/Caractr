@@ -333,3 +333,51 @@ def test_recalls_alone_do_not_affect_score():
     base = score_model(_model(id=1), profile, answers)
     with_recall = score_model(_model(id=1, dealbreakers={"recall_count": 3}), profile, answers)
     assert with_recall == base
+
+
+# ── a model is priced at the registration year the budget buys ──────────
+
+def _years(*rows):
+    return [{"year": y, "p50": p50, "p10": int(p50 * 0.85), "p90": int(p50 * 1.15), "n": 20,
+             "as_of": "2026-11-13"} for y, p50 in rows]
+
+
+GOLF = _years((2014, 9500), (2016, 12500), (2018, 15500), (2020, 19500), (2023, 26000))
+
+
+def test_price_for_budget_picks_the_newest_year_that_fits():
+    from app.services.recommend_service import price_for_budget
+    row, over = price_for_budget(GOLF, 16000, 16000 * 1.15)
+    assert (row["year"], over) == (2018, False)
+    row, over = price_for_budget(GOLF, 30000, 30000 * 1.15)
+    assert (row["year"], over) == (2023, False)
+
+
+def test_price_for_budget_stretches_only_when_nothing_fits():
+    from app.services.recommend_service import price_for_budget
+    row, over = price_for_budget(GOLF, 9000, 9000 * 1.15)          # the 2014 one, 5% over
+    assert (row["year"], over) == (2014, True)
+    assert price_for_budget(GOLF, 7000, 7000 * 1.15) is None
+
+
+def test_hard_constraints_price_the_model_at_that_year():
+    golf = _model(id=1, avg_price=19500, prices_by_year=GOLF)       # 19 500: its most-listed year
+    passed, stretch = apply_hard_constraints([golf], {"p8_budget_max": 13000})
+    assert stretch == [] and len(passed) == 1
+    m = passed[0]
+    assert (m["price_year"], m["avg_price"]) == (2016, 12500)
+    assert (m["min_price"], m["max_price"]) == (GOLF[1]["p10"], GOLF[1]["p90"])
+    assert m["market_p50"] == 12500 and m["market_band"]["sample_count"] == 20
+    assert golf["avg_price"] == 19500                                # the shared model is not changed
+
+
+def test_hard_constraints_exclude_a_model_no_year_of_which_fits():
+    golf = _model(id=1, avg_price=19500, prices_by_year=GOLF)
+    assert apply_hard_constraints([golf], {"p8_budget_max": 6000}) == ([], [])
+
+
+def test_budget_floor_uses_the_year_the_budget_buys():
+    # 40–60k: the newest Golf (26 000) is still a tier below what the user is shopping for.
+    golf = _model(id=1, avg_price=19500, prices_by_year=GOLF)
+    passed, stretch = apply_hard_constraints([golf], {"p8_budget_min": 46000, "p8_budget_max": 60000})
+    assert passed == [] and stretch == []
