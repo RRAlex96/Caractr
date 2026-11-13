@@ -16,95 +16,91 @@
   "listing_age_days": 0
  },
  "deal": {
-  "tier": "razoavel",
-  "score": 0.6819,
-  "price_delta": 0.7638,
-  "price_delta_pct": 15.3,
+  "tier": "cuidado",
+  "score": 0.6791,
+  "price_delta": 0.7582,
+  "price_delta_pct": 15.2,
   "km_per_year": 21250.0,
-  "market_avg_price": 29500,
-  "market_median_price": 29980,
-  "market_sample_count": 19,
+  "market_avg_price": 31061,
+  "market_median_price": 29940,
+  "market_sample_count": 18,
   "market_data_source": "live",
   "market_data_age_days": null,
   "market_data_stale": false,
   "market_fuel_type": "Híbrido Plug-In",
-  "generation_year_start": 1988,
-  "generation_year_end": null
+  "generation_year_start": 2017,
+  "generation_year_end": 2023
  },
  "analysis": {
-  "verdict": "razoavel",
-  "verdict_reason": "Preço atrativo para um 530e Pack M nacional, mas os 170k km exigem verificação da bateria de alta tensão.",
+  "verdict": "cuidado",
+  "verdict_reason": "Preço tentador (15% abaixo do mercado), mas 170k km num híbrido plug-in de 2018 exige teste exaustivo à bateria.",
   "green_flags": [
-   "Motor B48 2.0 Turbo + Elétrico (252cv) — mecânica muito mais fiável e refinada que a anterior geração N20",
-   "Carro de origem nacional com Pack M de fábrica",
-   "Preço 15.3% abaixo da mediana de mercado para um G30 530e",
-   "Garantia de stand profissional com oficina própria e possibilidade de devolução"
+   "Motor B48B20 robusto — base mecânica sólida da BMW.",
+   "Versão Pack M de origem — melhor estética e retenção de valor.",
+   "Preço 15.2% abaixo da mediana de mercado — margem interessante.",
+   "Origem nacional indicada pelo vendedor."
   ],
   "red_flags": [
-   "170.000 km num PHEV de 2018 — degradação da bateria de alta tensão (9.2 kWh) pode limitar autonomia elétrica a <20km",
-   "Histórico de manutenções da caixa automática ZF8HP não mencionado (exige troca de óleo aos 80k-100k km)",
-   "Descrição de equipamento genérica, sem detalhar extras de topo (som, teto, assistentes)"
+   "170.000 km num híbrido plug-in (2018) — degradação da bateria de alta voltagem é o maior risco.",
+   "Média de 21.250 km/ano — típico uso intensivo de frota ou empresa.",
+   "Desconto forte face ao mercado pode esconder custos ocultos de manutenção."
   ],
-  "seller_analysis": "Trata-se de um stand profissional com 10 anos no mercado e oficina própria, o que transmite alguma confiança e apoio no pós-venda. O texto é bastante comercial e focado em garantias da empresa, mas omite o histórico de revisões na marca e a saúde da bateria (SOH).",
-  "profile_fit": "Ideal para quem faz trajetos diários curtos com garagem para carregar e procura o conforto/estética do Série 5 Pack M a preço acessível. Menos recomendado se fizeres milhares de km diários em autoestrada sem carregar.",
+  "seller_analysis": "O stand usa um tom comercial polido e focado em prémios, típico de marketing. Omitiram o estado real da bateria e o historial de utilização anterior, focando-se apenas nos extras básicos.",
+  "profile_fit": "Ideal para quem quer um Série 5 imponente e faz muitos quilómetros, mas tem de ter orçamento de reserva para a componente elétrica.",
   "trim_level": "Pack M",
   "spec_tier": "medio",
   "trim_includes": [
-   "Parachoques e saias desportivas M",
-   "Bancos desportivos",
-   "Volante desportivo M em pele",
+   "Kit aerodinâmico M",
    "Suspensão desportiva M",
-   "Forro do teto em preto (Anthracite)",
-   "Jantes de liga leve M 18\" ou 19\"",
-   "Soleiras das portas M"
+   "Volante desportivo M em pele",
+   "Bancos desportivos",
+   "Jantes de liga leve M",
+   "Forro do teto anthracite"
   ],
   "optional_extras": [
-   "Estofos em pele",
-   "Sistema de Navegação Professional",
-   "Sensores de estacionamento dianteiros e traseiros"
-  ],
-  "equipment_note": "Equipamento médio para um Pack M — tem o aspeto desportivo e a pele, mas faltam-lhe extras chave como o teto de abrir, som Harman Kardon ou faróis LED adaptativos.",
-  "key_extras": [
-   "Pack M",
    "Bancos em pele",
-   "Sistema de navegação",
+   "Pintura azul metalizada"
+  ],
+  "equipment_note": "Equipamento aceitável com o look do Pack M e bancos em pele, mas faltam extras tecnológicos de peso.",
+  "key_extras": [
+   "Bancos em pele",
+   "Navegação profissional",
    "Sensores de estacionamento",
-   "Caixa automática ZF"
+   "Caixa automática",
+   "Pintura metalizada"
   ],
   "spec_value_assessment": "adequado",
-  "engine_code": "B48B20A",
-  "engine_analysis": "O motor B48 2.0 Turbo é extremamente robusto e resolveu os problemas de corrente do N20. A ter em conta: fugas de anticongelante pelos tubos de plástico/flange do bloco e o estado de saúde da bateria do sistema eDrive.",
-  "extras_analysis": "Tem o Pack M que valoriza imenso a revenda e os estofos em pele. Contudo, é uma especificação base de Pack M, sem os assistentes de condução avançados ou tablier em pele.",
-  "negotiation_script": "Boas! Estava a ver o vosso BMW 530e Pack M de 2018. O carro parece ótimo, mas com 170 mil km tenho alguma preocupação com a autonomia real da bateria e com a manutenção da caixa ZF. Se o histórico de revisões estiver 100% em dia e o relatório da bateria for bom, fecho negócio por 24.000€ esta semana. O que me dizem?",
-  "verdict_narrative": "É um negócio honesto. Vais buscar a estética impecável do G30 Pack M e a fiabilidade do motor B48 por menos de 26k€. Os 170k km não assustam o motor a gasolina, mas tens de ter a certeza de que a bateria híbrida ainda faz perto de 25-30 km reais. Se passar no teste da bateria, vale a pena.",
-  "seller_read": "Stand focado em volume e facilidade de crédito que usa termos genéricos de marketing. O facto de ter oficina própria é um trunfo para tentar negociar a primeira revisão ou extensão de garantia do sistema elétrico."
+  "engine_code": "B48B20",
+  "engine_analysis": "O B48 a gasolina é fiável, mas neste 530e o foco crítico é o sistema híbrido. Aos 170k km, a bateria de iões de lítio precisa de verificação rigorosa de capacidade.",
+  "extras_analysis": "Tem o essencial do Pack M estético e bancos em pele, mas é uma configuração algo despida de extras de conforto premium como teto ou som assinado.",
+  "negotiation_script": "Olá! Vi o vosso BMW 530e anunciado. Sendo um híbrido com 170.000 km, queria saber se têm o relatório do estado de saúde (SoH) da bateria e o histórico de revisões completo. Qual é o melhor valor final para fecho rápido?",
+  "verdict_narrative": "Por 25.400€ é uma forma barata de entrar num Série 5 G30, mas 170 mil quilómetros num híbrido plug-in com 6 anos obriga a muita cautela. A bateria já sofreu bastante desgaste e substituí-la custa uma fortuna. Se o teste de saúde da bateria vier limpo e o histórico for irrepreensível, pode ser um bom negócio; caso contrário, é melhor passar à frente.",
+  "seller_read": "O vendedor apresenta-se como um stand estabelecido, mas a descrição é genérica e usa técnicas de pressão comercial ('stock limitado', prémios). O preço baixo pode indicar necessidade rápida de escoar uma unidade com quilometragem sensível."
  },
  "inspection_checklist": [
-  "Testar autonomia elétrica máxima (carregar a 100% e ver quantos km reais faz)",
-  "Verificar fugas de líquido de refrigeração no circuito do motor B48 (junto ao filtro de óleo/flanges)",
-  "Confirmar se a caixa ZF8HP já mudou óleo e filtro (essencial a estes quilómetros)",
-  "Verificar desgaste dos discos de travão e folgas nos braços da suspensão frontal",
-  "Pedir o histórico de revisões BMW para confirmar se o plano de manutenção foi cumprido",
-  "Testar o ar condicionado em modo 100% elétrico (compressor elétrico custa caro)",
-  "Verificar estado dos pneus (consumo assimétrico típico do peso extra do sistema híbrido)"
+  "Verificar estado de saúde (SoH) da bateria híbrida com diagnóstico oficial BMW",
+  "Testar o carregamento completo em tomada doméstica e posto público",
+  "Avaliar o comportamento da transmissão automática na transição entre elétrico e térmico",
+  "Inspecionar fugas no sistema de refrigeração do motor e inversor",
+  "Verificar folgas na suspensão devido ao peso extra do sistema híbrido"
  ],
  "negotiation_tips": [
-  "Usa os 170.000 km e a degradação da bateria híbrida como o teu principal argumento para baixar o preço.",
-  "Pergunta se o valor já inclui a garantia total de 18 meses por mútuo acordo ou se podes negociar garantia de stand sem cortes de cobertura.",
-  "Tenta incluir no preço final uma revisão completa com mudança de óleo da caixa automática na oficina deles."
+  "Usa os 170k km e a incerteza da bateria para negociar uma redução no preço ou garantia própria mais abrangente.",
+  "Exige o certificado de capacidade da bateria antes de avançar com qualquer sinal.",
+  "Confirma se o valor inclui o cabo de carregamento original em bom estado."
  ],
  "negotiation": {
   "asking_price": 25400,
   "opening_offer": 24250,
-  "fair_value": 30000,
-  "walk_away": 30000,
+  "fair_value": 29950,
+  "walk_away": 29950,
   "potential_saving": 1150,
   "leverage": [
    "Está uns 15% abaixo da média — já é bom preço, confirma o estado",
    "Tem mais km do que a média para o ano"
   ],
   "confidence": "media",
-  "sample_count": 19
+  "sample_count": 18
  },
  "anomaly": null,
  "price_history": null,

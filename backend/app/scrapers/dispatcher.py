@@ -143,6 +143,8 @@ async def fetch_listings_for_source(
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
     sv_model_slug: Optional[str] = None,
+    max_pages: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> list[dict]:
     """
     Fetch search results from a specific source by name.
@@ -150,10 +152,13 @@ async def fetch_listings_for_source(
     year_from / year_to / fuel_type are baked into the search URL to scope by
     generation and fuel variant. sv_model_slug (Standvirtual's own model slug,
     e.g. 'velar') lets us search the exact model even when it's not in our DB.
+    max_pages: result pages to read (Standvirtual only; the others read one).
+    power_range: (from, to) engine power in cv (Standvirtual only; the others
+    have no such filter and their results carry no power).
     """
     if source == "standvirtual":
         from app.scrapers.standvirtual import fetch_listings
-        return await fetch_listings(brand, model, budget_max, max_results, year_from, year_to, fuel_type, sv_model_slug)
+        return await fetch_listings(brand, model, budget_max, max_results, year_from, year_to, fuel_type, sv_model_slug, max_pages, power_range)
 
     elif source == "olx":
         from app.scrapers.olx import fetch_listings as olx_fetch
@@ -176,13 +181,17 @@ async def fetch_listings_all_sources(
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
     sv_model_slug: Optional[str] = None,
+    max_pages: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> list[dict]:
     """
     Fetch from all supported sources concurrently and merge results.
     Deduplicates by source_url.
     year_from / year_to / fuel_type scope both scrapers to the correct generation
     and fuel variant at the URL level. sv_model_slug searches the exact
-    Standvirtual model even when it's not in our DB.
+    Standvirtual model even when it's not in our DB. max_pages lets Standvirtual
+    read further result pages when the search has more than one; power_range
+    scopes its search to an engine power.
     """
     import asyncio
 
@@ -191,7 +200,7 @@ async def fetch_listings_all_sources(
     # parts) with no structured prices, so it's excluded from market scraping.
     # It remains supported for detail-page analysis (fetch_detail_for_url).
     tasks = [
-        fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to, fuel_type, sv_model_slug),
+        fetch_listings_for_source("standvirtual", brand, model, budget_max, max_per_source, year_from, year_to, fuel_type, sv_model_slug, max_pages, power_range),
         fetch_listings_for_source("olx", brand, model, budget_max, max_per_source, year_from, year_to, fuel_type),
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)

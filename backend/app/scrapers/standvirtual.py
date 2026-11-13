@@ -12,12 +12,17 @@ Results cached in raw_listings table (refresh if scraped_at > 24h).
 import os
 import httpx
 import asyncio
+import math
 import re
+import unicodedata
 import json
 import random
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
+
+from app.scrapers.sv_models import expand_model, find_make, find_model, needs_trim, trim_label
+from app.scrapers.sv_series import find_series, find_variant
 
 # Playwright import is lazy — only loaded when fetch_listings actually needs it.
 # Importing playwright at module level wastes ~50MB RAM even when unused.
@@ -73,121 +78,97 @@ USER_AGENTS = [
 BASE_URL = "https://www.standvirtual.com"
 SEARCH_URL = f"{BASE_URL}/carros"
 
-# Brand slug mappings (Standvirtual uses lowercase slugs)
-BRAND_SLUGS = {
-    "BMW": "bmw",
-    "Mercedes-Benz": "mercedes-benz",
-    "Audi": "audi",
-    "Volkswagen": "volkswagen",
-    "Toyota": "toyota",
-    "Honda": "honda",
-    "Mazda": "mazda",
-    "Volvo": "volvo",
-    "Peugeot": "peugeot",
-    "Renault": "renault",
-    "Ford": "ford",
-    "Opel": "opel",
-    "SEAT": "seat",
-    "Skoda": "skoda",
-    "Hyundai": "hyundai",
-    "Kia": "kia",
-    "Fiat": "fiat",
-    "Dacia": "dacia",
-    "Citroen": "citroen",
-    "Nissan": "nissan",
-    "Alfa Romeo": "alfa-romeo",
-    "MINI": "mini",
-    "Cupra": "cupra",
-    "Tesla": "tesla",
-    "Subaru": "subaru",
-    "Suzuki": "suzuki",
-    "Land Rover": "land-rover",
-    "Porsche": "porsche",
-    "Lexus": "lexus",
-    "MG": "mg",
-}
-
-# Model slug mappings for common models
-MODEL_SLUGS = {
-    "Serie 3": "serie-3",
-    "Serie 5": "serie-5",
-    "Classe A": "classe-a",
-    "Classe C": "classe-c",
-    "Classe E": "classe-e",
-    "Golf": "golf",
-    "Passat": "passat",
-    "Polo": "polo",
-    "Tiguan": "tiguan",
-    "Corolla": "corolla",
-    "Yaris": "yaris",
-    "RAV4": "rav4",
-    "Civic": "civic",
-    "CR-V": "cr-v",
-    "CX-5": "cx-5",
-    "XC60": "xc60",
-    "308": "308",
-    "3008": "3008",
-    "Clio": "clio",
-    "Megane": "megane",
-    "Focus": "focus",
-    "Astra": "astra",
-    "Leon": "leon",
-    "Octavia": "octavia",
-    "i30": "i30",
-    "Tucson": "tucson",
-    "Ceed": "ceed",
-    "Sportage": "sportage",
-    "Panda": "panda",
-    "Duster": "duster",
-    "A3": "a3",
-    "A4": "a4",
-    "Q5": "q5",
-    "Giulia": "giulia",
-}
-
-
 def _random_ua() -> str:
     return random.choice(USER_AGENTS)
 
 
-# Map our canonical fuel names to Standvirtual's fuel-filter enum values, so the
-# market pool is segmented by fuel at the source (a 330e hybrid must never be
-# priced against base diesels).
-_SV_FUEL_ENUM = {
-    "diesel": "diesel",
-    "gasolina": "petrol",
-    "gasóleo": "diesel",
-    "gasoleo": "diesel",
-    "elétrico": "electric",
-    "eletrico": "electric",
-    "híbrido": "hybrid",
-    "hibrido": "hybrid",
-    "híbrido (plug-in)": "plugin-hybrid",
-    "híbrido plug-in": "plugin-hybrid",
-    "plug-in": "plugin-hybrid",
-    "gpl": "petrol-lpg",
+def _plain_slug(name: str) -> str:
+    """A name as a URL slug: no accents, lower case, spaces to hyphens. Only a
+    guess — used for a name the site's list does not have."""
+    text = unicodedata.normalize("NFKD", name or "")
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return text.strip().lower().replace(" ", "-")
+
+
+def _make_slug(brand: str) -> str:
+    """The site's make id for one of our brand names ("Volkswagen" -> "vw",
+    "Citroën" -> "citroen"); a plain slug when the site has no such make."""
+    return find_make(brand) or _plain_slug(brand)
+
+
+def sv_model_slug_for(brand: str, model: str, *texts: Optional[str]) -> Optional[str]:
+    """The site's sub-model slug for a car filed under a series ("Serie 3",
+    "Classe A"), read from what the listing calls it (title, model as written,
+    URL): "BMW 320d Touring" -> "320". None when the model is not a series or
+    no sub-model of it is named. See sv_series.find_variant."""
+    return find_variant(_make_slug(brand or ""), model, *texts)
+
+
+def search_needs_trim(brand: str, model: str, model_slug: Optional[str] = None) -> bool:
+    """True when the comparables of this car's search must share its trim (the
+    MINI hatch: see sv_models). model_slug is the listing's own, when it has one."""
+    make = _make_slug(brand or "")
+    searched = expand_model(make, model_slug.strip()) if model_slug else find_model(make, model)
+    return needs_trim(make, searched)
+
+
+def is_series_model(brand: str, model: str) -> bool:
+    """True when the site files `model` as a series with sub-models."""
+    make = _make_slug(brand or "")
+    return find_series(make, model) is not None and find_variant(make, model) is None
+
+
+# Fuel names (ours and the listing pages' own labels) -> the values of the
+# site's fuel filter, so the market pool is segmented by fuel at the source (a
+# 330e hybrid must never be priced against base diesels). These are the ids the
+# site's own filter lists (2026-11): diesel, electric, gaz, gnc, gpl,
+# hibride-diesel, hibride-gaz, plugin-hybrid, hidrogen. An id it does not know
+# ("petrol", "hybrid") is not an error to the site: the search just comes back
+# empty, which is how every petrol and hybrid car lost its live comparison.
+_SV_FUEL_VALUES = {
+    "diesel": ["diesel"],
+    "gasóleo": ["diesel"],
+    "gasoleo": ["diesel"],
+    "gasolina": ["gaz"],
+    "elétrico": ["electric"],
+    "eletrico": ["electric"],
+    "híbrido": ["hibride-gaz", "hibride-diesel"],
+    "hibrido": ["hibride-gaz", "hibride-diesel"],
+    "híbrido (gasolina)": ["hibride-gaz"],
+    "híbrido (diesel)": ["hibride-diesel"],
+    "híbrido (plug-in)": ["plugin-hybrid"],
+    "híbrido plug-in": ["plugin-hybrid"],
+    "plug-in": ["plugin-hybrid"],
+    "gpl": ["gpl"],
+    "gnc": ["gnc"],
 }
 
 
-def _sv_fuel_slug(fuel_type: Optional[str]) -> Optional[str]:
+def _sv_fuel_values(fuel_type: Optional[str]) -> list[str]:
+    """Values of the site's fuel filter for a fuel name; [] when unknown (the
+    search is then not scoped by fuel)."""
     if not fuel_type:
-        return None
+        return []
     f = fuel_type.lower().strip()
-    if f in _SV_FUEL_ENUM:
-        return _SV_FUEL_ENUM[f]
+    if f in _SV_FUEL_VALUES:
+        return list(_SV_FUEL_VALUES[f])
     if "plug" in f:
-        return "plugin-hybrid"
+        return ["plugin-hybrid"]
     if "híbr" in f or "hibr" in f:
-        return "hybrid"
+        if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
+            return ["hibride-diesel"]
+        if "gasolina" in f:
+            return ["hibride-gaz"]
+        return ["hibride-gaz", "hibride-diesel"]
     if "elétr" in f or "eletr" in f:
-        return "electric"
+        return ["electric"]
     if "diesel" in f or "gasóleo" in f or "gasoleo" in f:
-        return "diesel"
+        return ["diesel"]
     if "gpl" in f:
-        return "petrol-lpg"
+        return ["gpl"]
     if "gasolina" in f:
-        return "petrol"
-    return None
+        return ["gaz"]
+    return []
 
 
 def _build_search_url(
@@ -198,26 +179,50 @@ def _build_search_url(
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
     model_slug_override: Optional[str] = None,
+    page: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> str:
-    brand_slug = BRAND_SLUGS.get(brand, brand.lower().replace(" ", "-").replace("-benz", ""))
+    brand_slug = _make_slug(brand)
     # Prefer SV's own model slug (from the listing) when provided — it's exact
-    # for any model, including ones not in our MODEL_SLUGS map (e.g. 'velar').
+    # for any model, including ones the site's list does not have yet.
+    series_id = None
     if model_slug_override:
-        model_slug = model_slug_override.strip()
+        # ... widened when the site files the car under a second id as well.
+        model_slug = expand_model(brand_slug, model_slug_override.strip())
     else:
         model_clean = model.strip()
-        model_slug = MODEL_SLUGS.get(model_clean, model_clean.lower().replace(" ", "-"))
-    url = f"{SEARCH_URL}/{brand_slug}/{model_slug}"
+        # A model the site files as a sub-model ("530", "A 180") goes in the
+        # path; a series ("Serie 5", "Classe A") only works as a filter.
+        model_slug = find_variant(brand_slug, model_clean)
+        if not model_slug:
+            series_id = find_series(brand_slug, model_clean)
+        # Any other model: its id in the site's own list ("XC40" -> "xc-40"),
+        # else a plain slug, which the site may not know (the search is then
+        # discarded as unscoped, see _search_is_scoped).
+        if not model_slug and not series_id:
+            model_slug = find_model(brand_slug, model_clean) or _plain_slug(model_clean)
+    url = f"{SEARCH_URL}/{brand_slug}" + (f"/{model_slug}" if not series_id else "")
     params = []
+    if series_id:
+        params.append(f"search[filter_enum_model]={series_id}")
     if budget_max:
         params.append(f"search[filter_float_price:to]={budget_max}")
+    # The year filter is the first registration year. "filter_float_year" is
+    # accepted and echoed back by the site but filters nothing.
     if year_from:
-        params.append(f"search[filter_float_year:from]={year_from}")
+        params.append(f"search[filter_float_first_registration_year:from]={year_from}")
     if year_to:
-        params.append(f"search[filter_float_year:to]={year_to}")
-    fuel_slug = _sv_fuel_slug(fuel_type)
-    if fuel_slug:
-        params.append(f"search[filter_enum_fuel_type][0]={fuel_slug}")
+        params.append(f"search[filter_float_first_registration_year:to]={year_to}")
+    for i, value in enumerate(_sv_fuel_values(fuel_type)):
+        params.append(f"search[filter_enum_fuel_type][{i}]={value}")
+    # Engine power in cv, (from, to): only listings of about the car's power.
+    if power_range:
+        params.append(f"search[filter_float_engine_power:from]={int(power_range[0])}")
+        params.append(f"search[filter_float_engine_power:to]={int(power_range[1])}")
+    # No search[order]: the site's default order ("relevance_web") is kept, so
+    # the pages fetched are not skewed towards cheap, recent or low-km cars.
+    if page > 1:
+        params.append(f"page={page}")
     if params:
         url += "?" + "&".join(params)
     return url
@@ -397,6 +402,170 @@ def _extract_listings_from_html(html: str, source_url: str) -> list[dict]:
     return results
 
 
+# A results page holds 32 listings and says how many the whole search has.
+# Further pages are requested a moment apart and must all be back inside this
+# budget; whatever is missing then is left out.
+_PAGE_SIZE = 32
+_PAGE_GAP_SECONDS = 0.5
+_MORE_PAGES_BUDGET_SECONDS = 20.0
+
+_NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
+
+
+def _search_data(html: str) -> Optional[dict]:
+    """The search behind a results page (the site's `advertSearch` object:
+    totalCount, pageInfo, appliedFilters, edges), read from the page's
+    __NEXT_DATA__. None when the page does not carry it."""
+    m = _NEXT_DATA_RE.search(html or "")
+    if not m:
+        return None
+    try:
+        states = json.loads(m.group(1))["props"]["pageProps"]["urqlState"]
+        for entry in states.values():
+            data = json.loads(entry.get("data") or "null")
+            search = data.get("advertSearch") if isinstance(data, dict) else None
+            if isinstance(search, dict) and "totalCount" in search:
+                return search
+    except Exception:
+        return None
+    return None
+
+
+def _search_meta(search: dict) -> dict:
+    """{"total": results in the whole search, "page_size", "applied": names of
+    the filters the site applied}."""
+    return {
+        "total": int(search.get("totalCount") or 0),
+        "page_size": int((search.get("pageInfo") or {}).get("pageSize") or _PAGE_SIZE),
+        "applied": {f.get("name") for f in (search.get("appliedFilters") or [])
+                    if isinstance(f, dict)},
+    }
+
+
+def _search_is_scoped(meta: dict) -> bool:
+    """
+    True when the site applied both the make and the model of the search path.
+    A slug it does not know is dropped without an error: "/carros/volkswagen/golf"
+    returned all 17 626 diesel cars on the site, "/carros/mercedes-benz/classe-a"
+    every diesel Mercedes. Such a page is full of priced listings of other cars
+    and must never be used as comparables.
+    """
+    applied = meta.get("applied") or set()
+    return "filter_enum_make" in applied and "filter_enum_model" in applied
+
+
+def _card_power_hp(value: str, display: str) -> Optional[int]:
+    """Engine power of a search result in cv ("200" / "200 cv"). A value the
+    site labels in kW is converted; anything implausible is dropped."""
+    m = re.search(r"\d{2,4}", value or display or "")
+    if not m:
+        return None
+    power = int(m.group(0))
+    label = (display or "").lower()
+    if "kw" in label and "cv" not in label:
+        power = round(power * 1.36)
+    return power if 30 <= power <= 1200 else None
+
+
+def _listings_from_search(search: dict) -> list[dict]:
+    """
+    Listings of a results page from the search data itself, in the shape
+    _extract_listings_from_html returns. Exact where the rendered cards are
+    not: on about 1 card in 20 the card parser reads another amount on the card
+    as the price (1 200 for a car listed at 12 799).
+    """
+    results = []
+    for edge in search.get("edges") or []:
+        node = (edge or {}).get("node") or {}
+        url = node.get("url") or ""
+        if not url:
+            continue
+        params = {p.get("key"): p for p in (node.get("parameters") or []) if isinstance(p, dict)}
+
+        def value(key: str, field: str = "value") -> str:
+            return str((params.get(key) or {}).get(field) or "")
+
+        amount = ((node.get("price") or {}).get("amount") or {})
+        price = amount.get("units") if amount.get("currencyCode") == "EUR" else None
+        seller = ((node.get("seller") or {}).get("__typename") or "")
+        city = (((node.get("location") or {}).get("city") or {}).get("name") or "")
+        results.append({
+            "source": "standvirtual",
+            "source_url": url,
+            "title": node.get("title") or "",
+            # The site's model of the listing; for a series search, the sub-model.
+            "sv_model_slug": value("model") or None,
+            "engine_power_hp": _card_power_hp(value("engine_power"), value("engine_power", "displayValue")),
+            "price": int(price) if isinstance(price, (int, float)) and price > 0 else None,
+            "year": _parse_year(value("first_registration_year")),
+            "km": _parse_km(value("mileage")),
+            "fuel_type": value("fuel_type", "displayValue") or None,
+            "seller_type": ("privado" if seller == "PrivateSeller"
+                            else "stand" if seller == "ProfessionalSeller" else "desconhecido"),
+            "location": city,
+            "photo_count": 0,
+            "description": node.get("shortDescription") or "",
+            "scraped_at": datetime.now(timezone.utc).isoformat(),
+        })
+    return results
+
+
+def _parse_search_page(html: str, source_url: str) -> tuple:
+    """(listings, meta) of one results page. The listings come from the search
+    data when the page carries it, else from the rendered cards; meta is None
+    when there is no search data (nothing can be checked, no further pages)."""
+    search = _search_data(html)
+    if search is None:
+        return _extract_listings_from_html(html, source_url), None
+    meta = _search_meta(search)
+    listings = _listings_from_search(search)
+    if not listings and meta["total"] > 0:
+        listings = _extract_listings_from_html(html, source_url)
+    return listings, meta
+
+
+def _merge_unique(batches: list) -> list[dict]:
+    """Listings of several pages in page order, one per listing URL (a listing
+    can move between pages while they are being read)."""
+    seen: dict = {}
+    for batch in batches:
+        for listing in batch:
+            url = listing.get("source_url") or ""
+            if url and url not in seen:
+                seen[url] = listing
+    return list(seen.values())
+
+
+async def _fetch_more_pages(client: httpx.AsyncClient, page_urls: list[str]) -> list:
+    """Fetch further result pages concurrently, each request starting a moment
+    after the previous one. Returns one list of listings per page that came
+    back in time; a page that fails or is late is skipped, never raised."""
+    async def one(url: str, delay: float) -> list[dict]:
+        await asyncio.sleep(delay)
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return _parse_search_page(resp.text, url)[0]
+
+    tasks = [
+        asyncio.create_task(one(url, i * _PAGE_GAP_SECONDS + random.uniform(0.2, 0.5)))
+        for i, url in enumerate(page_urls)
+    ]
+    if not tasks:
+        return []
+    _, pending = await asyncio.wait(tasks, timeout=_MORE_PAGES_BUDGET_SECONDS)
+    for task in pending:
+        task.cancel()
+    batches = []
+    for url, task in zip(page_urls, tasks):
+        if task in pending:
+            print(f"[SV SCRAPER] page not back in {_MORE_PAGES_BUDGET_SECONDS:.0f}s, skipped: {url}")
+        elif task.exception() is not None:
+            print(f"[SV SCRAPER] page failed, skipped: {url}: {task.exception()}")
+        else:
+            batches.append(task.result())
+    return batches
+
+
 async def fetch_listings(
     brand: str,
     model: str,
@@ -406,20 +575,31 @@ async def fetch_listings(
     year_to: Optional[int] = None,
     fuel_type: Optional[str] = None,
     model_slug: Optional[str] = None,
+    max_pages: int = 1,
+    power_range: Optional[tuple] = None,
 ) -> list[dict]:
     """
     Fetch listings from Standvirtual for a given brand/model.
-    Uses Playwright to render JS-heavy search pages so prices are populated.
-    Falls back to static httpx if Playwright is not installed.
     year_from / year_to / fuel_type are passed as URL filters so only the correct
     generation and fuel variant are fetched. model_slug overrides the model path
     with SV's own slug, so models missing from our map still search correctly.
-    """
-    search_url = _build_search_url(brand, model, budget_max, year_from, year_to, fuel_type, model_slug)
 
-    # httpx-first: SV search pages embed full listing data (JSON-LD ItemList +
-    # rendered cards) in the static HTML — no JS needed. Verified to return
-    # complete samples with prices. This avoids Playwright's memory cost.
+    power_range, (from, to) in cv, scopes the search to that engine power.
+
+    max_pages > 1 also fetches the following result pages (up to that many in
+    all) when the search reports more results than the first page holds.
+    Returns [] when the site did not apply the make or the model of the search
+    (see _search_is_scoped): no comparables is better than other cars'.
+    """
+    def page_url(page: int) -> str:
+        return _build_search_url(brand, model, budget_max, year_from, year_to,
+                                 fuel_type, model_slug, page, power_range)
+
+    search_url = page_url(1)
+
+    # httpx-first: SV search pages embed the full search result in the static
+    # HTML (__NEXT_DATA__, and the rendered cards) — no JS needed. This avoids
+    # Playwright's memory cost.
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -433,9 +613,21 @@ async def fetch_listings(
             await asyncio.sleep(random.uniform(0.4, 1.2))
             resp = await client.get(search_url)
             resp.raise_for_status()
-            listings = _extract_listings_from_html(resp.text, search_url)[:max_results]
+            listings, meta = _parse_search_page(resp.text, search_url)
+            if meta is not None and not _search_is_scoped(meta):
+                print(f"[SV SCRAPER] make/model not recognised by the site, results discarded: {search_url}")
+                return []
+            if meta is not None and meta["total"] == 0:
+                return []
             if listings:
-                return listings
+                if meta is not None and max_pages > 1 and meta["total"] > meta["page_size"]:
+                    pages_in_search = math.ceil(meta["total"] / meta["page_size"])
+                    more = await _fetch_more_pages(
+                        client, [page_url(p) for p in range(2, min(max_pages, pages_in_search) + 1)])
+                    listings = _merge_unique([listings, *more])
+                    print(f"[SV SCRAPER] {meta['total']} results, {1 + len(more)} of "
+                          f"{pages_in_search} pages -> {len(listings)} listings")
+                return listings[:max_results]
     except Exception as e:
         print(f"[SV SCRAPER] httpx error: {e}")
 

@@ -16,6 +16,7 @@ Refresh if analysis_cached_at > 7 days.
 
 import os
 import re
+import math
 import json
 import asyncio
 import hashlib
@@ -45,8 +46,8 @@ from app.scrapers.normalizer import (
 
 import time
 
-# In-memory market data cache: key → {stats, cached_at}
-# Keyed by "{brand}_{model_first_word}" — refreshed every 6h
+# In-memory market data cache: key → {pool, cached_at}, pool being the filtered
+# comparables as {"price", "km", "year"} dicts. Keyed per variant — refreshed every 6h
 _market_cache: dict = {}
 _MARKET_CACHE_TTL = 6 * 3600  # 6 hours
 _MAX_MARKET_CACHE_KEYS = 500  # evict oldest entries if cache grows beyond this
@@ -55,6 +56,24 @@ USE_RULE_ANALYSIS = os.getenv("USE_RULE_ANALYSIS", "false").lower() == "true"
 DISABLE_LIVE_MARKET = os.getenv("DISABLE_LIVE_MARKET", "false").lower() == "true"  # scraping is now httpx-based (no Playwright OOM)
 _MIN_NEGOTIATION_SAMPLE = 5  # below this many comparables, suppress precise offer figures
 _MIN_RELIABLE_MARKET_SAMPLE = 5  # below this, the market median is too noisy to drive the price verdict
+# The live comparison reads up to 4 Standvirtual result pages (32 listings
+# each). One page, cut to 20, left a model with 5–15 comparables at best.
+_MARKET_MAX_PAGES = 4
+_MARKET_MAX_LISTINGS = 160
+# Comparables are listings within 15% of the car's engine power, when the
+# listing states it: a Golf 1.6 TDI is not priced against a GTD, a MINI One not
+# against a Cooper S. Leave-one-out over 2 615 live listings of 25 searches
+# (2026-11-13), pricing each from the others:
+#   - references off by more than 20%: 10% of cars with the rules it replaces
+#     (engine named in the title, MINI trim), 8% within the band; by more than
+#     30%: 3% and 2%. Where engines differ most the gap is large (Golf diesel
+#     28% -> 17%, Golf petrol 14% -> 6%), elsewhere there is none to close.
+#   - a whole series (BMW Série 3, Mercedes Classe C) within the band is as
+#     good as the car's own sub-model (10% and 10%), so a series car whose
+#     sub-model is not named can be compared after all.
+#   - ±15% does as well as ±10% and ±5% and withholds fewer verdicts (88%
+#     against 87% and 84% of cars get one; 90% with the old rules).
+_POWER_BAND = 0.15
 CACHE_TTL_HOURS = 168  # 7 days
 
 def _compute_profile_fit(
@@ -172,7 +191,9 @@ Avalia também se este carro é adequado para ESTE comprador específico."""
     market_sample = market_stats.get('sample_count') or 0
     # Only present a confident price-vs-market line when the pool is big enough.
     if ref_price and market_sample >= _MIN_RELIABLE_MARKET_SAMPLE and price_delta_pct not in (None, '?'):
-        market_line = (f"Mediana de mercado: €{int(ref_price):,} ({market_sample} anúncios) | "
+        adjusted = (market_stats.get('year_comparison') or {}).get('basis') == 'adjusted'
+        basis_note = ", preços ajustados ao ano e aos km deste carro" if adjusted else ""
+        market_line = (f"Mediana de mercado: €{int(ref_price):,} ({market_sample} anúncios{basis_note}) | "
                        f"Este carro está {price_delta_pct}% {price_pos} do mercado")
     elif ref_price and market_sample:
         market_line = (f"Dados de mercado LIMITADOS (apenas {market_sample} anúncios comparáveis) — "
@@ -528,6 +549,413 @@ def _get_generation_window(db: Session, model_id: int, year: int) -> Optional[tu
     return None
 
 
+# A generation row wider than this is a long-lived or catch-all generation (a
+# curator "Geração principal" 1988–now row put a 2018 BMW 530e up against
+# 2017–2024 cars). Above it the comparison is narrowed around the car's own year.
+_WIDE_GENERATION_YEARS = 8
+_WIDE_GENERATION_TOLERANCE = 2
+_NO_GENERATION_TOLERANCE = 3
+
+
+def _comparison_year_window(
+    year: Optional[int],
+    gen_year_start: Optional[int],
+    gen_year_end: Optional[int],
+    current_year: Optional[int] = None,
+) -> tuple:
+    """
+    (year_from, year_to, label) the market comparison is restricted to.
+    year_to None = open-ended (still-current generation).
+
+      - normal generation      -> the generation window
+      - generation > 8 years   -> car's year ±2, kept inside the generation
+      - no generation record   -> car's year ±3
+      - nothing known          -> (None, None, "")
+    """
+    if gen_year_start is None:
+        if not year:
+            return (None, None, "")
+        t = _NO_GENERATION_TOLERANCE
+        return (int(year) - t, int(year) + t, f"±{t} years")
+
+    label = f"gen {gen_year_start}-{gen_year_end or 'now'}"
+    span = (gen_year_end or current_year or datetime.now().year) - gen_year_start
+    if not year or span <= _WIDE_GENERATION_YEARS:
+        return (gen_year_start, gen_year_end, label)
+
+    t = _WIDE_GENERATION_TOLERANCE
+    year_from = max(gen_year_start, int(year) - t)
+    year_to = int(year) + t if gen_year_end is None else min(gen_year_end, int(year) + t)
+    return (year_from, year_to, f"±{t} years within wide {label}")
+
+
+# ── Mileage comparability ────────────────────────────────────────────────────
+# A 2018 BMW 530e with 170 000 km was shown as 15% below a median built mostly
+# from cars with far fewer kilometres. The comparison is now made against
+# listings whose mileage is close to the car's, and the price verdict is
+# withheld when there are none and the rest of the pool is not comparable.
+_KM_BAND_FRACTION = 0.30          # ±30% of the car's km ...
+_KM_BAND_MIN_HALF_WIDTH = 25_000  # ... but never narrower than ±25 000 km
+_MARKET_PRICE_KEYS = ("avg_price", "median_price", "min_price", "max_price", "sample_count")
+
+
+def _km_band(km: int) -> tuple:
+    """(km_from, km_to) of listings considered comparable in mileage, rounded
+    outwards to whole thousands. 170 000 km -> (119 000, 221 000)."""
+    half = max(_KM_BAND_MIN_HALF_WIDTH, km * _KM_BAND_FRACTION)
+    km_from = max(0, int((km - half) // 1000) * 1000)
+    km_to = int(-((km + half) // -1000)) * 1000
+    return (km_from, km_to)
+
+
+def _median(values: list) -> float:
+    s = sorted(values)
+    n = len(s)
+    return s[n // 2] if n % 2 == 1 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+
+def _price_stats(prices: list) -> dict:
+    """Median, trimmed average (top and bottom 10% dropped), range and count."""
+    all_prices = sorted(prices)
+    n = len(all_prices)
+    trim_n = max(1, n // 10)
+    trimmed = all_prices[trim_n:-trim_n] if n > 4 else all_prices
+    return {
+        "avg_price":    round(sum(trimmed) / len(trimmed)),
+        "median_price": round(_median(all_prices)),
+        "min_price":    all_prices[0],
+        "max_price":    all_prices[-1],
+        "sample_count": n,
+    }
+
+
+def _select_km_comparables(pool: list, km: Optional[int]) -> tuple:
+    """
+    (listings to compare against, km_comparison) for a car with `km` kilometres.
+    km_comparison says what was compared, so it can be shown to the user:
+
+      basis "band"      at least 5 listings sit inside the car's km band: only
+                        those are compared.
+      basis "pool"      fewer than 5 in the band, but the pool's median km is
+                        inside it: the car's mileage is typical of the pool, so
+                        the whole pool is a fair comparison.
+      basis "mismatch"  fewer than 5 in the band and the pool's typical mileage
+                        is outside it: nothing comparable. The whole pool is
+                        returned (its stats are still valid market data) but the
+                        caller must not judge the price against it
+                        (see _withhold_if_not_comparable).
+      None              the car's km is unknown, or fewer than 5 listings state
+                        their km: mileage cannot be taken into account.
+
+    Listings without km are never counted inside the band — unlike the year,
+    the search URL does not scope results by mileage.
+    """
+    try:
+        km = int(km) if km else 0
+    except (TypeError, ValueError):
+        km = 0
+    if km <= 0:
+        return pool, None
+    known = [l for l in pool if isinstance(l.get("km"), (int, float)) and l["km"] > 0]
+    if len(known) < _MIN_RELIABLE_MARKET_SAMPLE:
+        return pool, None
+
+    km_from, km_to = _km_band(km)
+    in_band = [l for l in known if km_from <= l["km"] <= km_to]
+    info = {
+        "car_km":         km,
+        "km_from":        km_from,
+        "km_to":          km_to,
+        "in_band_count":  len(in_band),
+        "pool_count":     len(pool),
+        "pool_median_km": round(_median([l["km"] for l in known])),
+    }
+    if len(in_band) >= _MIN_RELIABLE_MARKET_SAMPLE:
+        return in_band, {**info, "basis": "band"}
+    if km_from <= info["pool_median_km"] <= km_to:
+        return pool, {**info, "basis": "pool"}
+    return pool, {**info, "basis": "mismatch"}
+
+
+# ── Model-year mix ───────────────────────────────────────────────────────────
+# The mileage band alone left the 2018 530e "12% below market": 6 of the 9
+# listings in its band were 2020–2022 cars. Inside one generation a model year
+# is worth about as much as 50 000 km, so the year mix has to be handled too.
+#
+# Preferred: fit log(price) on model year and km over the pool and move every
+# listing's price to the car's own year and km ("adjusted" comparables). On the
+# 16 real 530e listings, leave-one-out, this is off by 3.4% on average (worst
+# 8.9%) against each listing's own asking price, where the km band is off by
+# 9.8% (worst 38.8%). The fit is only used when it is well supported:
+_FIT_MIN_SAMPLE = 8           # listings stating year and km (3 parameters)
+_FIT_MAX_YEAR_EFFECT = 0.20   # a model year newer is worth 0–20% more ...
+_FIT_MAX_KM_EFFECT = 0.006    # ... and 1 000 km more is worth 0–0.6% less
+_FIT_MAX_LEVERAGE = 0.5       # the car must sit inside the cloud of listings
+_FIT_MAX_MARGIN = 0.06        # 90% confidence half-width of the reference
+_FIT_OUTLIER_MIN = 0.15       # a listing within ~15% of the fit is never dropped
+# Otherwise: listings of the car's year ±1 when at least 5 are, else what the
+# mileage step selected if the car's year is the middle of it, else no
+# reference. (Accepting a median year one off let a 2018 car through against
+# five 2017–2021 listings, 20% away from the fitted value.)
+_YEAR_NEAR = 1
+_YEAR_TYPICAL = 0.5
+
+# Two-sided 90% Student t quantiles by degrees of freedom (no scipy in prod).
+_T90 = {5: 2.015, 6: 1.943, 7: 1.895, 8: 1.860, 9: 1.833, 10: 1.812, 11: 1.796,
+        12: 1.782, 13: 1.771, 14: 1.761, 15: 1.753, 16: 1.746, 17: 1.740,
+        18: 1.734, 19: 1.729, 20: 1.725, 21: 1.721, 22: 1.717, 23: 1.714,
+        24: 1.711, 25: 1.708, 26: 1.706, 27: 1.703, 28: 1.701, 29: 1.699}
+
+
+def _int_or_none(value) -> Optional[int]:
+    try:
+        return int(value) if value else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _fit_log_price(rows: list) -> Optional[dict]:
+    """Least squares of log(price) on model year and km (in thousands) over
+    (year, km, price) rows. None when the two effects cannot be told apart
+    (one model year only, one mileage only, or year and km moving together)."""
+    n = len(rows)
+    if n < 4:
+        return None
+    y_mean = sum(r[0] for r in rows) / n
+    k_mean = sum(r[1] for r in rows) / n / 1000.0
+    p_mean = sum(math.log(r[2]) for r in rows) / n
+    dy = [r[0] - y_mean for r in rows]
+    dk = [r[1] / 1000.0 - k_mean for r in rows]
+    dp = [math.log(r[2]) - p_mean for r in rows]
+    syy = sum(a * a for a in dy)
+    skk = sum(a * a for a in dk)
+    syk = sum(a * b for a, b in zip(dy, dk))
+    det = syy * skk - syk * syk
+    if syy <= 0 or skk <= 0 or det <= 1e-9 * syy * skk:
+        return None
+    syp = sum(a * b for a, b in zip(dy, dp))
+    skp = sum(a * b for a, b in zip(dk, dp))
+    b_year = (skk * syp - syk * skp) / det
+    b_km = (syy * skp - syk * syp) / det
+    resid = [p - b_year * a - b_km * b for a, b, p in zip(dy, dk, dp)]
+    return {
+        "n": n, "y_mean": y_mean, "k_mean": k_mean, "p_mean": p_mean,
+        "b_year": b_year, "b_km": b_km, "resid": resid,
+        "sigma": math.sqrt(sum(r * r for r in resid) / (n - 3)),
+        "inv": (skk / det, -syk / det, syy / det),
+    }
+
+
+def _fit_without_outliers(rows: list) -> tuple:
+    """(fit, rows used). One least-squares fit is not robust to a salvage car or
+    a deposit-only price the way a median is, so the listings furthest from a
+    first fit — more than 3 robust standard deviations and more than ~15% — are
+    left out, at most one in eight, and the fit is redone."""
+    fit = _fit_log_price(rows)
+    if not fit:
+        return None, rows
+    centre = _median(fit["resid"])
+    spread = 1.4826 * _median([abs(r - centre) for r in fit["resid"]])
+    limit = max(3 * spread, _FIT_OUTLIER_MIN)
+    worst = sorted(range(len(rows)), key=lambda i: -abs(fit["resid"][i] - centre))
+    drop = {i for i in worst[:max(1, len(rows) // 8)] if abs(fit["resid"][i] - centre) > limit}
+    if not drop or len(rows) - len(drop) < _FIT_MIN_SAMPLE:
+        return fit, rows
+    kept = [r for i, r in enumerate(rows) if i not in drop]
+    refit = _fit_log_price(kept)
+    return (refit, kept) if refit else (fit, rows)
+
+
+def _adjust_pool_to_car(pool: list, year: Optional[int], km: Optional[int]) -> tuple:
+    """
+    (prices adjusted to the car's year and km, year_comparison) when a fit of
+    price on model year and km is well supported, else (None, reason):
+
+      "unknown"   the car's year or km is not known
+      "few"       fewer than 8 listings state both year and km
+      "single"    the listings do not vary enough in year and km to fit
+      "outside"   the car's year or km is beyond the listings', or the car sits
+                  away from them (an old car with few km among young ones with
+                  many): that would be extrapolating
+      "unstable"  a coefficient has the wrong sign or an implausible size, or
+                  the 90% confidence margin of the reference is wider than 6%
+    """
+    year, km = _int_or_none(year), _int_or_none(km)
+    if not year or not km or km <= 0:
+        return None, "unknown"
+    rows = [(int(l["year"]), l["km"], l["price"]) for l in pool
+            if _int_or_none(l.get("year")) and isinstance(l.get("km"), (int, float)) and l["km"] > 0]
+    if len(rows) < _FIT_MIN_SAMPLE:
+        return None, "few"
+    fit, used = _fit_without_outliers(rows)
+    if not fit:
+        return None, "single"
+    years = [r[0] for r in used]
+    kms = [r[1] for r in used]
+    if not (min(years) <= year <= max(years)) or not (min(kms) <= km <= max(kms)):
+        return None, "outside"
+    d_year = year - fit["y_mean"]
+    d_km = km / 1000.0 - fit["k_mean"]
+    i_yy, i_yk, i_kk = fit["inv"]
+    leverage = 1.0 / fit["n"] + i_yy * d_year ** 2 + 2 * i_yk * d_year * d_km + i_kk * d_km ** 2
+    if leverage > _FIT_MAX_LEVERAGE:
+        return None, "outside"
+    if not (0 <= fit["b_year"] <= _FIT_MAX_YEAR_EFFECT) or not (-_FIT_MAX_KM_EFFECT <= fit["b_km"] <= 0):
+        return None, "unstable"
+    t90 = _T90.get(fit["n"] - 3, 1.697)
+    margin = math.exp(t90 * fit["sigma"] * math.sqrt(leverage)) - 1
+    if margin > _FIT_MAX_MARGIN:
+        return None, "unstable"
+
+    value = fit["p_mean"] + fit["b_year"] * d_year + fit["b_km"] * d_km
+    adjusted = [round(math.exp(value + r)) for r in fit["resid"]]
+    return adjusted, {
+        "basis":          "adjusted",
+        "car_year":       year,
+        "car_km":         km,
+        "median_year":    _median(years),
+        "year_from":      min(years),
+        "year_to":        max(years),
+        "km_from":        min(kms),
+        "km_to":          max(kms),
+        "count":          len(used),
+        "excluded_count": len(rows) - len(used),
+        "pool_count":     len(pool),
+        # What the fit found for this model: price change per model year and
+        # per 10 000 km, and the 90% margin of the reference price.
+        "per_year_pct":   round((math.exp(fit["b_year"]) - 1) * 100, 1),
+        "per_10k_km_pct": round((math.exp(fit["b_km"] * 10) - 1) * 100, 1),
+        "margin_pct":     round(margin * 100, 1),
+    }
+
+
+def _select_year_comparables(compared: list, year: Optional[int]) -> tuple:
+    """
+    Year step when prices could not be adjusted: (listings to compare against,
+    year_comparison).
+
+      basis "near"      at least 5 listings are of the car's year ±1: only
+                        those are compared.
+      basis "typical"   every listing is within ±1 year, or fewer than 5 are
+                        but the car's year is their median year: `compared`
+                        is a fair comparison.
+      basis "mismatch"  neither: the listings are mostly of other years. The
+                        caller must not judge the price against them
+                        (see _withhold_if_not_comparable).
+      None              the car's year is unknown, or fewer than 5 listings
+                        state theirs (the search is scoped to the comparison
+                        window, so they are kept as before).
+    """
+    year = _int_or_none(year)
+    known = [l for l in compared if _int_or_none(l.get("year"))]
+    if not year or len(known) < _MIN_RELIABLE_MARKET_SAMPLE:
+        return compared, None
+    years = [int(l["year"]) for l in known]
+    info = {
+        "car_year":    year,
+        "median_year": _median(years),
+        "year_from":   min(years),
+        "year_to":     max(years),
+        "count":       len(compared),
+    }
+    near = [l for l in known if abs(int(l["year"]) - year) <= _YEAR_NEAR]
+    if len(near) == len(known):
+        return compared, {**info, "basis": "typical"}
+    if len(near) >= _MIN_RELIABLE_MARKET_SAMPLE:
+        near_years = [int(l["year"]) for l in near]
+        return near, {**info, "basis": "near", "year_from": min(near_years),
+                      "year_to": max(near_years), "count": len(near)}
+    if abs(info["median_year"] - year) <= _YEAR_TYPICAL:
+        return compared, {**info, "basis": "typical"}
+    return compared, {**info, "basis": "mismatch"}
+
+
+def _market_stats_from_pool(pool: list, km: Optional[int], label: str = "",
+                            year: Optional[int] = None) -> dict:
+    """Live market stats for one car out of a filtered comparable pool
+    ({"price", "km", "year"} dicts). `year_comparison` and `km_comparison` say
+    what the car was compared with. `pool_stats` (the whole pool, whatever the
+    car) is what gets written back to market_price_stats, which is shared by
+    every car of that model and year."""
+    adjusted, year_info = _adjust_pool_to_car(pool, year, km)
+    km_info = None
+    if adjusted is not None:
+        prices = adjusted
+    else:
+        not_adjusted = year_info
+        compared, km_info = _select_km_comparables(pool, km)
+        year_info = None
+        if (km_info or {}).get("basis") != "mismatch":
+            compared, year_info = _select_year_comparables(compared, year)
+            if year_info:
+                year_info["not_adjusted"] = not_adjusted
+        prices = [l["price"] for l in compared]
+
+    stats = {**_price_stats(prices), "source": "live"}
+    if km_info:
+        stats["km_comparison"] = km_info
+    if year_info:
+        stats["year_comparison"] = year_info
+    if adjusted is not None or len(prices) != len(pool):
+        stats["pool_stats"] = _price_stats([l["price"] for l in pool])
+    print(f"[MARKET] {label}: median={stats['median_price']} avg={stats['avg_price']} "
+          f"n={stats['sample_count']}"
+          + (f" km={km_info['basis']} {km_info['km_from']}-{km_info['km_to']}"
+             f" ({km_info['in_band_count']}/{km_info['pool_count']} in band)" if km_info else "")
+          + (f" year={year_info['basis']} (car {year_info['car_year']}, median {year_info['median_year']:g})"
+             if year_info else "")
+          + (f" {year_info['per_year_pct']:+}%/year {year_info['per_10k_km_pct']:+}%/10k km"
+             f" ±{year_info['margin_pct']}%" if adjusted is not None else ""))
+    return stats
+
+
+def _not_comparable(market_stats: Optional[dict]) -> bool:
+    stats = market_stats or {}
+    return ((stats.get("km_comparison") or {}).get("basis") == "mismatch"
+            or (stats.get("year_comparison") or {}).get("basis") == "mismatch")
+
+
+def _withhold_if_not_comparable(market_stats: dict) -> dict:
+    """Drop the price reference when the comparables' mileage or model year is
+    not comparable with the car's. With no reference, the price verdict, the
+    negotiation figures and the price anomaly are all withheld rather than
+    computed against different cars. What was found stays in km_comparison /
+    year_comparison."""
+    if not _not_comparable(market_stats):
+        return market_stats
+    return {k: v for k, v in market_stats.items()
+            if k not in _MARKET_PRICE_KEYS and k != "pool_stats"}
+
+
+_MARKET_REF_KEYS = (*_MARKET_PRICE_KEYS, "km_comparison", "year_comparison", "power_comparison")
+
+
+def _market_ref_for_cache(market_stats: Optional[dict]) -> Optional[dict]:
+    """The price reference worked out for this one car, kept with its cached
+    analysis: the DB stats used on a cache hit are the whole pool's, unaware of
+    the car's year and km."""
+    stats = market_stats or {}
+    if not (stats.get("km_comparison") or stats.get("year_comparison") or stats.get("power_comparison")):
+        return None
+    return {k: stats[k] for k in _MARKET_REF_KEYS if k in stats}
+
+
+def _cached_market_for(market_stats: Optional[dict], llm: Optional[dict]) -> dict:
+    """Market stats for a cached analysis: the reference the car was judged
+    against when the analysis ran (or its absence, when it was withheld), on
+    top of the DB stats' freshness fields."""
+    ref = (llm or {}).get("_market_ref")
+    if ref:
+        kept = {k: v for k, v in (market_stats or {}).items() if k not in _MARKET_PRICE_KEYS}
+        return {**kept, **ref}
+    # Analyses cached before the reference was kept: only a withheld mileage
+    # comparison was recorded.
+    km_info = (llm or {}).get("_market_km")
+    if (km_info or {}).get("basis") != "mismatch":
+        return market_stats or {}
+    return _withhold_if_not_comparable({**(market_stats or {}), "km_comparison": km_info})
+
+
 def _get_market_stats(db: Session, model_id: int, year: Optional[int] = None) -> dict:
     """
     Fetch market price statistics for a model/year combination.
@@ -616,6 +1044,54 @@ def _sv_variant_code(url: Optional[str]) -> Optional[str]:
     return None
 
 
+def _market_model_slug(normalized: dict, brand_name: str, model_name: str,
+                       listing_url: Optional[str]) -> Optional[str]:
+    """Standvirtual model slug to search the car's market under: the listing's
+    own when it is a Standvirtual listing, else — for a model the site files as
+    a series (BMW "Serie 3", Mercedes "Classe A", Lexus "NX") — the sub-model
+    its title, its model as the source wrote it, or its URL names
+    ("BMW 320d Touring" -> "320"). None otherwise: the search then goes by the
+    model name."""
+    slug = normalized.get("sv_model_slug")
+    if slug:
+        return slug
+    from app.scrapers.standvirtual import sv_model_slug_for
+    return sv_model_slug_for(brand_name, model_name, normalized.get("source_title"),
+                             normalized.get("source_model_name"), listing_url)
+
+
+def _market_trim(normalized: dict, listing_url: Optional[str]) -> Optional[str]:
+    """The trim the listing names (title, version, model as the source wrote
+    it, URL), for the models whose comparables must share it — see
+    sv_models.trim_label. The catalogue's model name is not asked: every MINI
+    hatch is a "Cooper" there."""
+    from app.scrapers.standvirtual import trim_label
+    return trim_label(normalized.get("source_title"), normalized.get("version"),
+                      normalized.get("source_model_name"), listing_url)
+
+
+def _power_range(power_hp) -> Optional[tuple]:
+    """(from, to) in cv the comparables' engine power must lie in, or None when
+    the car's power is not known (or not a plausible one)."""
+    try:
+        power = int(power_hp) if power_hp else 0
+    except (TypeError, ValueError):
+        return None
+    if not 30 <= power <= 1200:
+        return None
+    return math.floor(power * (1 - _POWER_BAND)), math.ceil(power * (1 + _POWER_BAND))
+
+
+def _with_power_comparison(stats: dict, power_hp, power_range: Optional[tuple], pool: list) -> dict:
+    """Say what engine power the car was compared within, for the caption."""
+    if not power_range or not stats:
+        return stats
+    return {**stats, "power_comparison": {
+        "car_power_hp": int(power_hp), "power_from": power_range[0], "power_to": power_range[1],
+        "pool_count": len(pool),
+    }}
+
+
 async def _fetch_live_market_data(
     brand_name: str,
     model_name: str,
@@ -626,21 +1102,41 @@ async def _fetch_live_market_data(
     gen_year_end: Optional[int] = None,
     sv_model_slug: Optional[str] = None,
     variant_code: Optional[str] = None,
+    km: Optional[int] = None,
+    trim: Optional[str] = None,
+    power_hp: Optional[int] = None,
 ) -> dict:
     """
     Fetch real-time market pricing from Standvirtual + OLX.
 
+    The search is scoped to the comparison year window and the fuel, and up to
+    _MARKET_MAX_PAGES Standvirtual result pages are read (the whole market of
+    the variant when it has at most 128 listings). sv_model_slug is the site's
+    model to search (see _market_model_slug); a series without one returns {}.
+
     Filters comparables progressively to ensure like-for-like pricing:
       1. Generation window (year_start–year_end from generations table) when available,
          else ±3 year fallback — so a Golf Mk7 (2012–2019) only compares with Mk7 listings.
+         A generation wider than 8 years is narrowed to the car's year ±2
+         (see _comparison_year_window).
       2. Fuel type match (diesel / gasolina / híbrido / elétrico)
-      3. Engine variant hint match in listing title (e.g. '1.6 TDI', '2.0 TSI')
+      3. Engine: listings within 15% of the car's engine power when power_hp is
+         known (the search is scoped to it too, see _POWER_BAND); else the
+         engine variant hint in the listing title (e.g. '1.6 TDI', '2.0 TSI')
+      4. The car's own year and mileage: listing prices are adjusted to them
+         when a fit of price on year and km is well supported (see
+         _adjust_pool_to_car). Otherwise only listings inside the car's km band
+         are compared, if at least 5 are (_select_km_comparables), then only
+         those of its year ±1 (_select_year_comparables). The result's
+         `year_comparison` / `km_comparison` say what was compared.
 
-    Each filter is only applied if it leaves ≥ 3 listings — otherwise the broader
-    pool is kept, so we never return empty due to over-filtering.
+    Filters 1–3 are only applied if they leave ≥ 3 listings — otherwise the broader
+    pool is kept, so we never return empty due to over-filtering. The power band
+    and the trim are the exceptions: listings outside them are never kept.
 
     Returns empty dict on failure or insufficient data (< 3 results).
-    Results cached in-memory for 6 hours per variant key.
+    The filtered pool is cached in-memory for 6 hours per variant key; step 4
+    runs per car on top of it.
     """
     if not brand_name or not model_name:
         return {}
@@ -648,20 +1144,62 @@ async def _fetch_live_market_data(
     # Use the FULL model name (accent-stripped) for both search and cache key.
     # Using only the first word collapsed "Serie 1"/"Serie 3"/"Serie 5" into one
     # bucket ("serie") — mixing all BMW series into one search and one cache entry.
-    # The scrapers' MODEL_SLUGS map full names ("Serie 3" -> "serie-3") for a
+    # The scrapers resolve full names against the site's own list for a
     # precise search.
     model_search = _strip_accents(model_name).strip()          # "Série 3" -> "Serie 3"
     model_key   = model_search.lower().replace(" ", "-")       # -> "serie-3"
     fuel_key    = (fuel_type or "").lower().replace(" ", "")[:8]
     engine_key  = (engine_hint or "").lower().replace(" ", "")[:8]
-    gen_key     = f"{gen_year_start or 'x'}-{gen_year_end or 'now'}"
+    # The effective comparison window (not the raw generation) keys the cache:
+    # two cars of one wide generation are compared against different years.
+    cmp_year_from, cmp_year_to, cmp_label = _comparison_year_window(
+        year, gen_year_start, gen_year_end)
+    gen_key     = f"{cmp_year_from or 'x'}-{cmp_year_to or 'now'}"
+    # The sub-model searched is part of the key: an A 180 and an A 250 are both
+    # "Classe A" and must not share a cached pool.
+    if sv_model_slug:
+        model_key = f"{model_key}~{sv_model_slug.strip().lower()}"
+
+    # The engine-power band the comparables must lie in (see _POWER_BAND). It
+    # does what the trim and the sub-model do, so neither is required with it.
+    power_range = _power_range(power_hp)
+    if power_range:
+        model_key = f"{model_key}~{power_range[0]}-{power_range[1]}cv"
+
+    # A model whose trims are priced as different cars (the MINI hatch: One,
+    # Cooper, Cooper S, John Cooper Works) is compared within the car's trim
+    # only, and not at all when the listing does not name it: against all
+    # trims the reference is off by more than 20% for half the petrol cars.
+    from app.scrapers.standvirtual import search_needs_trim, trim_label
+    if power_range:
+        trim = None
+    elif search_needs_trim(brand_name, model_search, sv_model_slug):
+        if not trim:
+            print(f"[MARKET] {brand_name} {model_name}: trim unknown - no like-for-like pool")
+            return {}
+        model_key = f"{model_key}~{trim.replace(' ', '-')}"
+    else:
+        trim = None
+
     cache_key   = f"{brand_name.lower().replace(' ', '-')}_{model_key}_{gen_key}_{fuel_key}_{engine_key}"
     now = time.time()
+
+    # A series ("Serie 3", "Classe A") whose sub-model is not known is not
+    # searched: against the whole series the reference is off by more than 20%
+    # for one car in four that is not the series' most common sub-model
+    # (leave-one-out over six series, 2026-11-13), one in ten against its own.
+    # With the car's power known, the series is searched within the band.
+    if not sv_model_slug and not power_range:
+        from app.scrapers.standvirtual import is_series_model
+        if is_series_model(brand_name, model_search):
+            print(f"[MARKET] {brand_name} {model_name}: a series, sub-model unknown - no like-for-like pool")
+            return {}
 
     cached = _market_cache.get(cache_key)
     if cached and (now - cached["cached_at"]) < _MARKET_CACHE_TTL:
         print(f"[MARKET] Cache hit for {cache_key}")
-        return cached["stats"]
+        return _with_power_comparison(_market_stats_from_pool(cached["pool"], km, cache_key, year),
+                                      power_hp, power_range, cached["pool"])
 
     gen_label = (f"gen {gen_year_start}-{gen_year_end or 'now'}"
                  if gen_year_start is not None else "no gen")
@@ -671,23 +1209,19 @@ async def _fetch_live_market_data(
     try:
         from app.scrapers.dispatcher import fetch_listings_all_sources
 
-        # Pass generation year bounds directly into the search URL so
-        # Standvirtual/OLX return only listings from this generation.
-        # Fall back to ±3 window if no generation record exists.
-        scrape_year_from: Optional[int] = None
-        scrape_year_to:   Optional[int] = None
-        if gen_year_start is not None:
-            scrape_year_from = gen_year_start
-            scrape_year_to   = gen_year_end   # None = open-ended (still-current gen)
-        elif year:
-            scrape_year_from = year - 3
-            scrape_year_to   = year + 3
+        # Pass the comparison year bounds directly into the search URL so
+        # Standvirtual/OLX return only listings from this generation (or, for a
+        # wide generation / no generation record, from around the car's year).
+        scrape_year_from: Optional[int] = cmp_year_from
+        scrape_year_to:   Optional[int] = cmp_year_to   # None = open-ended (still-current gen)
 
         listings = await fetch_listings_all_sources(
             brand=brand_name,
             model=model_search,
             budget_max=None,
-            max_per_source=20,
+            max_per_source=_MARKET_MAX_LISTINGS,
+            max_pages=_MARKET_MAX_PAGES,
+            power_range=power_range,
             fuel_type=fuel_type,
             sv_model_slug=sv_model_slug,
             year_from=scrape_year_from,
@@ -707,24 +1241,15 @@ async def _fetch_live_market_data(
         # The search URL already scopes results by year, so listings whose year we
         # couldn't parse (common on OLX cards) are kept — only listings with a parsed
         # year clearly OUTSIDE the window are dropped. This preserves sample size.
-        if year and len(pool) >= 5:
-            if gen_year_start is not None:
-                gen_end = gen_year_end if gen_year_end else 9999
-                year_pool = [
-                    l for l in pool
-                    if (not l.get("year")) or (gen_year_start <= int(l["year"]) <= gen_end)
-                ]
-                label = f"gen {gen_year_start}-{gen_year_end or 'now'}"
-            else:
-                year_pool = [
-                    l for l in pool
-                    if (not l.get("year")) or (abs(int(l["year"]) - int(year)) <= 3)
-                ]
-                label = "±3 years"
-
+        if year and cmp_year_from is not None and len(pool) >= 5:
+            cmp_end = cmp_year_to if cmp_year_to else 9999
+            year_pool = [
+                l for l in pool
+                if (not l.get("year")) or (cmp_year_from <= int(l["year"]) <= cmp_end)
+            ]
             if len(year_pool) >= 3:
                 pool = year_pool
-                print(f"[MARKET] Year guard ({label}) -> {len(pool)} listings")
+                print(f"[MARKET] Year guard ({cmp_label}) -> {len(pool)} listings")
 
         # ── Filter 2: fuel type ───────────────────────────────────────────────
         if fuel_type and len(pool) >= 4:
@@ -736,6 +1261,26 @@ async def _fetch_live_market_data(
             if len(fuel_pool) >= 3:
                 pool = fuel_pool
                 print(f"[MARKET] Fuel filter '{fuel_type}' -> {len(pool)} listings")
+
+        # ── Filter 2a: trim ───────────────────────────────────────────────────
+        # Strict, unlike the other filters: the listings of other trims are
+        # never kept as a fallback (see above).
+        if trim:
+            pool = [l for l in pool if trim_label(l.get("title")) == trim]
+            print(f"[MARKET] Trim filter '{trim}' -> {len(pool)} listings")
+
+        # ── Filter 2p: engine power ───────────────────────────────────────────
+        # Strict as well. The Standvirtual search was scoped to the band, so a
+        # result of it that states no power is kept; anything else must state
+        # a power inside it.
+        if power_range:
+            p_from, p_to = power_range
+            pool = [
+                l for l in pool
+                if (p_from <= l["engine_power_hp"] <= p_to if l.get("engine_power_hp")
+                    else l.get("source") == "standvirtual")
+            ]
+            print(f"[MARKET] Power filter {p_from}-{p_to} cv -> {len(pool)} listings")
 
         # ── Filter 2b: BMW series scope ───────────────────────────────────────
         # A "/bmw/serie-3" search over-returns the whole BMW range (116, 220,
@@ -753,7 +1298,19 @@ async def _fetch_live_market_data(
                 print(f"[MARKET] BMW series filter '{series}xx' -> {len(pool)} listings")
 
         # ── Filter 3: engine variant hint ─────────────────────────────────────
-        if engine_hint and len(pool) >= 5:
+        # A hard cut from 3 matches up, kept as it was now that prices are
+        # adjusted for year and km. Leave-one-out over ten models' live pools
+        # (2026-11-13), pricing each listing from the others:
+        #   - 8 or more share the engine: the reference is off by more than 20%
+        #     for 8–9% of cars against same-engine listings, 12–15% against all.
+        #   - only 3–4 share it: against all engines the verdict is off by more
+        #     than 20% for one car in three. Cutting leaves fewer than
+        #     _MIN_RELIABLE_MARKET_SAMPLE, so the price verdict is withheld.
+        # Raising the threshold to 5 would trade that withheld verdict for the
+        # wrong one.
+        # Not applied on top of the power band: together they are no more
+        # accurate than the band alone and withhold more.
+        if engine_hint and not power_range and len(pool) >= 5:
             hint_lower = engine_hint.lower()
             engine_pool = [
                 l for l in pool
@@ -767,32 +1324,20 @@ async def _fetch_live_market_data(
             print(f"[MARKET] Insufficient data ({len(pool)} listings) for {cache_key}")
             return {}
 
-        all_prices = sorted(l["price"] for l in pool)
-        n = len(all_prices)
-        median = all_prices[n // 2] if n % 2 == 1 else (all_prices[n // 2 - 1] + all_prices[n // 2]) / 2
-
-        # Trim outliers: drop top and bottom 10% for avg
-        trim_n = max(1, n // 10)
-        trimmed = all_prices[trim_n:-trim_n] if n > 4 else all_prices
-        trimmed_avg = sum(trimmed) / len(trimmed)
-
-        stats = {
-            "avg_price":    round(trimmed_avg),
-            "median_price": round(median),
-            "min_price":    min(all_prices),
-            "max_price":    max(all_prices),
-            "sample_count": n,
-            "source":       "live",
-        }
-
-        _market_cache[cache_key] = {"stats": stats, "cached_at": now}
+        # The pool is the same for every car of this variant; only the year and
+        # mileage steps below depend on the car, so the pool is what is cached.
+        pool = [{"price": l["price"], "km": l.get("km"), "year": _int_or_none(l.get("year"))}
+                for l in pool]
+        _market_cache[cache_key] = {"pool": pool, "cached_at": now}
         # Evict oldest entries if cache grows too large
         if len(_market_cache) > _MAX_MARKET_CACHE_KEYS:
             oldest = sorted(_market_cache, key=lambda k: _market_cache[k].get("cached_at", 0))
             for k in oldest[:len(_market_cache) - _MAX_MARKET_CACHE_KEYS]:
                 del _market_cache[k]
-        print(f"[MARKET] {cache_key}: median={median:.0f} avg={trimmed_avg:.0f} n={n}")
-        return stats
+
+        # ── Filter 4: the car's own model year and mileage ────────────────────
+        return _with_power_comparison(_market_stats_from_pool(pool, km, cache_key, year),
+                                      power_hp, power_range, pool)
 
     except Exception as e:
         print(f"[MARKET] Live scrape error for {brand_name} {model_name}: {e}")
@@ -1063,7 +1608,7 @@ def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
     row = db.execute(text("""
         SELECT n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
                n.km_per_year, n.price_delta, n.deal_tier, n.deal_score, n.seller_type,
-               n.description, n.photo_count, r.source_url
+               n.description, n.photo_count, n.fuel_type, r.source_url
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
@@ -1293,8 +1838,9 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     _extraction_method = detail.pop("_extraction_method", None)
     _extraction_layers = detail.pop("_extraction_layers", None)
     _data_quality = detail.pop("_data_quality", None)
-    # Pop title used internally by extraction layers
-    detail.pop("title", None)
+    # Title used internally by extraction layers. Kept aside: it names the
+    # sub-model ("BMW 320d Touring") that the series-level model name loses.
+    source_title = detail.pop("title", None)
 
     # Brand/model: prefer what the scraper extracted (generic scraper returns brand/model directly)
     # Fall back to URL slug extraction for native sources
@@ -1390,6 +1936,7 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     # Lookup model — resolve, or auto-register if unknown (self-healing catalogue).
     # Guard against empty brand/model (generic scraper may not resolve them).
+    source_model_name = model_name
     model_first_word = (model_name.lower().split() or [""])[0]
     model_row = _get_or_create_model(db, brand_name, model_name, model_first_word)
 
@@ -1497,6 +2044,8 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
         "version":              detail.get("version"),
         "engine_displacement_cc": detail.get("engine_displacement_cc"),
         "sv_model_slug":        detail.get("sv_model_slug"),
+        "source_title":         source_title,
+        "source_model_name":    source_model_name,
         "source_url":    listing_url,
         "source":        source,
         "_js_limited":   _js_limited,
@@ -1605,6 +2154,7 @@ async def _analyse_listing_inner(
         cached_model_id = cached_model_info.get("id") if cached_model_info else None
         if cached_model_id and cached.get("year"):
             cached_market = _get_market_stats(db, cached_model_id, cached.get("year")) or {}
+        cached_market = _cached_market_for(cached_market, llm)
         if not cached.get("source_url"):
             cached["source_url"] = listing_url
         cached_dealbreakers = known_issue_dealbreakers_for_cached(cached_model_info, cached, llm)
@@ -1668,8 +2218,11 @@ async def _analyse_listing_inner(
                     engine_hint=engine_hint,
                     gen_year_start=gen_year_start,
                     gen_year_end=gen_year_end,
-                    sv_model_slug=normalized.get("sv_model_slug"),
+                    sv_model_slug=_market_model_slug(normalized, brand_name, model_name, listing_url),
+                    trim=_market_trim(normalized, listing_url),
+                    power_hp=normalized.get("engine_power_hp"),
                     variant_code=_sv_variant_code(listing_url),
+                    km=normalized.get("km"),
                 ),
                 timeout=45,  # 45s hard cap — Playwright can't hang the whole app
             )
@@ -1680,8 +2233,11 @@ async def _analyse_listing_inner(
     elif DISABLE_LIVE_MARKET and brand_name:
         print(f"[ANALYSIS] Live market scrape disabled (DISABLE_LIVE_MARKET=true) — using DB only")
 
-    # Write live result back to DB so future requests skip scraping
+    # Write live result back to DB so future requests skip scraping. The row is
+    # shared by every car of this model and year, so it gets the whole pool's
+    # stats, not the ones narrowed to this car's mileage.
     if market_stats.get("source") == "live" and model_id and market_stats.get("avg_price"):
+        db_stats = market_stats.get("pool_stats") or market_stats
         try:
             db.execute(
                 text("""
@@ -1700,10 +2256,10 @@ async def _analyse_listing_inner(
                 {
                     "model_id":     model_id,
                     "year":         year,
-                    "avg_price":    market_stats["avg_price"],
-                    "min_price":    market_stats.get("min_price"),
-                    "max_price":    market_stats.get("max_price"),
-                    "sample_count": market_stats.get("sample_count", 0),
+                    "avg_price":    db_stats["avg_price"],
+                    "min_price":    db_stats.get("min_price"),
+                    "max_price":    db_stats.get("max_price"),
+                    "sample_count": db_stats.get("sample_count", 0),
                 },
             )
             db.commit()
@@ -1714,6 +2270,10 @@ async def _analyse_listing_inner(
         market_stats = _get_market_stats(db, model_id, year)
         if market_stats:
             market_stats["source"] = "db"
+
+    # Listings that are not comparable with this car in mileage or model year:
+    # no price reference at all, rather than a wrong one.
+    market_stats = _withhold_if_not_comparable(market_stats)
 
     if model_id:
         model_info = _get_model_info(db, brand_name, model_name, year=year, fuel=fuel_type)
@@ -1795,6 +2355,7 @@ async def _analyse_listing_inner(
             llm_result_to_cache = {
                 **llm_result, **enrichment,
                 "_listing_engine": {k: normalized.get(k) for k in _LISTING_ENGINE_KEYS},
+                "_market_ref": _market_ref_for_cache(market_stats),
             }
             _store_analysis(db, norm_id, llm_result_to_cache, deal_tier, deal_score)
         except Exception as e:
@@ -2276,6 +2837,16 @@ def _build_response(
             "market_data_age_days": (market_stats or {}).get("age_days"),
             "market_data_stale": (market_stats or {}).get("stale", False),
             "market_fuel_type": listing.get("fuel_type"),
+            # What the mileage step compared (see _select_km_comparables); None
+            # when mileage was not taken into account, or was handled by the
+            # year-and-km adjustment below.
+            "market_km_comparison": (market_stats or {}).get("km_comparison"),
+            # How the model-year mix was handled (see _adjust_pool_to_car and
+            # _select_year_comparables); None when the year was not looked at.
+            "market_year_comparison": (market_stats or {}).get("year_comparison"),
+            # The engine-power band the comparables lie in (see _POWER_BAND);
+            # None when the car's power is not known.
+            "market_power_comparison": (market_stats or {}).get("power_comparison"),
             "generation_year_start": gen_year_start,
             "generation_year_end": gen_year_end,
         },
