@@ -1,6 +1,6 @@
 # Migration v5.7 — close replaced generations
 
-Companion to `migration_v57_close_replaced_generations.sql`. **Not applied to production yet — awaiting approval.**
+Companion to `migration_v57_close_replaced_generations.sql`. **Applied to production on 2026-11-13** (generation ids 367–393 are the new rows).
 
 A read-only audit of all 366 generation rows (2026-11-13) found open-ended rows (`year_end` NULL) whose generation has since been replaced or discontinued. Such a row keeps growing, so a car is priced against its successor — the failure v5.6 fixed for the BMW 530.
 
