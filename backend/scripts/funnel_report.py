@@ -30,6 +30,9 @@ def funnel(db, days: int) -> dict:
           COUNT(*) FILTER (WHERE event_name = 'analysis_completed'
                            AND (properties::jsonb)->>'from_cache' = 'true')            AS analyses_cached,
           COUNT(*) FILTER (WHERE event_name = 'analysis_failed')                       AS failures,
+          COUNT(*) FILTER (WHERE event_name = 'analysis_failed'
+                           AND (properties::jsonb)->>'code' = 'fetch_failed')          AS fetch_blocked,
+          COUNT(*) FILTER (WHERE event_name = 'analysis_started')                      AS attempts,
           COUNT(*) FILTER (WHERE event_name = 'analysis_shared')                       AS shares,
           COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'shared_analysis_viewed') AS share_visitors,
           COUNT(*) FILTER (WHERE event_name = 'shared_cta_clicked')                    AS share_cta_clicks,
@@ -86,6 +89,8 @@ def render(f: dict) -> str:
         f"  analyses run           {f['analyses']}  ({f['analyses_cached']} from cache)",
         f"  analyses failed        {f['failures']}  "
         f"({_pct(f['failures'], f['failures'] + f['analyses'])} of attempts)",
+        f"  listing page not read  {f['fetch_blocked']}  "
+        f"({_pct(f['fetch_blocked'], f['attempts'])} of attempts; the buyer is offered to paste the ad)",
         f"Shares                   {f['shares']}  ({_pct(f['shares'], f['analyses'])} of analyses)",
         f"  visitors from a share  {f['share_visitors']}  ({f['share_cta_clicks']} clicked through)",
         f"Buyer Pass interest      {f['pass_interest']}  ({_pct(f['pass_interest'], a)} of analysing users)",
