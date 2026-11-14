@@ -412,3 +412,64 @@ def test_load_models_sql_keeps_litres_and_kwh_apart():
     assert sql.count("e.consumption_mixed < 3.5") == 2
     # nothing that needs a column older databases do not have
     assert "plug_in" not in sql
+
+
+# ── a trade-off never denies what the headline or the reasons just said ──
+from app.services.recommend_service import (
+    DIMENSIONS, TRADEOFF_TEMPLATES, _build_tradeoff, generate_all_explanations,
+)
+
+_FLAT = {d: v for d, v in zip(DIMENSIONS, (0.10, 0.16, 0.20, 0.24, 0.10, 0.20))}
+
+
+def _with_vector(model_id, **vector):
+    m = _model(id=model_id, full_name=f"Marca Modelo{model_id}", family_score=7, driving_fun_score=7)
+    m["vector"] = {d: vector.get(d, 0.15) for d in DIMENSIONS}
+    return m
+
+
+def test_reasons_report_which_dimensions_they_praised():
+    praised = set()
+    _build_reasons(_model(id=1, family_score=7, comfort_score=5), {}, "practical", "comfort",
+                   {"p8_budget_max": 25000}, praised)
+    # a reason was written about space; none about comfort (score below 7)
+    assert praised == {"practical"}
+
+
+def test_tradeoff_skips_a_praised_dimension_when_no_other_car_is_clearly_better():
+    profile = dict(_FLAT)
+    # the biggest gap is on space, and no other car is clearly roomier
+    car = _with_vector(1, practical=0.10, comfort=0.15)
+    others = [_with_vector(i, practical=0.12) for i in (2, 3, 4, 5)]
+    flat = TRADEOFF_TEMPLATES["practical"]
+    assert _build_tradeoff(car, profile, [car] + others, {}, set()) in flat
+    said = _build_tradeoff(car, profile, [car] + others, {}, set(), {"practical"})
+    assert said not in flat and "espaço" not in said.lower()
+
+
+def test_tradeoff_may_still_compare_a_praised_dimension_with_a_clearly_better_car():
+    profile = dict(_FLAT)
+    car = _with_vector(1, practical=0.10, reliability=0.30)
+    roomy = _with_vector(2, practical=0.40)
+    roomy["full_name"] = "Skoda Octavia"
+    said = _build_tradeoff(car, profile, [car, roomy], {}, set(), {"practical"})
+    assert said == "Não é tão espaçoso como o Skoda Octavia, mas compensa em fiabilidade."
+
+
+def test_comparison_never_offers_the_compared_dimension_as_the_compensation():
+    profile = dict(_FLAT)
+    # space is this car's own strongest side, and another car has more of it
+    car = _with_vector(1, economy=0.10, comfort=0.21, driving=0.20, practical=0.22, status=0.10,
+                       reliability=0.20)
+    roomy = _with_vector(2, practical=0.45)
+    said = _build_tradeoff(car, profile, [car, roomy], {}, set())
+    assert "mas compensa em conforto" in said
+
+
+def test_template_explanations_do_not_contradict_themselves():
+    profile = dict(_FLAT)
+    cars = [_with_vector(i, practical=0.10 + i * 0.005) for i in range(1, 6)]
+    for out in generate_all_explanations(cars, profile, {"p8_budget_max": 25000}):
+        # every car here gets "Nota 7/10 para famílias" as a reason
+        assert any("famílias" in r or "familiar" in r for r in out["reasons"])
+        assert out["tradeoff"] not in TRADEOFF_TEMPLATES["practical"]
