@@ -3151,6 +3151,20 @@ def _build_cost_of_ownership(
     }
 
 
+def _price_position(listing: dict, market_stats: Optional[dict]) -> dict:
+    """price_delta and price_delta_pct of a listing against a market
+    reference, by the rule of a fresh analysis: the median (else the average),
+    and only when the comparable sample is big enough to trust. {} when no
+    position can be given."""
+    stats = market_stats or {}
+    price = listing.get("price")
+    ref = stats.get("median_price") or stats.get("avg_price")
+    if not (price and ref and (stats.get("sample_count") or 0) >= _MIN_RELIABLE_MARKET_SAMPLE):
+        return {}
+    return {"price_delta": _compute_price_delta(price, ref),
+            "price_delta_pct": round(abs((ref - price) / ref * 100), 1)}
+
+
 def _build_response(
     listing: dict,
     llm: dict,
@@ -3169,6 +3183,11 @@ def _build_response(
     dealbreakers: Optional[dict] = None,
 ) -> dict:
     """Build the final response dict sent to the frontend."""
+    # A cached or shared analysis is read back from the listing row, which does
+    # not keep the price position: it was computed only for a fresh analysis,
+    # so every shared link lost its "vs mercado" figure.
+    if listing.get("price_delta_pct") is None:
+        listing = {**listing, **_price_position(listing, market_stats)}
     km_per_year = listing.get("km_per_year")
     price_delta = listing.get("price_delta", 0.0) or 0.0
 
