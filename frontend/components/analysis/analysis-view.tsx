@@ -158,9 +158,37 @@ export function AnalysisView({ data, analysisId, shared = false }: AnalysisViewP
               tier={tier}
               priceDeltaPct={data.deal.price_delta_pct}
               priceDelta={data.deal.price_delta}
+              analysisId={analysisId}
               listingUrl={data.source_url || `/analise/${analysisId}`}
             />
           </div>
+
+          {/* Someone sent you this: the same, for your own car */}
+          {shared && (
+            <div className="rounded-xl border border-gold/30 bg-gold/[0.05] p-5 md:p-6">
+              <p className="font-display text-[19px] font-bold text-foreground">Também andas à procura de carro?</p>
+              <p className="mt-1 text-[14px] font-light leading-relaxed text-muted-foreground">
+                Cola o link de qualquer anúncio e recebes esta mesma análise: se o preço é justo para aquele
+                ano e motor, o que verificar e quanto oferecer. Grátis.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/analisar"
+                  onClick={() => Analytics.sharedCtaClicked(analysisId)}
+                  className="rounded-full bg-gold px-5 py-2.5 text-[13px] font-medium text-background transition-opacity hover:opacity-90"
+                >
+                  Analisar um anúncio
+                </Link>
+                <Link
+                  href="/escolher"
+                  onClick={() => Analytics.sharedCtaClicked(analysisId)}
+                  className="rounded-full border border-border px-5 py-2.5 text-[13px] text-foreground transition-colors hover:border-gold"
+                >
+                  Descobrir que carro me serve
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Caveat */}
           {data.caveat && (
