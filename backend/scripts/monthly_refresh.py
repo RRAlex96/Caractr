@@ -64,7 +64,7 @@ def _steps():
     from app.scrapers.nhtsa import ingest_nhtsa_all
     from app.scrapers.safety_gate import ingest_safety_gate
     from app.services.depreciation import run_depreciation_curves
-    from app.services.market_aggregator import run_aggregation
+    from app.services.market_aggregator import fill_engine_years, run_aggregation
 
     def scorer(db):
         # Imported here: it needs scipy, which a skipped scorer step should not.
@@ -72,6 +72,10 @@ def _steps():
         return run_reliability_scorer(db)
 
     def curator(db):
+        # The curator lets an LLM write engines and scores into the catalogue.
+        # It no longer runs with the monthly refresh unless asked to.
+        if os.getenv("RUN_CURATOR") != "1":
+            return "skipped: set RUN_CURATOR=1 to let the AI curator write to the catalogue"
         if not os.getenv("GEMINI_API_KEY"):
             return "skipped: GEMINI_API_KEY not set"
         from app.services.curator_agent import run_curator
@@ -112,6 +116,7 @@ def _steps():
     return [
         ("market",       _session_step(market)),
         ("aggregate",    _session_step(run_aggregation)),
+        ("engine_years", _session_step(fill_engine_years)),
         ("depreciation", _session_step(run_depreciation_curves)),
         ("safety_gate",  _session_step(lambda db: ingest_safety_gate(db, max_pages=10, sleep_seconds=1.0))),
         ("nhtsa",        _session_step(lambda db: ingest_nhtsa_all(db, sleep_seconds=0.4))),
