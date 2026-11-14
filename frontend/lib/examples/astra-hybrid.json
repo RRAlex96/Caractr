@@ -13,16 +13,16 @@
   "price": 30990,
   "seller_type": "desconhecido",
   "photo_count": 26,
-  "listing_age_days": 3
+  "listing_age_days": 4
  },
  "deal": {
   "tier": "cuidado",
-  "score": 0.0689,
-  "price_delta": -0.8622,
-  "price_delta_pct": 17.2,
+  "score": 0.044,
+  "price_delta": -0.9119,
+  "price_delta_pct": 18.2,
   "km_per_year": 4000.0,
-  "market_avg_price": 26936,
-  "market_median_price": 26432,
+  "market_avg_price": 26764,
+  "market_median_price": 26210,
   "market_sample_count": 54,
   "market_data_source": "live",
   "market_data_age_days": null,
@@ -41,9 +41,9 @@
    "count": 54,
    "excluded_count": 1,
    "pool_count": 55,
-   "per_year_pct": 10.3,
-   "per_10k_km_pct": -3.2,
-   "margin_pct": 2.6
+   "per_year_pct": 10.7,
+   "per_10k_km_pct": -2.9,
+   "margin_pct": 2.7
   },
   "market_power_comparison": {
    "car_power_hp": 145,
@@ -56,66 +56,65 @@
  },
  "analysis": {
   "verdict": "cuidado",
-  "verdict_reason": "Preço 17% acima do mercado num modelo de 2026 com o motor EB2 GEN3 e custo administrativo extra.",
+  "verdict_reason": "Preço €4.780 acima da mediana do mercado para um Astra com o novo motor 1.2 PureTech Mild-Hybrid.",
   "green_flags": [
-   "Apenas 4.000 km rodados, praticamente um carro de serviço/demonstração novo.",
-   "Motor 1.2 Turbo de 145cv Mild Hybrid usa corrente de distribuição (sistema redesenhado GEN3 pela Stellantis).",
-   "Caixa automática de dupla embraiagem eDCT de 6 velocidades com motor elétrico integrado muito eficiente."
+   "Apenas 4.000 km rodados, praticamente em estado de novo",
+   "Transmissão eDCT de 6 velocidades com motor elétrico integrado (livre da antiga caixa EAT8)",
+   "Nível de equipamento GS (topo de gama com visual desportivo e bastante tecnologia de série)"
   ],
   "red_flags": [
-   "Preço pedido (€30.990) está muito inflacionado, 17.2% acima da mediana do mercado.",
-   "Cobrança adicional de 300 € em 'despesas administrativas', prática a negociar obrigatoriamente.",
-   "Histórico de fiabilidade do bloco 1.2 PureTech/Stellantis deixa o mercado de usados pé atrás na revenda."
+   "Preço 18.2% acima do valor médio de mercado para o ano e quilometragem",
+   "Cobrança extra de 300€ de 'despesas administrativas' além do valor anunciado",
+   "Motor 1.2 T MHEV (base EB2) ainda com histórico recente no mercado quanto à durabilidade da corrente/correia"
   ],
-  "seller_analysis": "O anúncio é tipicamente de um concessionário ou profissional que vende carros seminovos/de serviço. A inclusão da taxa de 300 € de despesas administrativas confirma o perfil comercial. Omite a cor e a lista detalhada de opcionais, focando-se no preço inflacionado de tabela.",
-  "profile_fit": "Ideal para quem procura um seminovo recente com garantia de fábrica e ar desportivo, mas apenas se conseguir baixar o preço substancialmente.",
+  "seller_analysis": "Anúncio típico de concessionário ou intermediário profissional. A inclusão de uma taxa extra de 300€ para 'despesas administrativas' é uma prática comercial comum, mas que deves negociar para ser abatida no preço final. O anúncio é recente (4 dias), por isso o vendedor ainda não estará sob pressão para baixar o valor.",
+  "profile_fit": "Ideal para quem procura um familiar compacto praticamente novo, com estilo desportivo e consumo reduzido em cidade graças ao sistema Mild-Hybrid de 48V.",
   "trim_level": "GS",
   "spec_tier": "alto",
   "trim_includes": [
-   "Jantes em liga leve de 17\" escurecidas",
    "Teto bicolor em preto",
-   "Faróis Intelli-LED",
-   "Bancos dianteiros desportivos ergonómicos AGR",
-   "Painel Pure Panel duplo (ecrãs de 10\")",
-   "Pedais em alumínio",
+   "Jantes de liga leve de 17\" em preto",
+   "Faróis Intelli-Lux LED / LED Pure Panel",
+   "Bancos desportivos com certificação AGR",
+   "Câmara de visão 360º",
    "Volante desportivo em pele aquecido"
   ],
   "optional_extras": [],
-  "equipment_note": "A versão GS já traz um visual desportivo e bom equipamento de série, mas falta detalhar extras adicionais para justificar o preço pedido.",
+  "equipment_note": "Muito bem equipado de série por ser a versão GS, mas o preço pedido não justifica a ausência de opcionais extra relevantes explicitados.",
   "key_extras": [
+   "Câmara 360",
    "Faróis LED",
-   "Bancos desportivos",
-   "Painel Digital",
-   "Jantes liga leve GS"
+   "Painel digital Pure Panel",
+   "Bancos desportivos GS"
   ],
   "spec_value_assessment": "abaixo_do_esperado",
-  "engine_code": "EB2FA / EB2LTED (PureTech Gen3)",
-  "engine_analysis": "É a nova geração Mild-Hybrid do 1.2 PureTech. Corrigiu o grave problema da correia banhada a óleo substituindo-a por corrente de distribuição, melhorando substancialmente a fiabilidade do bloco.",
-  "extras_analysis": "A versão GS vem bem equipada de série com o pack estético desportivo e tecnologia. Contudo, o anúncio não lista extras de topo como Faróis Matrix LED Pixel ou Teto Panorâmico para justificar um valor tão acima da média.",
-  "negotiation_script": "Boas! Tenho interesse no Astra GS, mas reparei que está marcado por €30.990 mais os €300 de despesas, o que fica bastante acima dos valores praticados no mercado para este ano. A minha intenção é fechar negócio rápido e sem complicações. Consegue fazer €27.500 já com a documentação incluída?",
-  "verdict_narrative": "O carro é excelente, quase novo e esta geração corrigiu o problema crónico da correia do motor 1.2 ao passar para corrente no sistema Hybrid. Contudo, o preço está muito puxado para o mercado atual de usados/seminovos em Portugal. Só vale a pena se o concessionário retirar a taxa de 300 € e fizer um desconto generoso no valor base.",
-  "seller_read": "Vendedor profissional a tentar inflacionar o preço de um seminovo com base no ano recente (2026). A cobrança de despesas administrativas adicionais revela uma postura comercial rígida para tentar maximizar a margem."
+  "engine_code": "EB2LTEDH2",
+  "engine_analysis": "Trata-se da nova evolução do motor 1.2 Turbo de 3 cilindros, agora com sistema Mild-Hybrid de 48V e distribuição por CORRENTE (que substituiu a problemática correia banhada em óleo das versões anteriores). É mais fiável, mas requer atenção à gestão eletrónica da caixa eDCT e do sistema híbrido.",
+  "extras_analysis": "O nível GS já traz o pacote estético e tecnológico quase completo de fábrica. No entanto, pelo valor pedido acima de 30k€, faltam extras topo de gama como o teto de abrir panorâmico ou os faróis Intelli-Lux Pixel Matrix para justificar o preço.",
+  "negotiation_script": "Olá! Tenho interesse no Astra GS híbrido, mas vejo que o preço está bastante acima do valor de mercado para este ano e ainda acrescem os 300€ de despesas. O carro parece impecável, mas só me interessa avançar se conseguirmos arredondar a proposta para os 28.500€ com todas as despesas e documentação incluídas. Se houver margem para fechar negócio estes dias, diga-me. Obrigado!",
+  "verdict_narrative": "O carro é excelente e a nova mecânica 1.2 Hybrid resolveu o grande fantasma da correia de distribuição do grupo Stellantis. Contudo, pagar quase 31.000€ (mais 300€ de taxas) por um Astra semi-novo está fora da realidade do mercado atual. Se o vendedor negociar para a casa dos 27.500€-28.500€, passa a ser uma excelente compra.",
+  "seller_read": "Vendedor profissional a tentar aproveitar o facto de ser um modelo 2026 com escassos 4.000 km para esticar a margem de lucro. A inclusão das despesas administrativas revela uma abordagem estritamente comercial."
  },
  "inspection_checklist": [
-  "Confirmar se o motor é efetivamente a versão MHEV de 145cv com corrente de distribuição",
-  "Verificar histórico e data de matrícula (confirmar garantia total de fábrica)",
-  "Testar o fluxo de transição entre o motor elétrico e a caixa eDCT em trânsito urbano",
-  "Inspecionar o estado dos pneus e jantes GS contra toques de passeio",
-  "Exigir a inclusão do custo de registo/despesas no valor final negociado"
+  "Verificar suavidade nas passagens da caixa eDCT entre o modo 100% elétrico e a combustão",
+  "Confirmar se o plano de manutenção anual foi cumprido (mesmo com apenas 4.000 km)",
+  "Testar o funcionamento de todo o sistema infoteinment Pure Panel e câmaras 360º",
+  "Verificar estado dos discos e pastilhas (devem estar como novos aos 4.000 km)",
+  "Exigir que os 300€ de despesas administrativas sejam integrados na garantia/preço final"
  ],
  "negotiation_tips": [
-  "Recusa liminarmente pagar as 'despesas administrativas' de 300 € — exige que fiquem incluídas no preço final.",
-  "Usa a mediana do mercado (€26.400) como trunfo: o preço atual está quase 4.500 € acima.",
-  "Aproveita o facto de a reputação do motor 1.2 PureTech antigo assustar compradores para negociar um valor mais baixo."
+  "Recusa pagar os 300€ de despesas administrativas; exige que fiquem incluídos no preço final acordado.",
+  "Usa o facto de o preço estar 18% acima da mediana do mercado para forçar uma descida imediata.",
+  "Lembra o vendedor de que novos registos de serviço/ano estão a entrar no mercado a desvalorizar carros de 2026."
  ],
  "negotiation": {
   "asking_price": 30990,
-  "opening_offer": 25100,
-  "fair_value": 26450,
-  "walk_away": 26450,
-  "potential_saving": 5890,
+  "opening_offer": 24900,
+  "fair_value": 26200,
+  "walk_away": 26200,
+  "potential_saving": 6090,
   "leverage": [
-   "Está uns 17% acima de carros parecidos — mostra-lhe os comparáveis"
+   "Está uns 18% acima de carros parecidos — mostra-lhe os comparáveis"
   ],
   "confidence": "alta",
   "sample_count": 54
@@ -151,9 +150,9 @@
  "_data_warnings": [],
  "fit": null,
  "reliability": {
-  "score": 6.8,
-  "ci_low": 6.0,
-  "ci_high": 8.0,
+  "score": 7.4,
+  "ci_low": 6.6,
+  "ci_high": 8.6,
   "data_quality": "prior_only"
  },
  "dealbreakers": {
