@@ -15,6 +15,7 @@ import { InterestActions } from "@/components/recommendation/interest-actions"
 import { AdAnalysisPanel } from "@/components/recommendation/ad-analysis-panel"
 import { AlternativesList } from "@/components/recommendation/alternatives-list"
 import { ConciergeCTA } from "@/components/recommendation/concierge-cta"
+import { SellSideQuestion } from "@/components/recommendation/sell-side-question"
 import { TrustPanel } from "@/components/shared/trust-panel"
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -224,6 +225,8 @@ export default function ResultadosPage() {
           </p>
         </section>
       )}
+
+      <SellSideQuestion />
 
       {/* ── Concierge CTA ── */}
       <ConciergeCTA

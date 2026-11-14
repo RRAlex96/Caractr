@@ -136,6 +136,8 @@ export const Analytics = {
   sellerMessageCopied: (analysisId: number | null | undefined, method: string) =>
     track("seller_message_copied", { analysis_id: analysisId ?? null, method }),
 
+  sellSideAnswer: (answer: string) => track("sell_side_answer", { answer }),
+
   passInterest: (analysisId: number | null | undefined, where: string) =>
     track("pass_interest", { analysis_id: analysisId ?? null, where, price_eur: 9.9 }),
 

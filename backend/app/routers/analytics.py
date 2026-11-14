@@ -32,6 +32,8 @@ _KNOWN_EVENTS = frozenset({
     "pass_interest",
     # The message to the seller, generated from the analysis
     "seller_message_copied",
+    # Sell-side demand: does the buyer have a car to sell or trade in?
+    "sell_side_answer",
     "analysis_feedback", "analysis_feedback_reason",
     # Trust panel
     "trust_panel_viewed", "trust_panel_feedback",

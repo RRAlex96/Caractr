@@ -36,7 +36,11 @@ def funnel(db, days: int) -> dict:
           COUNT(*) FILTER (WHERE event_name = 'analysis_shared')                       AS shares,
           COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'shared_analysis_viewed') AS share_visitors,
           COUNT(*) FILTER (WHERE event_name = 'shared_cta_clicked')                    AS share_cta_clicks,
-          COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'pass_interest')          AS pass_interest
+          COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'pass_interest')          AS pass_interest,
+          COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'sell_side_answer')       AS sell_answers,
+          COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'sell_side_answer'
+                           AND (properties::jsonb)->>'answer' <> 'no')                 AS has_car_to_sell,
+          COUNT(DISTINCT anon_id) FILTER (WHERE event_name = 'seller_message_copied')  AS seller_messages
         FROM analytics_events
         WHERE created_at >= NOW() - make_interval(days => :days) AND {_NOT_INTERNAL}
     """), w).mappings().one()
@@ -94,6 +98,9 @@ def render(f: dict) -> str:
         f"Shares                   {f['shares']}  ({_pct(f['shares'], f['analyses'])} of analyses)",
         f"  visitors from a share  {f['share_visitors']}  ({f['share_cta_clicks']} clicked through)",
         f"Buyer Pass interest      {f['pass_interest']}  ({_pct(f['pass_interest'], a)} of analysing users)",
+        f"Message to seller used   {f['seller_messages']}  ({_pct(f['seller_messages'], a)} of analysing users)",
+        f"Has a car to sell        {f['has_car_to_sell']} of {f['sell_answers']} who answered  "
+        f"({_pct(f['has_car_to_sell'], f['sell_answers'])}; a quarter or more makes sell-side a phase-3 candidate)",
     ]
     if ai["calls"]:
         per_user = ai["cost_usd"] / a if a else 0
