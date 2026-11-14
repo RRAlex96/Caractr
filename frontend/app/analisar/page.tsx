@@ -8,6 +8,7 @@ import { AnalysisInput } from "@/components/analysis/analysis-input"
 import { LoadingSteps } from "@/components/analysis/loading-steps"
 import { AnalysisError } from "@/components/analysis/analysis-error"
 import { PasteFallback } from "@/components/analysis/paste-fallback"
+import { BuyerPassCard } from "@/components/analysis/buyer-pass-card"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
@@ -264,6 +265,8 @@ function AnalisarContent() {
                 : undefined
             }
           />
+
+          <BuyerPassCard analysisId={result.analysis_id} />
 
           {/* Share + Feedback + Permalink */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
