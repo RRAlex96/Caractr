@@ -56,60 +56,66 @@
  },
  "analysis": {
   "verdict": "cuidado",
-  "verdict_reason": "Preço 17% acima do mercado num 530e (B48) com 170k km e degradação da bateria por verificar.",
+  "verdict_reason": "Motor B48 com sistema híbrido e 170k km tem preço elevado (17% acima do mercado) exigindo verificação de bateria.",
   "green_flags": [
-   "Motor B48 2.0 Turbo Híbrido bastante mais fiável que as gerações anteriores (N20/N47)",
-   "Nacional com histórico previsível e 2ª chave garantida",
-   "Pack M de fábrica valoriza bastante a estética e a revenda"
+   "Motor B48 2.0 Turbo (componente a combustão) mais fiável do que a geração anterior N20",
+   "Nacional com histórico de manutenção rastreável e segunda chave",
+   "Viatura proveniente de stand estabelecido com oficina própria e garantia",
+   "Transmissão ZF 8HP excelente e muito robusta se devidamente mantida"
   ],
   "red_flags": [
-   "Preço 17.1% acima da mediana de mercado (€25.400 vs €21.694)",
-   "Bateria de alta voltagem com 170.000 km pode ter degradação acentuada e autonomia elétrica reduzida",
-   "Suspensão adaptativa ou amortecedores do Pack M com desgaste provável nesta quilometragem"
+   "Preço 17.1% acima da mediana de mercado para 170.000 km",
+   "Bateria de alta voltagem com 170k km (perda natural de capacidade e autonomia elétrica reduzida)",
+   "Pack M pode ser apenas estético exterior/interior sem implicar suspensão desportiva",
+   "Custo de substituição ou reparação do sistema elétrico/inversor elevado fora de garantia"
   ],
-  "seller_analysis": "Stand profissional com 10 anos que tenta passar muita confiança (oficina própria, prémio 5 estrelas), mas omite o estado de saúde da bateria (SOH) e o histórico de manutenção oficial da BMW. O tom é muito comercial e focado em facilitar o financiamento.",
-  "profile_fit": "Ideal para quem faz trajetos diários curtos (<30 km) onde aproveita a carga elétrica, mas faz viagens longas ao fim de semana com o conforto do Série 5.",
+  "seller_analysis": "Vendedor profissional (stand) focado em marketing emocional e prémios de confiança. Omite o estado real de saúde da bateria de alta voltagem (SoH) e a autonomia elétrica atual. Demonstra abertura ao oferecer possibilidade de devolução e financiamento.",
+  "profile_fit": "Ideal para quem faz trajetos diários curtos com possibilidade de carregar em casa/trabalho e valoriza a imagem e conforto do Série 5, mas que exige garantia escrita do sistema híbrido.",
   "trim_level": "Pack M",
   "spec_tier": "medio",
   "trim_includes": [
    "Parachoques e saias desportivas M",
-   "Bancos desportivos",
    "Volante desportivo M em pele",
-   "Suspensão desportiva M",
-   "Forro do teto em antracite"
+   "Bancos desportivos",
+   "Jantes de liga leve M",
+   "Forro do teto em antracite",
+   "Soleiras das portas M"
   ],
   "optional_extras": [
-   "Estofos em pele",
-   "Sistema de Navegação Profissional/Business",
-   "Sensores de estacionamento à frente e atrás"
+   "Estofos em pele integral",
+   "Pintura metalizada Azul",
+   "Sistema de Navegação Profissional/Business"
   ],
-  "equipment_note": "Apesar de ter o apelativo Pack M e pele, falta-lhe equipamento opcional dispendioso (como teto de abrir ou som Harman Kardon) para justificar estar tão acima da média de mercado.",
+  "equipment_note": "Equipamento razoável com o Pack M e pele, mas a este preço devia incluir faróis LED adaptativos avançados, teto de abrir ou som Harman Kardon.",
   "key_extras": [
    "Pack M",
    "Bancos em pele",
    "Sistema de navegação",
    "Sensores de estacionamento",
-   "Caixa automática"
+   "Caixa automática",
+   "Segunda chave"
   ],
   "spec_value_assessment": "abaixo_do_esperado",
-  "engine_code": "B48B20 + Motor Elétrico",
-  "engine_analysis": "O motor B48 de 2.0L é um bloco sólido e sem os crónicos problemas de corrente do antigo N20. No entanto, o sistema híbrido adiciona complexidade: válvula de descompressão do depósito de combustível e degradação da bateria de 9.2 kWh exigem atenção.",
-  "extras_analysis": "Tem o essencial com o Pack M e os bancos em pele que salvam o interior, mas a navegação e os sensores já são quase banais num G30. Falta-lhe algum 'recheio' tecnológico como câmaras 360 ou faróis Icon Adaptive LED para o preço pedido.",
-  "negotiation_script": "Olá! Gostei de ver o 530e Pack M, parece-me estimado. No entanto, vi que já conta com 170 mil km e o preço está um bocado acima da média do mercado para este ano. Sabem me dizer como está a saúde da bateria (SOH) e se têm o histórico BMW? Se a bateria estiver impecável, conseguimos fechar negócio mais perto dos 22.500€?",
-  "verdict_narrative": "O Série 5 G30 530e é uma máquina fantástica e o motor B48 é de guerra, mas com 170.000 km este preço de 25.400€ está desfasado da realidade. O Pack M ajuda a vender, mas a bateria híbrida já tem desgaste e a manutenção de um Plug-In com estes km exige margem financeira. Só avança se conseguires baixar o preço substancialmente e confirmares a autonomia elétrica real.",
-  "seller_read": "Vendedor profissional a usufruir da reputação do stand para inflacionar o preço. Usa linguagem de marketing muito polida para desviar a atenção da quilometragem elevada num PHEV."
+  "engine_code": "B48B20 (com motor elétrico)",
+  "engine_analysis": "Combina o 2.0 Turbo B48 com motor elétrico. O motor térmico é sólido (resolvidos os problemas de corrente do N47/N20), mas aos 170k km exige atenção a fugas de líquido de refrigeração no circuito do turbo/híbrido e ao desgaste da bateria de alta voltagem.",
+  "extras_analysis": "O Pack M e os bancos em pele dão excelente aspeto e valor de revenda. Contudo, faltam assistentes de condução avançados e som premium para ser um exemplar verdadeiramente topo de gama a este preço.",
+  "negotiation_script": "Boas! Estive a ver o 530e e tenho interesse na viatura, mas reparei que está com 170 mil km e o preço pede um valor substancialmente acima da média de mercado. Gostava de saber qual é o estado de saúde (SoH) da bateria de alta voltagem reportado no diagnóstico da marca. Se o relatório da bateria estiver em ordem e acertarmos o valor para algo mais perto dos 22.500€, podemos fechar negócio.",
+  "verdict_narrative": "É um excelente sedan executivo, muito confortável e com a boa dinâmica do Pack M. No entanto, dar mais de 25.000€ por um 530e de 2018 com 170.000 km é puxado, considerando a depreciação da bateria híbrida. Só avança se o stand certificar o estado da bateria e aceitar negociar o preço para valores de mercado.",
+  "seller_read": "Discurso típico de stand que tenta justificar um valor inflacionado com prémios da empresa e 'experiência de mercado'. Usam a garantia e a estrutura própria como argumento para cobrar acima da média."
  },
  "inspection_checklist": [
-  "Pedir teste de diagnóstico (SOH - State of Health) à bateria de alta voltagem numa oficina/BMW",
-  "Testar o fecho da portinhola do depósito (válvula de ventilação de combustível falha frequentemente nos PHEV)",
-  "Verificar fugas de líquido de refrigeração no circuito do turbo e do intercooler do motor B48",
-  "Conferir histórico de trocas de óleo da caixa automática ZF 8HP (deveria ter sido feita aos 100-120k km)",
-  "Verificar desgaste dos amortecedores e folgas nos braços da suspensão dianteira"
+  "Pedir teste de diagnóstico ao estado de saúde da bateria de alta voltagem (SoH - State of Health)",
+  "Verificar histórico de trocas do óleo da caixa automática ZF 8HP (deve ser feito a cada 80k-100k km)",
+  "Inspecionar o circuito de refrigeração à procura de fugas de anticongelante (crítico nos motores B48)",
+  "Testar a transição entre o motor elétrico e a combustão sob aceleração para detetar solavancos",
+  "Verificar se o cabo de carregamento doméstico e o cabo de rede pública (Tipo 2) estão incluídos e funcionais",
+  "Confirmar desgaste uniforme dos pneus (o peso do sistema híbrido desgasta mais o eixo traseiro)"
  ],
  "negotiation_tips": [
-  "Usa os 170.000 km e a possível perda de capacidade da bateria PHEV como o teu trunfo principal para baixar o preço.",
-  "Não te deixes impressionar pela conversa do 'prémio 5 estrelas' ou 'oficina própria' — exige o livro de revisões digital na chave da BMW.",
-  "Aponta para os €22.000 - €22.500; pagar €25.400 por este carro neste ano e km é pagar demais."
+  "Usa os 170.000 km e a idade da bateria como o teu principal argumento para baixar o preço.",
+  "Mostra que o mercado para este ano/quilometragem ronda os 21.500€ a 22.000€.",
+  "Exige que a garantia do stand cubra explicitamente a bateria de alta voltagem e o inversor.",
+  "Pergunta se a manutenção da caixa de velocidades já foi efetuada; caso contrário, pede um desconto de ~600€ para a fazeres."
  ],
  "negotiation": {
   "asking_price": 25400,
@@ -127,12 +133,12 @@
  "anomaly": null,
  "price_history": null,
  "cost_of_ownership": {
-  "monthly_running": 146,
-  "monthly_true": null,
+  "monthly_running": 209,
+  "monthly_true": 387,
   "annual_fuel": 1312,
   "annual_iuc": 440,
-  "annual_maintenance": null,
-  "depreciation_monthly": null,
+  "annual_maintenance": 756,
+  "depreciation_monthly": 178,
   "assumptions": {
    "km_year": 15000,
    "consumption": 5.0,
@@ -140,7 +146,7 @@
    "fuel_price": 1.75
   }
  },
- "maintenance_estimate": null,
+ "maintenance_estimate": 756.0,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
  "_analysis_engine": "gemini",
@@ -154,7 +160,100 @@
  },
  "_data_warnings": [],
  "fit": null,
- "reliability": null,
- "dealbreakers": null,
- "depreciation": null
+ "reliability": {
+  "score": 7.0,
+  "ci_low": 6.0,
+  "ci_high": 7.7,
+  "data_quality": "prior_only"
+ },
+ "dealbreakers": {
+  "has_dealbreaker": false,
+  "recall_count": 1,
+  "critical_issue_count": 0,
+  "recalls": [
+   {
+    "title": "BMW 5 series: Risco de incêndio",
+    "description": "A água pode entrar no motor de partida e causar danos. Como resultado, o motor não pode mais ligar, ou o motor de partida pode curto-circuitar ou permanecer continuamente ativado. Tal pode provocar um sobreaquecimento local do motor de arranque ou uma sobrecarga térmica dos componentes circundantes e provocar um incêndio no veículo, incluindo quando a ignição é desligada.",
+    "risk": "Risco de incêndio",
+    "priority": false,
+    "severity": "serious",
+    "source": "UE Safety Gate",
+    "source_url": "https://ec.europa.eu/safety-gate-alerts/screen/webReport/alertDetail/10118832?lang=en",
+    "date": "2026-09-15",
+    "affected_years": "2014-2020"
+   }
+  ],
+  "critical_issues": []
+ },
+ "depreciation": {
+  "annual_pct": 0.0842,
+  "annual_pct_label": "8.4%/ano",
+  "holds_value": false,
+  "loses_fast": false,
+  "curve": [
+   {
+    "age": 0,
+    "p50": 37990,
+    "year": 2023,
+    "pct_of_new": 1.0
+   },
+   {
+    "age": 1,
+    "p50": 33900,
+    "year": 2022,
+    "pct_of_new": 0.8923
+   },
+   {
+    "age": 2,
+    "p50": 30825,
+    "year": 2021,
+    "pct_of_new": 0.8114
+   },
+   {
+    "age": 3,
+    "p50": 29695,
+    "year": 2020,
+    "pct_of_new": 0.7817
+   },
+   {
+    "age": 4,
+    "p50": 26640,
+    "year": 2019,
+    "pct_of_new": 0.7012
+   },
+   {
+    "age": 5,
+    "p50": 24500,
+    "year": 2018,
+    "pct_of_new": 0.6449
+   },
+   {
+    "age": 6,
+    "p50": 21500,
+    "year": 2017,
+    "pct_of_new": 0.5659
+   }
+  ],
+  "as_of": "2026-11-13",
+  "future_value": [
+   {
+    "year": 1,
+    "value": 23261,
+    "pct_of_current": 0.9158,
+    "loss": 2139
+   },
+   {
+    "year": 2,
+    "value": 21302,
+    "pct_of_current": 0.8387,
+    "loss": 4098
+   },
+   {
+    "year": 3,
+    "value": 19509,
+    "pct_of_current": 0.7681,
+    "loss": 5891
+   }
+  ]
+ }
 }
