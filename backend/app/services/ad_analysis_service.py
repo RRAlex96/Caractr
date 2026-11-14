@@ -476,6 +476,9 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
         FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
         WHERE e.model_id = :mid AND ei.severity IN ('alto', 'critico', 'medio')
+          -- rows the AI curator wrote with no source to check are never
+          -- passed on as known faults (see curator_agent._issue_source_label)
+          AND COALESCE(ei.source, '') NOT LIKE 'IA (%sem fontes%'
     """), {"mid": model_id}).mappings().fetchall()
     info["known_issues"], info["fix_cost_estimates"] = _filter_model_issues(issue_rows, year, fuel)
 
