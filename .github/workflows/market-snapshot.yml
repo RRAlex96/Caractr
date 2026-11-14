@@ -19,6 +19,9 @@ on:
     - cron: "0 3 2 * *"   # 03:00 UTC on the 2nd of every month
   workflow_dispatch:
 
+permissions:
+  contents: write   # to commit the refreshed model-page data
+
 concurrency:
   group: market-snapshot
   cancel-in-progress: false
@@ -80,3 +83,16 @@ jobs:
       - name: Audit
         working-directory: backend
         run: python -m scripts.data_audit --strict
+      - name: Refresh the public model pages
+        # The pages under /carros are built from frontend/data/models.json;
+        # committing the new file redeploys the site with this month's prices.
+        working-directory: backend
+        run: |
+          python -m scripts.export_model_pages
+          cd ..
+          git config user.name "caractr-bot"
+          git config user.email "bot@caractr.pt"
+          git add frontend/data/models.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "data: model pages refreshed from the $(date +%Y-%m) market snapshot"
+          git push

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next"
+import { MODELS, SNAPSHOT } from "@/lib/models"
 
 const SITE_URL = "https://caractr.pt"
 
@@ -21,5 +22,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page("/escolher", 0.9),
     page("/exemplos", 0.7, "weekly"),
     page("/concierge", 0.5),
+    page("/carros", 0.8, "monthly"),
+    // One page per model with enough market data; refreshed with each snapshot.
+    ...MODELS.filter((m) => m.indexable).map((m) => ({
+      url: `${SITE_URL}/carros/${m.slug}`,
+      lastModified: SNAPSHOT ? new Date(SNAPSHOT.collected_on) : now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
   ]
 }
