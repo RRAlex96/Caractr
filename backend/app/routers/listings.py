@@ -12,7 +12,7 @@ import os
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from app.db.database import get_db
 from app.services.ad_analysis_service import analyse_listing
@@ -26,6 +26,8 @@ class AnalyseRequest(BaseModel):
     model_id: Optional[int] = None        # hint to skip DB model lookup
     user_profile: Optional[dict] = None  # {economy, comfort, driving, practical, status, reliability}
     force_refresh: bool = False           # bust cache and re-scrape/re-analyse
+    # The ad's text, copied by the buyer from the page, when we could not fetch it.
+    pasted_text: Optional[str] = Field(default=None, max_length=20_000)
 
 
 @router.get("/sources")
@@ -61,6 +63,7 @@ async def analyse_ad(req: AnalyseRequest, db: Session = Depends(get_db)):
         listing_url=req.listing_url,
         user_profile=req.user_profile,
         force_refresh=req.force_refresh,
+        pasted_text=(req.pasted_text or "").strip() or None,
     )
     return result
 

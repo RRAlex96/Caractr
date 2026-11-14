@@ -7,6 +7,7 @@ import { PageContainer } from "@/components/layout/page-container"
 import { AnalysisInput } from "@/components/analysis/analysis-input"
 import { LoadingSteps } from "@/components/analysis/loading-steps"
 import { AnalysisError } from "@/components/analysis/analysis-error"
+import { PasteFallback } from "@/components/analysis/paste-fallback"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
@@ -42,6 +43,7 @@ function AnalisarContent() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState("")
+  const [errorCode, setErrorCode] = useState("")
   const [userProfile, setUserProfile] = useState<Record<string, number> | null>(null)
   const [showQuick, setShowQuick] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -79,20 +81,23 @@ function AnalisarContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const triggerAnalysis = async (targetUrl: string, profileOverride?: Record<string, number>) => {
+  const triggerAnalysis = async (targetUrl: string, profileOverride?: Record<string, number>, pastedText?: string) => {
     if (!targetUrl.trim()) return
     setLoading(true)
     setError("")
+    setErrorCode("")
     setResult(null)
     const profile = profileOverride || userProfile
     Analytics.analysisStarted(targetUrl, !!profile)
     try {
       const data = await analyseUrl(targetUrl, {
         userProfile: profile as any,
+        pastedText,
       })
       if (data.error) {
         setError(data.error)
-        Analytics.analysisFailed(targetUrl, data.error)
+        setErrorCode(data.error_code || "")
+        Analytics.analysisFailed(targetUrl, data.error, data.error_code, !!pastedText)
       } else {
         setResult(data)
         Analytics.analysisCompleted(targetUrl, data.deal?.tier, !!data.from_cache, data.analysis_id)
@@ -157,7 +162,17 @@ function AnalisarContent() {
       )}
 
       {/* ── Error ── */}
-      {error && !loading && <AnalysisError error={error} className="mt-5" />}
+      {error && !loading && (errorCode === "fetch_failed" || errorCode === "paste_incomplete") ? (
+        <PasteFallback
+          reason={errorCode as "fetch_failed" | "paste_incomplete"}
+          message={error}
+          loading={loading}
+          onSubmit={(text) => triggerAnalysis(url, undefined, text)}
+          className="mt-5"
+        />
+      ) : (
+        error && !loading && <AnalysisError error={error} className="mt-5" />
+      )}
 
       {/* ── Loading ── */}
       {loading && <LoadingSteps />}

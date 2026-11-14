@@ -644,10 +644,16 @@ def _infer_brand_model(title: str) -> tuple[str, str]:
         if pattern.search(title):
             # Model: first word(s) after the brand
             after = pattern.split(title, maxsplit=1)[-1].strip()
-            # Take up to 2 words as model name
-            model_parts = re.split(r"[\s,|·–\-]", after)
-            model = " ".join(p for p in model_parts[:2] if p and not p[0].isdigit()).strip()
-            return brand, model
+            # Up to 2 words as model name, stopping at the engine size ("1.2"):
+            # a name may start with a digit (Peugeot 208, Fiat 500, BMW 320d),
+            # an engine size or a year never is one.
+            model_parts = [p for p in re.split(r"[\s,|·–\-]", after) if p]
+            kept = []
+            for p in model_parts[:2]:
+                if re.fullmatch(r"\d[.,]\d|(19|20)\d\d", p):
+                    break
+                kept.append(p)
+            return brand, " ".join(kept).strip()
     return "", ""
 
 
@@ -1056,4 +1062,52 @@ async def fetch_listing_detail(url: str) -> dict:
         "missing_critical": [f for f in _CRITICAL if not result.get(f)],
     }
 
+    return result
+
+
+# ── Text pasted by the buyer ─────────────────────────────────────────────────
+
+_PASTED_MAX_CHARS = 20_000
+
+
+async def extract_from_pasted_text(text: str, url: str) -> dict:
+    """
+    The listing as the buyer copied it from the page (select all, copy, paste),
+    for when the page cannot be fetched: the site blocks us, or the listing is
+    behind a login. Same result shape as fetch_listing_detail.
+
+    The Portuguese label patterns ("Quilómetros 120 000 km", "Ano 2018",
+    "Combustível Diesel") and the title do most of the work; the LLM layer
+    fills what they miss when it is available. Brand and model also come from
+    the URL downstream when the text does not name them.
+    """
+    text = (text or "")[:_PASTED_MAX_CHARS]
+    result: dict = {
+        "title": "", "description": "", "price": None, "year": None,
+        "km": None, "fuel_type": None, "seller_type": "desconhecido",
+        # unknown, not zero: pasted text has no photos to count
+        "photo_count": None, "brand": "", "model": "", "trim": "",
+        "colour": "", "engine_power_hp": None,
+        "source_domain": urlparse(url).netloc.lstrip("www.") if url else "",
+    }
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    flat = " ".join(lines)
+    # The title is the first line naming a known brand.
+    for line in lines[:40]:
+        brand, model = _infer_brand_model(line)
+        if brand:
+            result.update(title=line[:200], brand=brand, model=model)
+            break
+    _extract_pt_labels(flat, result)
+    fuel = _detect_fuel(flat)
+    if fuel:
+        result["fuel_type"] = fuel
+    result["seller_type"] = _detect_seller_type(flat)
+    if not (result.get("price") and result.get("year") and result.get("km")):
+        llm = await _extract_via_llm(flat, url or "")
+        for k, v in (llm or {}).items():
+            if v and not result.get(k):
+                result[k] = v
+    result["description"] = flat[:4000]
+    result["_extraction_method"] = "pasted"
     return result
