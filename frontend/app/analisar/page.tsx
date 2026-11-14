@@ -264,6 +264,7 @@ function AnalisarContent() {
                 tier={tier}
                 priceDeltaPct={result.deal.price_delta_pct}
                 priceDelta={result.deal.price_delta}
+                analysisId={result.analysis_id}
                 listingUrl={url}
               />
             </div>

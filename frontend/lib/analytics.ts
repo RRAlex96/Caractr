@@ -130,8 +130,8 @@ export const Analytics = {
     track("feedback_submitted", { satisfaction, preferred_model_id: preferredModelId, email_provided: emailProvided }, sessionId),
 
   // Phase 5 — new events
-  analysisShared: (sessionId: string, listingUrl: string, method: string) =>
-    track("analysis_shared", { listing_url: listingUrl, method }, sessionId),
+  analysisShared: (analysisId: number | null | undefined, listingUrl: string, method: string) =>
+    track("analysis_shared", { listing_url: listingUrl, method, analysis_id: analysisId ?? null }),
 
   analysisFeedback: (sessionId: string, listingUrl: string, helpful: boolean, reason?: string) =>
     track("analysis_feedback", { listing_url: listingUrl, helpful, reason: reason ?? null }, sessionId),
