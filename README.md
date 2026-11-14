@@ -61,7 +61,17 @@ So I stopped optimising for revenue and re-cast the project honestly: **a genuin
 ## Running it
 
 - Local dev and full deploy (Neon + Render + Vercel): see [`DEPLOY.md`](./DEPLOY.md).
-- Monthly data refresh — one command, from a residential connection, against whatever `backend/.env` points at: `cd backend && python -m scripts.monthly_refresh` (market prices → recalls → curator → reliability scores → retention; each step isolated, summary + non-zero exit on failure; `--skip market,nhtsa` to skip steps). See the script's docstring for what each step does.
+- Monthly data refresh: `cd backend && python -m scripts.monthly_refresh` against whatever `backend/.env` points at (market snapshot → prices → engine years → depreciation → recalls → retention; each step isolated, summary + non-zero exit on failure; `--skip market,nhtsa` to skip steps). The [`market-snapshot`](./.github/workflows/market-snapshot.yml) workflow runs it on the 2nd of each month once a `DATABASE_URL` secret is set, after backing up the reference data. The AI curator runs only with `RUN_CURATOR=1`.
+
+## The reference data
+
+Every figure the site shows a buyer comes from a few tables: models and their generations, engines, market prices by model and year, brand reliability. They are kept trustworthy in three layers:
+
+- **Sources.** Generation years and engine specifications were checked row by row against manufacturer pages, Wikipedia or auto-data.net; each row records the page (`generations.source_url`, `engines.source`). Market prices are measured from every Standvirtual listing of the catalogue's makes (`price_observations`, `market_snapshot_runs`). Brand reliability rests on published studies, listed per brand in `brand_reliability`.
+- **Constraints.** Postgres refuses a bad row: impossible power, consumption or scores, a model twice under one name, two generations of a model claiming the same year ([`migration_v64_safeties.sql`](./backend/seeds/migration_v64_safeties.sql)).
+- **Audit.** `python -m scripts.data_audit` asks the database the questions that have gone wrong before — 46 checks in six dimensions (structure, plausibility, market coverage, freshness, provenance, safeties) — and scores the result. `GET /api/health/data` runs it in production; the daily [`health`](./.github/workflows/health.yml) workflow fails on a critical check, such as a market snapshot gone stale.
+
+Changing the data: write a numbered, idempotent migration in `backend/seeds/`, add it to `scripts/load_seed.py`, rehearse it twice on a copy of production, back up, apply with `psql -v ON_ERROR_STOP=1`, run the audit.
 
 ## Tech
 
@@ -69,7 +79,7 @@ So I stopped optimising for revenue and re-cast the project honestly: **a genuin
 
 ## Testing & CI
 
-~210 unit tests cover the deterministic decision logic — the recommendation
+About 770 tests cover the deterministic decision logic — the recommendation
 engine (profile, constraints, scoring, diversity), negotiation figures, the
 scam/anomaly gate, cost-of-ownership + Portuguese IUC, recall and listing
 matching, robust price stats, the LLM client's fallback behaviour, and the
@@ -77,7 +87,9 @@ extraction parsers — mostly as regression tests for real bugs that once broke
 trust. A guard test fails the build on a SQLAlchemy pitfall (`:param::jsonb`
 is silently never bound) that had stopped every recall from being saved.
 GitHub Actions runs `pytest` (network tests deselected) and the frontend build
-on every push (`backend/tests`, `.github/workflows/ci.yml`).
+on every push (`backend/tests`, `.github/workflows/ci.yml`), and builds the
+whole database from the repository on an empty Postgres — schema, every
+migration, the recent ones twice — then runs the audit's structural checks.
 
 ## Agentic catalogue curator
 
