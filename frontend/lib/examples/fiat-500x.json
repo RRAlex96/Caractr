@@ -49,66 +49,68 @@
  },
  "analysis": {
   "verdict": "cuidado",
-  "verdict_reason": "Motor 1.3 Multijet muito submetido a esforço nesta carroçaria, com quilometragem elevada (251k km) e risco de FAP.",
+  "verdict_reason": "Preço apelativo para o SUV, mas o motor 1.3 Multijet a passar os 250k km exige atenção redobrada à distribuição e FAP.",
   "green_flags": [
-   "Motor 1.3 Multijet (199B1000/A3000) com transmissão por corrente, sem caixa DCT (tem caixa manual de 5V)",
-   "Preço (€6.990) acessível para o ano e segmento SUV urbano",
-   "Nível de equipamento Lounge de fábrica traz um recheio de série muito completo"
+   "Motor 1.3 Multijet (199A3000/A2000) sem a problemática caixa DCT (é caixa manual de 5V)",
+   "Nível de equipamento Lounge (topo de gama) com bom recheio de fábrica",
+   "Preço competitivo abaixo dos 7.000€ para um SUV de 2016"
   ],
   "red_flags": [
-   "Quilometragem alta (251.426 km) num motor de pequena cilindrada a puxar o peso de um SUV",
-   "Elevado risco de saturação da FAP/EGR se o uso anterior tiver sido maioritariamente urbano",
-   "Histórico de manutenção omitido num motor sensível ao estado do óleo (lubrificação da corrente e turbo)"
+   "Quilometragem elevada (251.426 km) num motor pequeno de 95cv",
+   "Corrente de distribuição nos motores 1.3 Multijet tende a folgar/partir perto dos 200k-250k km",
+   "Anúncio de stand sem menção a histórico de manutenção ou comprovativo da troca da corrente"
   ],
-  "seller_analysis": "O anúncio é de um stand profissional que utiliza um texto standard e automático. Atendimento mediante agendamento indica operação pequena ou sem espaço próprio. Omite completamente o histórico de revisões e estado real da mecânica.",
-  "profile_fit": "Para quem faz muitos km em estrada nacional/autoestrada e procura um SUV vistoso a preço baixo, assumindo fundo de reserva para reparações.",
+  "seller_analysis": "Vendedor profissional (stand) a usar um texto genérico e pré-formatado. Omitiu por completo o histórico de revisões de um carro com mais de 250 mil km, focando-se no financiamento e no equipamento. A exigência de 'atendimento por agendamento' indica uma estrutura pequena ou gestão à distância.",
+  "profile_fit": "Ideal para quem faz viagens diárias em estrada/autoestrada e procura um SUV moderno e bem equipado por um valor reduzido, tendo margem financeira para eventuais manutenções de desgaste.",
   "trim_level": "Lounge",
   "spec_tier": "alto",
   "trim_includes": [
    "Jantes de liga leve 18''",
    "Climatização automática bi-zona",
-   "Cruise Control",
+   "Sistema Lane Assist (aviso de transposição de faixa)",
    "Sensores de estacionamento traseiros",
-   "Volante multifunções em pele",
-   "Vidros escurecidos"
+   "Cruise Control",
+   "Volante em pele multifunções",
+   "Faróis de nevoeiro com função cornering"
   ],
   "optional_extras": [
-   "Lane Assist (Aviso de transposição de faixa)",
    "Pintura metalizada Cinzenta"
   ],
-  "equipment_note": "Está muito bem equipado por ser o topo de gama Lounge, trazendo conforto e ajudas à condução invulgares nesta faixa de preço.",
+  "equipment_note": "Muito bem equipado de fábrica por ser a versão topo de gama Lounge, trazendo tecnologia e jantes 18'' que valorizam o modelo.",
   "key_extras": [
    "Jantes 18",
    "Climatização automática",
+   "Lane assist",
    "Cruise control",
    "Sensores estacionamento",
-   "Lane assist",
-   "Volante em pele"
+   "Volante em pele",
+   "Hill descent control"
   ],
   "spec_value_assessment": "acima_do_esperado",
   "engine_code": "199B1000",
-  "engine_analysis": "O 1.3 Multijet de 95cv é económico, mas curto para o peso do 500X. A corrente de distribuição exige trocas de óleo rigorosas (máx. 15k km) para não folgar; a EGR e FAP entopem facilmente.",
-  "extras_analysis": "Sendo a versão Lounge, vem praticamente cheia de equipamento de fábrica. O Lane Assist adiciona valor tecnológico. Faltam bancos em pele ou teto de abrir para ser full extras total.",
-  "negotiation_script": "Boas! Vi o 500X 1.3 Multijet que têm anunciado por €6.990. O carro parece estimado mas já conta com 251 mil km, o que no motor 1.3 exige atenção à corrente e FAP. Se o livro de revisões estiver em dia e me garantirem a garantia por mútuo acordo, fecho negócio pelos €6.200 esta semana. O que me dizem?",
-  "verdict_narrative": "O preço atrai, o equipamento Lounge é excelente e o visual do 500X agrada. Contudo, 251k km num motor 1.3 a puxar este peso é muito desgaste acumulado. Só vale a pena se tiver comprovativo de trocas de óleo frequentes e kit de distribuição mudado. Se fazes muita cidade, esquece devido ao filtro de partículas.",
-  "seller_read": "Texto gerado por software de gestão de stocks. O vendedor destaca o equipamento mas esconde o estado mecânico atrás da clássica frase 'informações devem ser confirmadas'."
+  "engine_analysis": "O 1.3 Multijet II de 95cv é económico e fiável, mas usa corrente de distribuição que ganha folga e pode partir se as trocas de óleo não forem rigorosas (crítico nesta quilometragem). Tem também tendência a entupir o FAP e EGR se fizer curtos trajetos.",
+  "extras_analysis": "Sendo a versão Lounge, vem praticamente cheia de equipamento de série (jantes 18, climatização bi-zona, lane assist). Pela idade e preço não se podia pedir mais, embora falte a navegação integrada no ecrã Uconnect.",
+  "negotiation_script": "Boas! Vi o 500X 1.3 Multijet de 2016. O carro parece estimado pelas fotos, mas já conta com 251 mil km e gostaria de saber se têm o histórico de revisões completo. Sabem se a corrente de distribuição e a embraiagem já foram substituídas recentemente? Se estiver tudo em conformidade e garantido, fecho negócio esta semana por 6.300€. Obrigado!",
+  "verdict_narrative": "É um SUV com um design apelativo, muito bem equipado por ser o nível Lounge e a um preço tentador. No entanto, o motor 1.3 Multijet com 251k km está na fase crítica em que exige saber exatamente se a corrente de distribuição já foi mudada. Se tiver histórico comprovado, é um bom negócio; se não tiver, pondera o custo de uma revisão pesada.",
+  "seller_read": "O vendedor está a focar o anúncio no aspeto visual e na facilitador de crédito para despachar um carro com quilometragem já respeitável. A linguagem padrão de stand tenta mascarar a falta de informação sobre o passado de manutenção do veículo."
  },
  "inspection_checklist": [
-  "Escutar ruídos metálicos de corrente a chocalhar no arranque a frio (motor 1.3 Multijet)",
-  "Verificar no Uconnect e quadrante se há luzes de avaria de motor ou FAP/DPF ligadas",
-  "Testar folgas nos silentblocks e braços da suspensão dianteira em piso irregular",
-  "Verificar estado dos tubos do intercooler e fugas de óleo junto ao turbocompressor",
-  "Confirmar a última troca de óleo e especificação do lubrificante usado (crítico para a corrente)"
+  "Ouvir o motor a frio para detetar ruídos metálicos ou chocalhar da corrente de distribuição",
+  "Verificar no livro de revisões/faturas se e quando foi trocada a corrente de distribuição",
+  "Testar o ponto de embraiagem e tentar engrenar as 5 velocidades sem arranhar",
+  "Verificar se há falhas, congelamento ou aviso de erro no ecrã do sistema Uconnect",
+  "Procurar folgas ou barulhos secos na suspensão dianteira (triângulos e silentblocks) ao passar em pisos irregulares",
+  "Confirmar se o filtro de partículas (FAP) faz regenerações normais e se não há aviso de motor/FAP no quadrante"
  ],
  "negotiation_tips": [
-  "Usa a marca dos 250.000 km como principal argumento psicológico para baixar o preço abaixo dos €6.500.",
-  "Exige ver o livro de revisões para confirmar a manutenção da corrente de distribuição.",
-  "Pergunta se o valor anunciado já inclui a garantia obrigatória por lei ou se cobram 'despesas administrativas' à parte."
+  "Usa os 251.000 km como principal argumento para baixar o preço, referindo o desgaste natural de componentes caros.",
+  "Pergunta diretamente se dão garantia por mútuo acordo ou total, e usa isso para negociar o valor final.",
+  "Se não houver provas da troca da corrente de distribuição, exige um desconto de pelo menos 500€ a 700€ para fazeres essa intervenção numa oficina da tua confiança."
  ],
  "negotiation": null,
  "anomaly": null,
  "price_history": {
-  "observations": 4,
+  "observations": 5,
   "tracked_days": 39,
   "first_price": 7750,
   "current_price": 6990,
@@ -116,18 +118,18 @@
   "last_change": {
    "from": 7750,
    "to": 6990,
-   "days_ago": 1
+   "days_ago": 2
   },
   "relisted_before": false,
   "rollback_suspected": false
  },
  "cost_of_ownership": {
-  "monthly_running": 143,
-  "monthly_true": null,
+  "monthly_running": 139,
+  "monthly_true": 183,
   "annual_fuel": 1152,
   "annual_iuc": 110,
-  "annual_maintenance": 450,
-  "depreciation_monthly": null,
+  "annual_maintenance": 407,
+  "depreciation_monthly": 44,
   "assumptions": {
    "km_year": 15000,
    "consumption": 4.8,
@@ -135,7 +137,7 @@
    "fuel_price": 1.6
   }
  },
- "maintenance_estimate": 450.0,
+ "maintenance_estimate": 406.6666666666667,
  "caveat": "Análise baseada na descrição do anúncio — o vendedor pode não ter listado todo o equipamento.",
  "js_limited": false,
  "_analysis_engine": "gemini",
@@ -150,9 +152,9 @@
  "_data_warnings": [],
  "fit": null,
  "reliability": {
-  "score": 6.8,
-  "ci_low": 6.3,
-  "ci_high": 7.3,
+  "score": 6.7,
+  "ci_low": 6.0,
+  "ci_high": 7.4,
   "data_quality": "prior_only"
  },
  "dealbreakers": {
@@ -162,5 +164,87 @@
   "recalls": [],
   "critical_issues": []
  },
- "depreciation": null
+ "depreciation": {
+  "annual_pct": 0.076,
+  "annual_pct_label": "7.6%/ano",
+  "holds_value": false,
+  "loses_fast": false,
+  "curve": [
+   {
+    "age": 0,
+    "p50": 17600,
+    "year": 2024,
+    "pct_of_new": 1.0
+   },
+   {
+    "age": 1,
+    "p50": 17670,
+    "year": 2023,
+    "pct_of_new": 1.004
+   },
+   {
+    "age": 2,
+    "p50": 15495,
+    "year": 2022,
+    "pct_of_new": 0.8804
+   },
+   {
+    "age": 4,
+    "p50": 14500,
+    "year": 2020,
+    "pct_of_new": 0.8239
+   },
+   {
+    "age": 5,
+    "p50": 12699,
+    "year": 2019,
+    "pct_of_new": 0.7215
+   },
+   {
+    "age": 6,
+    "p50": 11500,
+    "year": 2018,
+    "pct_of_new": 0.6534
+   },
+   {
+    "age": 7,
+    "p50": 10895,
+    "year": 2017,
+    "pct_of_new": 0.619
+   },
+   {
+    "age": 8,
+    "p50": 9500,
+    "year": 2016,
+    "pct_of_new": 0.5398
+   },
+   {
+    "age": 9,
+    "p50": 9870,
+    "year": 2015,
+    "pct_of_new": 0.5608
+   }
+  ],
+  "as_of": "2026-11-13",
+  "future_value": [
+   {
+    "year": 1,
+    "value": 6458,
+    "pct_of_current": 0.9239,
+    "loss": 532
+   },
+   {
+    "year": 2,
+    "value": 5967,
+    "pct_of_current": 0.8536,
+    "loss": 1023
+   },
+   {
+    "year": 3,
+    "value": 5514,
+    "pct_of_current": 0.7888,
+    "loss": 1476
+   }
+  ]
+ }
 }
