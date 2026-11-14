@@ -222,6 +222,9 @@ export default async function ModelPageView({ params }: PageProps) {
                   {i.fix_cost_estimate && (
                     <p className="mt-1 font-mono text-[12px] text-muted-foreground">Custo estimado: {i.fix_cost_estimate}</p>
                   )}
+                  <Link href={`/motores/${i.page}`} className="mt-2 inline-block text-[13px] text-gold underline-offset-2 hover:underline">
+                    Tudo sobre este problema →
+                  </Link>
                   <p className="mt-2 text-[12px] text-muted-foreground/70">
                     Fontes:{" "}
                     {i.sources.map((s, k) => (

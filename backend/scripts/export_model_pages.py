@@ -2,6 +2,8 @@
 Export the data behind the public model pages (/carros/<slug>) to the frontend.
 
     python -m scripts.export_model_pages            # reads DATABASE_URL, writes frontend/data/models.json
+    python -m scripts.export_model_pages --preview-drafts --out /tmp/models.json
+                                                    # local layout preview only: draft faults included
 
 The pages are generated at build time from this file, so they never wait for
 the API (which sleeps on the free tier) and a search engine always gets a
@@ -48,7 +50,11 @@ def _num(v):
     return int(f) if f == int(f) else round(f, 1)
 
 
-def build(db) -> dict:
+def engine_slug(issue: dict) -> str:
+    return slugify(issue["id"])
+
+
+def build(db, include_drafts: bool = False) -> dict:
     from sqlalchemy import text
 
     from app.services.known_issues import load_issues, matches_engine, to_payload, years_overlap
@@ -88,7 +94,8 @@ def build(db) -> dict:
         JOIN brands b ON b.id = r.brand_id""")}
     snapshot = rows("""SELECT collected_on, listings_read FROM market_snapshot_runs
                        ORDER BY collected_on DESC LIMIT 1""")
-    issues = load_issues()          # approved entries only
+    issues = load_issues(include_drafts=include_drafts)   # approved entries only, unless previewing
+    affected = defaultdict(list)    # issue id -> the models it is attached to
 
     out = []
     for m in models:
@@ -110,7 +117,13 @@ def build(db) -> dict:
                                    fuel=e["fuel_type"] or "", displacement_cc=e["displacement_cc"],
                                    transmission=e["transmission"] or "", power_hp=e["power_hp"])
                     for e in engines[mid]):
-                known.append(to_payload(issue))
+                known.append({**to_payload(issue), "status": issue["status"], "page": engine_slug(issue)})
+                codes = [e["code"] for e in engines[mid]
+                         if matches_engine(issue, brand=m["brand"], model=m["model"], label=e["code"] or "",
+                                           fuel=e["fuel_type"] or "", displacement_cc=e["displacement_cc"],
+                                           transmission=e["transmission"] or "", power_hp=e["power_hp"])]
+                affected[issue["id"]].append({"slug": model_slug(m["brand"], m["model"]),
+                                              "brand": m["brand"], "model": m["model"], "engines": codes})
         rel = brand_rel.get(m["brand"])
         indexable = len(py) >= MIN_PRICED_YEARS and bool(eng)
         out.append({
@@ -149,8 +162,18 @@ def build(db) -> dict:
     dupes = {s for s in slugs if slugs.count(s) > 1}
     if dupes:
         raise SystemExit(f"two models share a page address: {sorted(dupes)}")
+    engine_pages = []
+    for issue in issues:
+        lo, hi = issue["years"]
+        engine_pages.append({
+            **to_payload(issue), "status": issue["status"], "page": engine_slug(issue),
+            "codes": issue.get("codes") or [], "years": [lo, hi], "models_text": issue.get("models") or [],
+            "confidence": issue.get("confidence"), "cost_eur": issue.get("cost_eur") or {},
+            "affected_models": sorted(affected.get(issue["id"], []), key=lambda a: (a["brand"], a["model"])),
+        })
     return {
         "generated_on": date.today().isoformat(),
+        "engines": engine_pages,
         "snapshot": None if not snapshot else {
             "collected_on": snapshot[0]["collected_on"].isoformat(), "listings": snapshot[0]["listings_read"]},
         "models": out,
@@ -164,19 +187,27 @@ def main() -> int:
 
     from app.db.database import SessionLocal
 
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--preview-drafts", action="store_true")
+    ap.add_argument("--out", default=OUT)
+    args = ap.parse_args()
+    if args.preview_drafts and os.path.abspath(args.out) == os.path.abspath(OUT):
+        raise SystemExit("draft faults never go into the published file: give --out another path")
     db = SessionLocal()
     try:
         db.execute(text("SET TRANSACTION READ ONLY"))
-        data = build(db)
+        data = build(db, include_drafts=args.preview_drafts)
     finally:
         db.rollback()
         db.close()
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     n = len(data["models"])
     idx = sum(m["indexable"] for m in data["models"])
-    print(f"{OUT}: {n} models, {idx} indexable, {os.path.getsize(OUT) // 1024} KB")
+    print(f"{args.out}: {n} models, {idx} indexable, {len(data['engines'])} engine pages, "
+          f"{os.path.getsize(args.out) // 1024} KB")
     return 0
 
 

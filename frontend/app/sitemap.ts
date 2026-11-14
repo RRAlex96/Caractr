@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next"
-import { MODELS, SNAPSHOT } from "@/lib/models"
+import { ENGINE_PAGES, MODELS, SNAPSHOT } from "@/lib/models"
 
 const SITE_URL = "https://caractr.pt"
 
@@ -29,6 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: SNAPSHOT ? new Date(SNAPSHOT.collected_on) : now,
       changeFrequency: "monthly" as const,
       priority: 0.6,
+    })),
+    // One page per approved engine or gearbox failure.
+    ...ENGINE_PAGES.map((e) => ({
+      url: `${SITE_URL}/motores/${e.page}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
     })),
   ]
 }

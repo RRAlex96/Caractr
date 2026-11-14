@@ -32,5 +32,9 @@ def test_exported_file_is_consistent():
         for g in m["generations"]:
             d = g["depreciation"]
             assert d is None or 0.03 <= d <= 0.25          # a fraction, never rounded to 0.1
-        # only approved known issues may ever be in the file
-        assert all(i.get("curated") for i in m["known_issues"])
+        # only approved known issues may ever be in the published file
+        assert all(i.get("curated") and i.get("status") == "approved" for i in m["known_issues"])
+    for e in data.get("engines", []):
+        assert e["status"] == "approved"
+        assert e["sources"]
+        assert all(a["slug"] in by_slug for a in e["affected_models"])
