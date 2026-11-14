@@ -163,8 +163,8 @@ export const Analytics = {
       site: hostOf(listingUrl), tier: tier ?? null, from_cache: fromCache, analysis_id: analysisId ?? null,
     }),
 
-  analysisFailed: (listingUrl: string, reason: string) =>
-    track("analysis_failed", { site: hostOf(listingUrl), reason: reason.slice(0, 120) }),
+  analysisFailed: (listingUrl: string, reason: string, code?: string, pasted = false) =>
+    track("analysis_failed", { site: hostOf(listingUrl), reason: reason.slice(0, 120), code: code ?? null, pasted }),
 
   sharedAnalysisViewed: (analysisId: number) =>
     track("shared_analysis_viewed", { analysis_id: analysisId }),
