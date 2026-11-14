@@ -30,6 +30,8 @@ _KNOWN_EVENTS = frozenset({
     "shared_analysis_viewed", "shared_cta_clicked",
     # Buyer Pass: interest recorded before checkout exists
     "pass_interest",
+    # The message to the seller, generated from the analysis
+    "seller_message_copied",
     "analysis_feedback", "analysis_feedback_reason",
     # Trust panel
     "trust_panel_viewed", "trust_panel_feedback",
