@@ -109,14 +109,16 @@ CHECKS = [
                       AND a.year_start <= COALESCE(c.year_end, 9999) AND c.year_start <= COALESCE(a.year_end, 9999)
                  JOIN vehicle_models vm ON vm.id = a.model_id JOIN brands b ON b.id = vm.brand_id""",
           total="SELECT COUNT(*) FROM generations"),
-    Check("INT-05", "integrity", "No year falls between two generations of a model", "major",
-          why="A car registered in the gap year has no generation.",
+    Check("INT-05", "integrity", "No year or two falls between two generations of a model", "major",
+          why="A car registered in the gap has no generation. A longer gap is a model that was off the market "
+              "(the Defender from 2017 to 2019) and is left alone.",
           sql="""SELECT b.name || ' ' || vm.name || ': ' || g.name || ' ends ' || g.year_end || ', next starts ' || nxt.year_start
                  FROM generations g
                  JOIN vehicle_models vm ON vm.id = g.model_id JOIN brands b ON b.id = vm.brand_id
                  JOIN LATERAL (SELECT MIN(n.year_start) AS year_start FROM generations n
                                WHERE n.model_id = g.model_id AND n.fuel_type IS NULL AND n.year_start > g.year_start) nxt ON TRUE
-                 WHERE g.fuel_type IS NULL AND g.year_end IS NOT NULL AND nxt.year_start > g.year_end + 1""",
+                 WHERE g.fuel_type IS NULL AND g.year_end IS NOT NULL
+                   AND nxt.year_start BETWEEN g.year_end + 2 AND g.year_end + 3""",
           total="SELECT COUNT(*) FROM generations"),
     Check("INT-06", "integrity", "Generation years are in order and in range", "critical",
           sql="""SELECT b.name || ' ' || vm.name || ' ' || g.name || ' ' || COALESCE(g.year_start::text, '?') || '-' || COALESCE(g.year_end::text, '')
