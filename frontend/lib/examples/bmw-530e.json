@@ -18,12 +18,12 @@
  "deal": {
   "tier": "cuidado",
   "score": 0.0,
-  "price_delta": -0.8542,
-  "price_delta_pct": 17.1,
+  "price_delta": -0.8316,
+  "price_delta_pct": 16.6,
   "km_per_year": 21250.0,
-  "market_avg_price": 21954,
-  "market_median_price": 21694,
-  "market_sample_count": 38,
+  "market_avg_price": 21960,
+  "market_median_price": 21778,
+  "market_sample_count": 39,
   "market_data_source": "live",
   "market_data_age_days": null,
   "market_data_stale": false,
@@ -33,102 +33,93 @@
    "basis": "adjusted",
    "car_year": 2018,
    "car_km": 170000,
-   "median_year": 2018.0,
+   "median_year": 2018,
    "year_from": 2017,
    "year_to": 2021,
    "km_from": 44000,
    "km_to": 299000,
-   "count": 38,
+   "count": 39,
    "excluded_count": 0,
-   "pool_count": 38,
+   "pool_count": 39,
    "per_year_pct": 5.0,
    "per_10k_km_pct": -2.0,
-   "margin_pct": 3.1
+   "margin_pct": 3.0
   },
   "market_power_comparison": {
    "car_power_hp": 252,
    "power_from": 214,
    "power_to": 290,
-   "pool_count": 38
+   "pool_count": 39
   },
   "generation_year_start": 2017,
   "generation_year_end": 2023
  },
  "analysis": {
   "verdict": "cuidado",
-  "verdict_reason": "Motor B48 com sistema híbrido e 170k km tem preço elevado (17% acima do mercado) exigindo verificação de bateria.",
+  "verdict_reason": "Preço 16.6% acima do mercado num 530e (B48 + elétrico) com 170k km e degradação da bateria a verificar.",
   "green_flags": [
-   "Motor B48 2.0 Turbo (componente a combustão) mais fiável do que a geração anterior N20",
-   "Nacional com histórico de manutenção rastreável e segunda chave",
-   "Viatura proveniente de stand estabelecido com oficina própria e garantia",
-   "Transmissão ZF 8HP excelente e muito robusta se devidamente mantida"
+   "Motor B48B20 2.0 Turbo — arquitetura modular substancialmente mais fiável que os antigos N20",
+   "Histórico de ser viatura nacional com 2ª chave incluída",
+   "Possibilidade de devolução e oficina própria do stand oferecem alguma salvaguarda inicial"
   ],
   "red_flags": [
-   "Preço 17.1% acima da mediana de mercado para 170.000 km",
-   "Bateria de alta voltagem com 170k km (perda natural de capacidade e autonomia elétrica reduzida)",
-   "Pack M pode ser apenas estético exterior/interior sem implicar suspensão desportiva",
-   "Custo de substituição ou reparação do sistema elétrico/inversor elevado fora de garantia"
+   "Preço pedindo €25.400 está €3.600 acima da mediana do mercado para 170.000 km",
+   "Degradação da bateria de alta tensão (9.2 kWh) após 170k km reduz drasticamente a autonomia elétrica real",
+   "Injetores e caixa de velocidades ZF 8HP a necessitar de manutenção de óleo/filtro se ainda não realizada aos 150k km"
   ],
-  "seller_analysis": "Vendedor profissional (stand) focado em marketing emocional e prémios de confiança. Omite o estado real de saúde da bateria de alta voltagem (SoH) e a autonomia elétrica atual. Demonstra abertura ao oferecer possibilidade de devolução e financiamento.",
-  "profile_fit": "Ideal para quem faz trajetos diários curtos com possibilidade de carregar em casa/trabalho e valoriza a imagem e conforto do Série 5, mas que exige garantia escrita do sistema híbrido.",
+  "seller_analysis": "Vendedor profissional (stand) com discurso muito focado em prémios e serviços próprios. O texto é comercialmente polido mas omitiu o estado de saúde (SOH) da bateria híbrida. Mostra confiança ao oferecer garantia/devolução, mas inflaciona a margem pelo estatuto do stand.",
+  "profile_fit": "Ideal para quem faz trajetos urbanos diários curtos com garagem para carregar e procura o conforto de um G30, mas que tem orçamento para eventuais manutenções da componente híbrida.",
   "trim_level": "Pack M",
   "spec_tier": "medio",
   "trim_includes": [
-   "Parachoques e saias desportivas M",
-   "Volante desportivo M em pele",
-   "Bancos desportivos",
    "Jantes de liga leve M",
+   "Kit aerodinâmico M (parachoques e embaladeiras)",
+   "Bancos desportivos",
+   "Volante desportivo M em pele",
+   "Suspensão desportiva M",
    "Forro do teto em antracite",
    "Soleiras das portas M"
   ],
   "optional_extras": [
-   "Estofos em pele integral",
-   "Pintura metalizada Azul",
-   "Sistema de Navegação Profissional/Business"
+   "Estofos totalmente em pele",
+   "Sistema de Navegação Profissional",
+   "Sensores de estacionamento dianteiros e traseiros"
   ],
-  "equipment_note": "Equipamento razoável com o Pack M e pele, mas a este preço devia incluir faróis LED adaptativos avançados, teto de abrir ou som Harman Kardon.",
+  "equipment_note": "Equipamento médio para um Pack M — tem a estética desportiva e os estofos em pele, mas faltam opcionais de topo como o som Harman Kardon ou teto de abrir.",
   "key_extras": [
    "Pack M",
    "Bancos em pele",
    "Sistema de navegação",
    "Sensores de estacionamento",
-   "Caixa automática",
+   "Caixa automática ZF8",
    "Segunda chave"
   ],
   "spec_value_assessment": "abaixo_do_esperado",
-  "engine_code": "B48B20 (com motor elétrico)",
-  "engine_analysis": "Combina o 2.0 Turbo B48 com motor elétrico. O motor térmico é sólido (resolvidos os problemas de corrente do N47/N20), mas aos 170k km exige atenção a fugas de líquido de refrigeração no circuito do turbo/híbrido e ao desgaste da bateria de alta voltagem.",
-  "extras_analysis": "O Pack M e os bancos em pele dão excelente aspeto e valor de revenda. Contudo, faltam assistentes de condução avançados e som premium para ser um exemplar verdadeiramente topo de gama a este preço.",
-  "negotiation_script": "Boas! Estive a ver o 530e e tenho interesse na viatura, mas reparei que está com 170 mil km e o preço pede um valor substancialmente acima da média de mercado. Gostava de saber qual é o estado de saúde (SoH) da bateria de alta voltagem reportado no diagnóstico da marca. Se o relatório da bateria estiver em ordem e acertarmos o valor para algo mais perto dos 22.500€, podemos fechar negócio.",
-  "verdict_narrative": "É um excelente sedan executivo, muito confortável e com a boa dinâmica do Pack M. No entanto, dar mais de 25.000€ por um 530e de 2018 com 170.000 km é puxado, considerando a depreciação da bateria híbrida. Só avança se o stand certificar o estado da bateria e aceitar negociar o preço para valores de mercado.",
-  "seller_read": "Discurso típico de stand que tenta justificar um valor inflacionado com prémios da empresa e 'experiência de mercado'. Usam a garantia e a estrutura própria como argumento para cobrar acima da média."
+  "engine_code": "B48B20",
+  "engine_analysis": "O motor B48 2.0 gasolina é sólido, mas a vertente eDrive exige atenção ao inversor, à transmissão de potência e à degradação natural dos módulos da bateria de alta tensão aos 170k km.",
+  "extras_analysis": "Conta com o apelativo Pack M e estofos em pele. No entanto, não apresenta extras de alto valor como quadrante digital completo, HUD ou câmaras 360º que justificassem o valor bem acima da média de mercado.",
+  "negotiation_script": "Boas! Tenho interesse no 530e Pack M, mas reparei que está listado a 25.400€, valor consideravelmente acima da média de mercado para uma unidade com 170 mil km. Como está o relatório de saúde (SOH) da bateria híbrida e o histórico de revisões da caixa automática? Com tudo em ordem, estaria disposto a avançar na casa dos 22.500€. Um abraço.",
+  "verdict_narrative": "É um BMW Série 5 G30 com excelente presença graças ao Pack M e um motor a gasolina (B48) bastante fiável. No entanto, o valor pedido está puxado para os 170.000 km que já ostenta, onde a bateria híbrida perdeu capacidade e a manutenção preventiva é cara. Só vale a pena se conseguires negociar o preço para perto da média de mercado.",
+  "seller_read": "Stand estabelecido a usar argumentos de autoridade (prémio 5 estrelas, oficina própria) para justificar um valor inflacionado. O tom é acolhedor e profissional, mas tenta desviar o foco dos km e da desvalorização real do produto."
  },
- "inspection_checklist": [
-  "Pedir teste de diagnóstico ao estado de saúde da bateria de alta voltagem (SoH - State of Health)",
-  "Verificar histórico de trocas do óleo da caixa automática ZF 8HP (deve ser feito a cada 80k-100k km)",
-  "Inspecionar o circuito de refrigeração à procura de fugas de anticongelante (crítico nos motores B48)",
-  "Testar a transição entre o motor elétrico e a combustão sob aceleração para detetar solavancos",
-  "Verificar se o cabo de carregamento doméstico e o cabo de rede pública (Tipo 2) estão incluídos e funcionais",
-  "Confirmar desgaste uniforme dos pneus (o peso do sistema híbrido desgasta mais o eixo traseiro)"
- ],
+ "inspection_checklist": "Pedir teste de diagnóstico ao estado de saúde (SOH) da bateria de alta tensão.,Verificar fugas no circuito de refrigeração do motor B48 (vaso de expansão e tubagens).,Confirmar se a caixa ZF de 8 velocidades já mudou óleo e filtro.,Verificar folgas nos braços da suspensão frontal (comum pesarem pelo peso das baterias).,Testar a transição entre o motor elétrico e a combustão em aceleração forte.,Verificar o funcionamento do cabo de carregamento doméstico e cabo público (se incluídos).",
  "negotiation_tips": [
-  "Usa os 170.000 km e a idade da bateria como o teu principal argumento para baixar o preço.",
-  "Mostra que o mercado para este ano/quilometragem ronda os 21.500€ a 22.000€.",
-  "Exige que a garantia do stand cubra explicitamente a bateria de alta voltagem e o inversor.",
-  "Pergunta se a manutenção da caixa de velocidades já foi efetuada; caso contrário, pede um desconto de ~600€ para a fazeres."
+  "Usa o valor médio do mercado (21.778€) como âncora para baixar a proposta.",
+  "Pede o relatório de capacidade da bateria híbrida; se estiver abaixo de 80%, exige desconto para compensar a perda de autonomia.",
+  "Argumenta que aos 170k km a caixa automática precisa de revisão dispendiosa se ainda não tiver sido feita."
  ],
  "negotiation": {
   "asking_price": 25400,
-  "opening_offer": 20300,
-  "fair_value": 21700,
-  "walk_away": 21700,
-  "potential_saving": 5100,
+  "opening_offer": 20350,
+  "fair_value": 21800,
+  "walk_away": 21800,
+  "potential_saving": 5050,
   "leverage": [
    "Está uns 17% acima de carros parecidos — mostra-lhe os comparáveis",
    "Tem mais km do que a média para o ano"
   ],
   "confidence": "alta",
-  "sample_count": 38
+  "sample_count": 39
  },
  "anomaly": null,
  "price_history": null,
@@ -161,9 +152,9 @@
  "_data_warnings": [],
  "fit": null,
  "reliability": {
-  "score": 7.0,
-  "ci_low": 6.0,
-  "ci_high": 7.7,
+  "score": 7.6,
+  "ci_low": 6.6,
+  "ci_high": 8.3,
   "data_quality": "prior_only"
  },
  "dealbreakers": {
@@ -234,7 +225,7 @@
     "pct_of_new": 0.5659
    }
   ],
-  "as_of": "2026-11-13",
+  "as_of": "2026-11-14",
   "future_value": [
    {
     "year": 1,
