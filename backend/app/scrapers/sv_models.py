@@ -153,3 +153,40 @@ def trim_label(*texts: Optional[str]) -> Optional[str]:
         if re.search(r"\bone\b", t):
             return "one"
     return None
+
+
+# ── a site model name that belongs to a differently named catalogue model ────
+
+# Site ids that are one catalogue model or another depending on the fuel: the
+# name alone does not say which (MG "ZS" is the petrol ZS or the ZS EV).
+_FUEL_DEPENDENT = {("mg", "zs")}
+_SITE_ID_BY_NAME: dict = {}
+
+
+def catalogue_target(brand: Optional[str], model_name: Optional[str]) -> Optional[tuple]:
+    """
+    (catalogue brand, catalogue model) for a listing whose model is written the
+    way the site names it, when that site model is mapped to a catalogue model
+    of another name (sv_catalogue_map): "Insignia Sports Tourer" -> Opel
+    Insignia, BMW "216 Gran Tourer" -> Série 2 Active Tourer, Citroën "DS3" ->
+    DS 3. None for any other name.
+    """
+    from app.scrapers.sv_catalogue_map import SITE_MODEL_MAP
+    from app.scrapers.sv_series_data import SV_SERIES
+
+    make = find_make(brand)
+    key = _key(model_name)
+    if not make or not key:
+        return None
+    if make not in _SITE_ID_BY_NAME:
+        index: dict = {}
+        for site_id, name in SV_MODELS.get(make, {}).items():
+            index.setdefault(_key(name), site_id)
+        for _series_id, (_series_name, subs) in SV_SERIES.get(make, {}).items():
+            for sub_id, sub_name in subs.items():
+                index.setdefault(_key(sub_name), sub_id)
+        _SITE_ID_BY_NAME[make] = index
+    site_id = _SITE_ID_BY_NAME[make].get(key)
+    if not site_id or (make, site_id) in _FUEL_DEPENDENT:
+        return None
+    return SITE_MODEL_MAP.get((make, site_id))

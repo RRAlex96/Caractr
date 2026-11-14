@@ -34,6 +34,7 @@ from datetime import date, datetime, timezone
 from typing import Callable, Optional
 
 from app.scrapers import standvirtual as sv
+from app.scrapers.sv_catalogue_map import SITE_MODEL_MAP
 from app.scrapers.sv_models import find_make, find_model
 from app.scrapers.sv_models_data import SV_MODELS
 from app.scrapers.sv_series import find_series, find_variant
@@ -102,6 +103,10 @@ def build_assigner(catalogue: list) -> Callable[[str, str, str], Optional[dict]]
                     explicit[(make, site_id)] = (c["id"], c["model_name"])
     names = {make: site_model_names(make) for make in brand_of_make}
     by_id = {c["id"]: c for c in real}
+    by_name = {(c["brand_name"], c["model_name"]): c["id"] for c in real}
+    # Site models that are not named like their catalogue model (a body style,
+    # a sub-model, one car under several ids): sv_catalogue_map.
+    mapped = {key: by_name[target] for key, target in SITE_MODEL_MAP.items() if target in by_name}
     cache: dict = {}
 
     def match(brand: str, name: str) -> Optional[int]:
@@ -116,7 +121,9 @@ def build_assigner(catalogue: list) -> Callable[[str, str, str], Optional[dict]]
         if not brand or not site_id:
             return None
         if (make, site_id) in _ELECTRIC_ONLY and powertrain != "electric":
-            return None
+            # the site id is shared with a combustion car that is another model (MG ZS / ZS EV)
+            other = mapped.get((make, site_id))
+            return {"model_id": other, "model_name": by_id[other]["model_name"], "convertible": False} if other else None
         name, series_name = names[make].get(site_id, (None, None))
         title_n = _norm_name(title)
         open_top = bool(_CONVERTIBLE.search(title_n) or _CONVERTIBLE.search(_norm_name(name or "")))
@@ -126,7 +133,9 @@ def build_assigner(catalogue: list) -> Callable[[str, str, str], Optional[dict]]
         key = (make, site_id, coupe)
         if key not in cache:
             model_id = None
-            if (make, site_id) in explicit:
+            if (make, site_id) in mapped and (make, site_id) not in _ELECTRIC_ONLY:
+                model_id = mapped[(make, site_id)]
+            elif (make, site_id) in explicit:
                 model_id = explicit[(make, site_id)][0]
             elif name:
                 model_id = match(brand, f"{name} Coupé" if coupe else name)
@@ -139,7 +148,7 @@ def build_assigner(catalogue: list) -> Callable[[str, str, str], Optional[dict]]
         return {"model_id": model_id,
                 "model_name": by_id[model_id]["model_name"],
                 # An open-top version of a car that is not one prices differently.
-                "convertible": open_top}
+                "convertible": open_top and by_id[model_id].get("body_type") != "cabrio"}
 
     assign.makes = sorted(brand_of_make)          # type: ignore[attr-defined]
     assign.brand_of_make = brand_of_make          # type: ignore[attr-defined]

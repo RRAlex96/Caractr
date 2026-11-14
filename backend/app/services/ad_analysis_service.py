@@ -1947,6 +1947,18 @@ def match_catalogue_model(
     def named(name: str, pool: list = real) -> Optional[dict]:
         return next((r for r in pool if r["_name"] == name), None)
 
+    # 0. a site model that belongs to a catalogue model of another name: a
+    # body style or sub-model ("Insignia Sports Tourer", BMW "216 Gran
+    # Tourer"), one car under several site names ("Crossland X").
+    from app.scrapers.sv_models import catalogue_target
+    target = catalogue_target(brand_name, model_name)
+    if target:
+        want = (_norm_name(target[0]), _norm_name(target[1]))
+        hit = next((r for r in catalogue if (r.get("body_type") or "").strip()
+                    and (_norm_name(r.get("brand_name")), _norm_name(r.get("model_name"))) == want), None)
+        if hit:
+            return out(hit)
+
     # 1. BMW number -> series
     if brand == "bmw":
         m = re.match(r"^(\d)[1-9]\d(?!\d)", first)

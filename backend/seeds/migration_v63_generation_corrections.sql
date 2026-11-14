@@ -6,7 +6,7 @@
 -- a model never share a year, the changeover year belonging to the new one.
 --
 --   386 rows checked: 41 corrected, the rest confirmed
---   78 generations added (mostly 2002-2012 predecessors: a 2008 car of
+--   77 generations added (mostly 2002-2012 predecessors: a 2008 car of
 --       these models found no generation at all)
 --   2 rows removed
 --   2 rows the check could not settle are left as they were, unverified
@@ -497,7 +497,6 @@ FROM (VALUES
     ('Porsche', 'Cayenne', 'Cayenne I (9PA / E1)', 2002::int, 2009::int, NULL::text, 'https://en.wikipedia.org/wiki/Porsche_Cayenne'::text),
     ('Porsche', 'Cayenne', 'Cayenne Electric (E4)', 2026::int, NULL::int, 'eletrico'::text, 'https://de.wikipedia.org/wiki/Porsche_Cayenne'::text),
     ('Renault', 'Mégane', 'Mégane II', 2002::int, 2007::int, NULL::text, 'https://de.wikipedia.org/wiki/Renault_M%C3%A9gane_II'::text),
-    ('Renault', 'Mégane', 'Mégane E-Tech Electric', 2022::int, NULL::int, 'eletrico'::text, 'https://de.wikipedia.org/wiki/Renault_M%C3%A9gane_E-Tech'::text),
     ('Renault', 'Scénic', 'Scénic II', 2003::int, 2008::int, NULL::text, 'https://de.wikipedia.org/wiki/Renault_Sc%C3%A9nic'::text),
     ('Renault', 'Scénic', 'Scénic III', 2009::int, 2015::int, NULL::text, 'https://de.wikipedia.org/wiki/Renault_Sc%C3%A9nic'::text),
     ('Renault', 'Twingo', 'Twingo I', 1993::int, 2006::int, NULL::text, 'https://de.wikipedia.org/wiki/Renault_Twingo'::text),

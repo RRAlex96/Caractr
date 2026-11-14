@@ -49,6 +49,9 @@ BODY_TYPE_ADJACENCY = {
     "berlina":   ["compacto", "suv", "carrinha"],   # carrinhas are highway-natural
     "mpv":       ["suv", "berlina"],
     "carrinha":  ["berlina", "suv"],
+    "coupe":     ["berlina", "compacto", "cabrio"],
+    "cabrio":    ["coupe"],
+    "pickup":    ["suv"],
 }
 
 BRAND_STATUS = {
@@ -727,6 +730,11 @@ def apply_hard_constraints(models: list, answers: dict) -> tuple:
             if m["body_type"] in ("compacto", "berlina") and m["family_score"] < 7:
                 continue
         # Highway context: city cars have no place on a road trip
+        # Two-door sports bodies are not family cars; a pickup is not a city car.
+        if ctx == "familia" and m["body_type"] in ("coupe", "cabrio"):
+            continue
+        if ctx == "cidade" and m["body_type"] == "pickup":
+            continue
         if ctx == "estrada" and m["body_type"] == "citadino":
             continue
         # City context: MPVs need good city score
