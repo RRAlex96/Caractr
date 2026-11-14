@@ -604,6 +604,9 @@ def load_models(db: Session) -> list:
         SELECT DISTINCT e.model_id FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
         WHERE lower(ei.severity) = 'critico'
+          -- rows the AI curator wrote with no source to check are never
+          -- passed on as known faults (see curator_agent._issue_source_label)
+          AND COALESCE(ei.source, '') NOT LIKE 'IA (%sem fontes%'
     """)).fetchall()}
     models = []
     for row in rows:

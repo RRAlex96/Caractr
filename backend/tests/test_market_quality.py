@@ -107,3 +107,44 @@ def test_a_year_is_never_priced_from_neighbours_alone_or_from_another_model():
     stats = model_year_stats(groups)
     assert (1, 2016) not in stats
     assert stats[(2, 2016)] is None
+
+
+# ── the yearly mix of versions must not move a model's price ─────────────────
+from app.services.market_aggregator import SPORTS_VERSION_POWER, mainstream_prices
+
+
+def test_sports_versions_are_left_out_of_a_models_year_price():
+    # 2019: mostly GTI and R; 2020-2021: ordinary cars
+    listings = {
+        (1, 2019): [(31000.0, 245)] * 8 + [(17000.0, 115)] * 6,
+        (1, 2020): [(19000.0, 110)] * 10,
+        (1, 2021): [(21000.0, 130)] * 10,
+    }
+    prices = mainstream_prices(listings)
+    assert prices[(1, 2019)] == [17000.0] * 6          # the 245 cv cars are out
+    assert len(prices[(1, 2020)]) == 10 and len(prices[(1, 2021)]) == 10
+    assert SPORTS_VERSION_POWER == 1.5
+
+
+def test_a_year_of_only_sports_versions_keeps_them():
+    listings = {
+        (1, 2019): [(31000.0, 245)] * 8 + [(17000.0, 115)] * 2,   # only 2 ordinary: too few
+        (1, 2020): [(19000.0, 110)] * 10,
+    }
+    assert len(mainstream_prices(listings)[(1, 2019)]) == 10
+
+
+def test_listings_without_power_and_small_models_are_untouched():
+    listings = {
+        (1, 2019): [(31000.0, None)] * 4 + [(17000.0, 115)] * 6,
+        (2, 2019): [(90000.0, 510), (40000.0, 190), (41000.0, 190)],   # 3 listings: no typical power
+        (1, 2018): [(15000.0, 110)] * 6,
+    }
+    prices = mainstream_prices(listings)
+    assert len(prices[(1, 2019)]) == 10
+    assert prices[(2, 2019)] == [90000.0, 40000.0, 41000.0]
+
+
+def test_another_models_power_does_not_count():
+    listings = {(1, 2019): [(60000.0, 400)] * 6, (2, 2019): [(15000.0, 90)] * 20}
+    assert len(mainstream_prices(listings)[(1, 2019)]) == 6

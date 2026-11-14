@@ -434,12 +434,60 @@ def reassign(records: list, catalogue: list) -> list:
     return out
 
 
+# One row per snapshot loaded (also created by migration v64): when it was read,
+# how many listings, how many belong to a catalogue model. The audit's market
+# coverage figure is read from here.
+SNAPSHOT_RUNS_SQL = """
+    CREATE TABLE IF NOT EXISTS market_snapshot_runs (
+        id               SERIAL PRIMARY KEY,
+        source           VARCHAR(50) NOT NULL,
+        collected_on     DATE        NOT NULL,
+        listings_read    INTEGER     NOT NULL CHECK (listings_read >= 0),
+        listings_matched INTEGER     NOT NULL CHECK (listings_matched >= 0),
+        listings_loaded  INTEGER     NOT NULL CHECK (listings_loaded >= 0),
+        makes            INTEGER,
+        notes            JSONB       NOT NULL DEFAULT '{}'::jsonb,
+        loaded_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT market_snapshot_runs_matched_le_read CHECK (listings_matched <= listings_read),
+        CONSTRAINT uq_market_snapshot_runs UNIQUE (source, collected_on)
+    )
+"""
+
+_RECORD_RUN_SQL = """
+    INSERT INTO market_snapshot_runs
+        (source, collected_on, listings_read, listings_matched, listings_loaded, makes, notes)
+    VALUES (:source, :collected_on, :read, :matched, :loaded, :makes, CAST(:notes AS jsonb))
+    ON CONFLICT (source, collected_on) DO UPDATE SET
+        listings_read = EXCLUDED.listings_read, listings_matched = EXCLUDED.listings_matched,
+        listings_loaded = EXCLUDED.listings_loaded, makes = EXCLUDED.makes,
+        notes = EXCLUDED.notes, loaded_at = NOW()
+"""
+
+
+def run_summary(records: list, counts: dict) -> dict:
+    """What market_snapshot_runs records about a load: `records` after reassign,
+    `counts` from observation_rows. A convertible of a catalogue model counts
+    as matched (the model is known; its price is left out on purpose)."""
+    days = sorted((r.get("read_at") or "")[:10] for r in records if r.get("read_at"))
+    return {
+        "source": "standvirtual",
+        "collected_on": days[-1] if days else None,
+        "read": len(records),
+        "matched": len(records) - counts.get("not_in_catalogue", 0),
+        "loaded": counts.get("rows", 0),
+        "makes": len({r.get("make") for r in records if r.get("make")}),
+        "notes": json.dumps({k: v for k, v in counts.items() if k not in ("records", "rows")}),
+    }
+
+
 def load(db, records: list, batch: int = 500, log: Callable[[str], None] = print) -> dict:
     """Upsert snapshot records into price_observations (by listing URL). Each
-    listing is assigned to a model of this database's catalogue first."""
+    listing is assigned to a model of this database's catalogue first. The run
+    is recorded in market_snapshot_runs."""
     from sqlalchemy import text
 
     db.execute(text(SNAPSHOT_COLUMNS_SQL))
+    db.execute(text(SNAPSHOT_RUNS_SQL))
     db.commit()
     catalogue = [dict(r) for r in db.execute(text("""
         SELECT vm.id, b.name AS brand_name, vm.name AS model_name, vm.body_type
@@ -453,4 +501,8 @@ def load(db, records: list, batch: int = 500, log: Callable[[str], None] = print
         db.execute(text(_UPSERT_SQL), rows[start:start + batch])
         db.commit()
         log(f"  loaded {min(start + batch, len(rows))} of {len(rows)}")
+    summary = run_summary(records, counts)
+    if summary["collected_on"]:
+        db.execute(text(_RECORD_RUN_SQL), summary)
+        db.commit()
     return counts

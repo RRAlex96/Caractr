@@ -334,6 +334,41 @@ def run_aggregation(db: Session) -> dict:
     return stats
 
 
+# A listing this much more powerful than the model's typical car of those
+# years is a sports version (Golf GTI and R among Golfs): priced apart.
+SPORTS_VERSION_POWER = 1.5
+_POWER_WINDOW_YEARS = 2
+
+
+def mainstream_prices(listings: dict) -> dict:
+    """
+    {(model_id, year): [prices]} from {(model_id, year): [(price, power_hp or None)]},
+    without the sports versions.
+
+    The price of a model-year is the median of what is for sale, and what is
+    for sale is not the same mix every year: the 2019 Golfs on the market were
+    mostly GTI and R (median 245 cv, 24 125 EUR), the 2023 ones mostly 1.0 TSI
+    from rental fleets (110 cv, 19 450 EUR), so a Golf looked 24% cheaper new
+    than four years old. A listing with more than SPORTS_VERSION_POWER times
+    the median power of the model's listings of that year and the two either
+    side is left out, when at least MIN_PUBLISH_SAMPLE listings remain; a year
+    that is all sports versions keeps them. Listings that do not state their
+    power stay in.
+    """
+    out: dict = {}
+    for (model_id, year), rows in listings.items():
+        powers = [hp for step in range(-_POWER_WINDOW_YEARS, _POWER_WINDOW_YEARS + 1)
+                  for _price, hp in listings.get((model_id, year + step), []) if hp]
+        prices = [price for price, _hp in rows]
+        if len(powers) >= MIN_PUBLISH_SAMPLE:
+            limit = _median(powers) * SPORTS_VERSION_POWER
+            kept = [price for price, hp in rows if not hp or hp <= limit]
+            if len(kept) >= MIN_PUBLISH_SAMPLE:
+                prices = kept
+        out[(model_id, year)] = prices
+    return out
+
+
 def model_year_stats(groups: dict) -> dict:
     """
     {(model_id, year): stats or None} from {(model_id, year): [prices]}.
@@ -376,15 +411,16 @@ def _refresh_market_price_stats(db: Session) -> dict:
         # min/max = trimmed p10/p90, and a fresh group must have at least
         # MIN_PUBLISH_SAMPLE clean observations before it may replace a price.
         obs = db.execute(text("""
-            SELECT model_id, vehicle_year, price
+            SELECT model_id, vehicle_year, price, engine_power_hp
             FROM price_observations
             WHERE model_id IS NOT NULL AND vehicle_year IS NOT NULL
               AND price BETWEEN 500 AND 500000
               AND observed_at > now() - make_interval(days => :max_age)
         """), {"max_age": MAX_OBSERVATION_AGE_DAYS}).fetchall()
-        groups: dict[tuple, list[float]] = {}
-        for model_id, year, price in obs:
-            groups.setdefault((model_id, year), []).append(float(price))
+        listings: dict[tuple, list[tuple]] = {}
+        for model_id, year, price, power in obs:
+            listings.setdefault((model_id, year), []).append((float(price), power))
+        groups = mainstream_prices(listings)
 
         rows = []
         for (model_id, year), st in model_year_stats(groups).items():

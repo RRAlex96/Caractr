@@ -232,6 +232,9 @@ def get_dealbreakers(db: Session, model_id: int | None, year: int | None = None,
         FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
         WHERE e.model_id = :mid AND lower(ei.severity) = 'critico'
+          -- rows the AI curator wrote with no source to check are never
+          -- passed on as known faults (see curator_agent._issue_source_label)
+          AND COALESCE(ei.source, '') NOT LIKE 'IA (%sem fontes%'
         LIMIT 30
     """), {"mid": model_id}).mappings().fetchall()
 

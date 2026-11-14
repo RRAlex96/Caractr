@@ -476,6 +476,9 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
         FROM engine_issues ei
         JOIN engines e ON e.id = ei.engine_id
         WHERE e.model_id = :mid AND ei.severity IN ('alto', 'critico', 'medio')
+          -- rows the AI curator wrote with no source to check are never
+          -- passed on as known faults (see curator_agent._issue_source_label)
+          AND COALESCE(ei.source, '') NOT LIKE 'IA (%sem fontes%'
     """), {"mid": model_id}).mappings().fetchall()
     info["known_issues"], info["fix_cost_estimates"] = _filter_model_issues(issue_rows, year, fuel)
 
@@ -1776,17 +1779,19 @@ def _with_stored_engine(row: dict) -> dict:
 
 
 def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
-    """The listing as it was last read, when its URL is already in the DB.
+    """A listing already in the DB, as stored. It is fetched again before it
+    is analysed (_refetch_stored_listing); this row is what the analysis falls
+    back on when that fetch fails.
 
-    The row comes back with its id, so a new analysis of it is saved (without
-    it, every visit after the cached analysis expired ran the whole analysis
-    again and saved nothing), and with the date it was read (`scraped_at`),
-    which _stored_listing_is_old uses."""
+    The row's id comes with it: the analysis that follows is stored on that
+    row (and gets its permalink) like the analysis of a fresh scrape. Without
+    it the re-analysis of a listing whose stored analysis had gone stale was
+    thrown away, and redone in full on every later request. The row read is
+    the one the cache check reads (the latest for the URL)."""
     row = db.execute(text("""
         SELECT n.id, n.model_id, n.brand_name, n.model_name, n.year, n.km, n.price,
                n.km_per_year, n.price_delta, n.deal_tier, n.deal_score, n.seller_type,
-               n.description, n.photo_count, n.fuel_type, n.llm_analysis, r.source_url,
-               r.scraped_at
+               n.description, n.photo_count, n.fuel_type, n.llm_analysis, r.source_url
         FROM normalized_listings n
         JOIN raw_listings r ON r.id = n.raw_listing_id
         WHERE r.source_url = :url
@@ -1794,19 +1799,6 @@ def _resolve_model_from_url(db: Session, listing_url: str) -> Optional[dict]:
         LIMIT 1
     """), {"url": listing_url}).mappings().fetchone()
     return _with_stored_engine(row) if row else None
-
-
-def _stored_listing_is_old(listing: dict) -> bool:
-    """True when a stored listing was last read longer ago than an analysis is
-    kept (7 days). Its price may have dropped, its mileage changed, or the car
-    been sold, so it is read again rather than judged on what it said then.
-    A row with no date is taken as it is."""
-    scraped_at = listing.get("scraped_at")
-    if not isinstance(scraped_at, datetime):
-        return False
-    if scraped_at.tzinfo is None:
-        scraped_at = scraped_at.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) - scraped_at >= timedelta(hours=CACHE_TTL_HOURS)
 
 
 # ── Variant → series mapping for brands that use numeric/letter variants ──
@@ -2107,11 +2099,15 @@ def _get_or_create_model(
         return None
 
 
-async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[dict]:
+async def _scrape_and_store_listing(db: Session, listing_url: str, refetch: bool = False) -> Optional[dict]:
     """
     Fetch the listing detail page via the appropriate scraper (SV or OLX),
     infer model from URL slugs or title, store in raw_listings + normalized_listings.
     Returns the normalized row dict.
+
+    refetch: the listing is already stored and is being fetched again for its
+    current state. A fetch that brings no usable price then writes nothing and
+    returns None — see the guard below.
     """
     # Detect source and validate
     source = detect_source(listing_url) or "desconhecido"
@@ -2209,6 +2205,15 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
 
     if _data_warnings:
         print(f"[VALIDATION] {listing_url}: {_data_warnings}")
+
+    # A stored listing fetched again: when the page did not come back, or came
+    # back without a usable price, nothing below may run. It would replace the
+    # stored description with a blank and the stored model with a guess from
+    # the URL. The caller keeps the stored row.
+    if refetch and not price:
+        print(f"[AD_ANALYSIS] Re-fetch of {listing_url} brought no price "
+              f"({_extraction_method or 'no method'}) — stored listing kept")
+        return None
 
     # Insert raw_listing (source-tagged correctly)
     raw_id = db.execute(text("""
@@ -2351,6 +2356,48 @@ async def _scrape_and_store_listing(db: Session, listing_url: str) -> Optional[d
     }
 
 
+# A stored listing is fetched again within this long; past it the analysis goes
+# ahead on the stored row instead of failing on the pipeline's overall limit.
+_REFETCH_TIMEOUT_SECONDS = 30
+# What the stored row lends a re-fetch that missed it: the same fields the row's
+# own update keeps (COALESCE), and the engine facts of its last analysis.
+_REFETCH_KEEP_KEYS = ("year", "km") + _LISTING_ENGINE_KEYS
+
+
+async def _refetch_stored_listing(db: Session, listing_url: str, stored: dict) -> dict:
+    """A listing already in the DB whose analysis is stale or missing: fetched
+    again, so the analysis is of the listing as it is now — its price today, or
+    the fact that it is gone — and the price history gains an observation.
+
+    The stored row used to be analysed as it was, so a car reduced or sold
+    since was judged on the price first seen. It is now only the fallback:
+    when the fetch fails, times out or brings no price, the stored row is
+    returned (and was not written to). A field the fetch missed that the row
+    has (year, km, fuel, engine facts) is taken from the row."""
+    fresh = None
+    try:
+        fresh = await asyncio.wait_for(
+            _scrape_and_store_listing(db, listing_url, refetch=True),
+            timeout=_REFETCH_TIMEOUT_SECONDS,
+        )
+    except Exception as e:  # incl. the timeout; never worse than the read-back
+        print(f"[AD_ANALYSIS] Re-fetch of {listing_url} failed ({type(e).__name__}: {e}) — stored listing kept")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    if not fresh:
+        return stored
+    if fresh.get("_gone"):
+        return fresh
+    for key in _REFETCH_KEEP_KEYS:
+        if fresh.get(key) is None and stored.get(key) is not None:
+            fresh[key] = stored[key]
+    if stored.get("price") and fresh.get("price") != stored.get("price"):
+        print(f"[AD_ANALYSIS] Stored listing re-fetched: price {stored.get('price')} -> {fresh.get('price')}")
+    return fresh
+
+
 def _store_analysis(db: Session, normalized_id: int, llm_result: dict, deal_tier: str, deal_score: float) -> None:
     """Persist LLM analysis and deal tier back to DB."""
     db.execute(text("""
@@ -2468,17 +2515,12 @@ async def _analyse_listing_inner(
         # Always re-scrape on force_refresh (bypasses stale cached scrape data)
         normalized = await _scrape_and_store_listing(db, listing_url)
     else:
-        normalized = _resolve_model_from_url(db, listing_url)
-        if normalized and _stored_listing_is_old(normalized):
-            # Read over a week ago: read it again. If the site cannot be read
-            # now, the stored listing is still better than no analysis; if the
-            # listing is gone, the buyer is told so.
-            fresh = await _scrape_and_store_listing(db, listing_url)
-            if fresh:
-                normalized = fresh
-        if normalized:
-            normalized.pop("scraped_at", None)   # a date for the check above, not a fact of the car
-        if not normalized:
+        # Reached only without a fresh cached analysis. A listing seen before
+        # is fetched again rather than analysed on what was first scraped.
+        stored = _resolve_model_from_url(db, listing_url)
+        if stored:
+            normalized = await _refetch_stored_listing(db, listing_url, stored)
+        else:
             normalized = await _scrape_and_store_listing(db, listing_url)
 
     if normalized and normalized.get("_gone"):
