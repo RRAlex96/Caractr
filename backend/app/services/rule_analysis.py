@@ -196,7 +196,7 @@ def _green_flags(
     if any(kw in desc for kw in ["inspeção válida", "inspeção recente"]):
         flags.append("Inspeção recente válida")
 
-    if photo_count >= 10:
+    if (photo_count or 0) >= 10:
         flags.append(f"Boas fotos do anúncio ({photo_count} imagens)")
 
     if len(extras) >= 4:
@@ -258,7 +258,8 @@ def _red_flags(
     if listing_age_days is not None and listing_age_days > 90:
         flags.append(f"Anúncio publicado há mais de 90 dias — possível problema de escoamento")
 
-    if photo_count < 3:
+    # unknown (a pasted ad has no photos to count): no flag
+    if photo_count is not None and photo_count < 3:
         flags.append("Poucas fotos — difícil avaliar o estado do veículo")
 
     if len(description) < 80:
@@ -322,7 +323,7 @@ def _seller_analysis(
             base += " Garantia incluída — verificar período e cobertura."
         else:
             base += " Sem menção de garantia — negociar inclusão."
-        if photo_count >= 8:
+        if (photo_count or 0) >= 8:
             base += " Apresentação cuidada."
     else:
         base = "Tipo de vendedor não identificado — confirmar antes de avançar."
@@ -692,11 +693,11 @@ def _generate_seller_read(
         parts.append("Descrição muito curta — pedir toda a informação por mensagem antes de visitar.")
 
     # Photo count signals
-    if photo_count >= 15:
+    if (photo_count or 0) >= 15:
         parts.append(f"Com {photo_count} fotos, mostra o carro em detalhe — bom indicador de confiança.")
-    elif photo_count >= 8:
+    elif (photo_count or 0) >= 8:
         parts.append(f"{photo_count} fotos — apresentação adequada.")
-    elif photo_count > 0:
+    elif (photo_count or 0) > 0:
         parts.append(f"Poucas fotos ({photo_count}) — pedir imagens do interior, motor e eventuais marcas.")
 
     # Keyword signals
@@ -772,7 +773,8 @@ def analyse(
     description  = listing.get("description", "") or ""
     title        = listing.get("title", "") or f"{listing.get('brand_name', '')} {listing.get('model_name', '')}".strip()
     seller_type  = listing.get("seller_type", "desconhecido") or "desconhecido"
-    photo_count  = int(listing.get("photo_count") or 0)
+    # None when unknown (a pasted ad): no photo flag either way
+    photo_count  = None if listing.get("photo_count") is None else int(listing["photo_count"])
     price_delta  = float(listing.get("price_delta") or 0.0)
     km_per_year  = listing.get("km_per_year")
     deal_tier    = listing.get("deal_tier", "razoavel")

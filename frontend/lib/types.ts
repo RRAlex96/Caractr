@@ -278,6 +278,8 @@ export interface AnalysisResult {
   fit: FitData | null
   caveat: string | null
   error?: string
+  /** "fetch_failed" | "paste_incomplete": the page could not be read; offer the paste box. */
+  error_code?: string
 }
 
 // ── Recommendation Types ────────────────────────────────────────────────────

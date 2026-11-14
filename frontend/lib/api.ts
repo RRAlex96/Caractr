@@ -35,6 +35,8 @@ export async function analyseUrl(
     modelId?: number
     userProfile?: UserProfile
     forceRefresh?: boolean
+    /** The ad's text, pasted by the buyer when the page could not be fetched. */
+    pastedText?: string
   }
 ): Promise<AnalysisResult> {
   const res = await fetch(`${API}/api/listings/analyse`, {
@@ -45,6 +47,7 @@ export async function analyseUrl(
       model_id: options?.modelId,
       user_profile: options?.userProfile,
       force_refresh: options?.forceRefresh ?? false,
+      pasted_text: options?.pastedText || undefined,
     }),
   })
   return res.json()

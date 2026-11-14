@@ -2111,7 +2111,8 @@ def _get_or_create_model(
         return None
 
 
-async def _scrape_and_store_listing(db: Session, listing_url: str, refetch: bool = False) -> Optional[dict]:
+async def _scrape_and_store_listing(db: Session, listing_url: str, refetch: bool = False,
+                                    pasted_text: Optional[str] = None) -> Optional[dict]:
     """
     Fetch the listing detail page via the appropriate scraper (SV or OLX),
     infer model from URL slugs or title, store in raw_listings + normalized_listings.
@@ -2124,8 +2125,13 @@ async def _scrape_and_store_listing(db: Session, listing_url: str, refetch: bool
     # Detect source and validate
     source = detect_source(listing_url) or "desconhecido"
 
-    # Route to correct scraper via dispatcher
-    detail = await fetch_detail_for_url(listing_url)
+    # Route to correct scraper via dispatcher — or read the text the buyer
+    # pasted, when the page could not be fetched.
+    if pasted_text:
+        from app.scrapers.generic import extract_from_pasted_text
+        detail = await extract_from_pasted_text(pasted_text, listing_url)
+    else:
+        detail = await fetch_detail_for_url(listing_url)
 
     # Listing sold/removed (HTTP 404/410) — surface it cleanly rather than a
     # broken empty analysis.
@@ -2435,6 +2441,7 @@ async def analyse_listing(
     listing_url: str,
     user_profile: Optional[dict] = None,
     force_refresh: bool = False,
+    pasted_text: Optional[str] = None,
 ) -> dict:
     """
     Full ad analysis pipeline for a listing URL:
@@ -2450,7 +2457,7 @@ async def analyse_listing(
     """
     try:
         return await asyncio.wait_for(
-            _analyse_listing_inner(db, listing_url, user_profile, force_refresh),
+            _analyse_listing_inner(db, listing_url, user_profile, force_refresh, pasted_text),
             timeout=90,  # hard cap: entire pipeline must finish in 90s
         )
     except asyncio.TimeoutError:
@@ -2473,8 +2480,11 @@ async def _analyse_listing_inner(
     listing_url: str,
     user_profile: Optional[dict] = None,
     force_refresh: bool = False,
+    pasted_text: Optional[str] = None,
 ) -> dict:
     """Inner implementation — caller wraps in try/except."""
+    if pasted_text:
+        force_refresh = True       # the buyer's text is newer than anything stored
     # ── 0. Validate source URL ──
     if not is_supported_url(listing_url):
         return {
@@ -2525,7 +2535,7 @@ async def _analyse_listing_inner(
     # ── 2. Resolve or scrape listing ──
     if force_refresh:
         # Always re-scrape on force_refresh (bypasses stale cached scrape data)
-        normalized = await _scrape_and_store_listing(db, listing_url)
+        normalized = await _scrape_and_store_listing(db, listing_url, pasted_text=pasted_text)
     else:
         # Reached only without a fresh cached analysis. A listing seen before
         # is fetched again rather than analysed on what was first scraped.
@@ -2539,7 +2549,19 @@ async def _analyse_listing_inner(
         return {"error": "Este anúncio já não está disponível — foi vendido ou removido do site."}
 
     if not normalized:
-        return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente."}
+        return {"error": "Não foi possível obter o anúncio. Verifique o URL e tente novamente.",
+                "error_code": "fetch_failed"}
+
+    # No price means the page was not read (blocked, behind a login, or built
+    # by scripts we could not run): an analysis without it has no verdict to
+    # give. The buyer is offered to paste the ad's text instead.
+    if not normalized.get("price"):
+        if pasted_text:
+            return {"error": "Não encontrámos o preço no texto colado. Copia a página inteira do anúncio "
+                             "(Ctrl+A, Ctrl+C) e cola outra vez.",
+                    "error_code": "paste_incomplete"}
+        return {"error": "Não conseguimos ler este anúncio no site.",
+                "error_code": "fetch_failed"}
 
     # ── 3. Fetch market stats ──
     model_id   = normalized.get("model_id")
