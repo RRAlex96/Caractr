@@ -8,10 +8,17 @@ Usage (from backend/, with the venv active):
     # bash
     DATABASE_URL="postgresql://…neon…?sslmode=require" python -m scripts.load_seed
 
-Runs the SQL files in dependency order. Meant for a FRESH database; safe to
-read, and it stops with a clear message if a file errors. Newer columns/tables
-(price_observations, depreciation, admin_notes, listing_snapshots) are created
-automatically the first time the app boots, so they're not needed here.
+Runs the SQL files in dependency order. Meant for a FRESH database; it stops
+with a clear message, and exit status 1, if a file is missing or errors.
+
+The tables and columns the app creates when it boots (price_observations,
+listing_snapshots, the rebuilt raw_listings, depreciation columns ...) are
+created here too, right after the base schema, by running the app's own
+startup migrations: the numbered migrations after it refer to them. Without
+that step a fresh database could not be built from this repository (v60 failed
+on raw_listings.source_url).
+
+    python -m scripts.load_seed --twice     # then v60 onwards again: those must be idempotent
 """
 import os
 import sys
@@ -24,8 +31,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # engine_issues schema (an "issue_name" column that no longer exists) and are
 # intentionally NOT loaded. migration_v51_generations adds generation windows
 # and matches the current schema.
+STARTUP = "app:startup-migrations"
+
 SEED_FILES = [
     "seeds/full_deploy_schema.sql",         # schema (17 tables) + full catalogue
+    STARTUP,                                # what the app creates at boot (app.main._run_startup_migrations)
     "seeds/migration_v51_generations.sql",  # generation windows
     "seeds/migration_v56_split_wide_generations.sql",  # split the >12-year catch-all windows
     "seeds/migration_v57_close_replaced_generations.sql",  # close replaced / discontinued generations
@@ -40,6 +50,7 @@ SEED_FILES = [
     "seeds/migration_v67_engines_new_models.sql",  # their engines, from the market snapshot
     "seeds/migration_v68_brand_reliability.sql",  # reliability anchored on published studies
     "seeds/migration_v69_retire_unsourced_ai_issues.sql",  # no-op on a fresh database
+    "seeds/migration_v70_deferrable_generation_rule.sql",  # no-op on a fresh database (v64 already deferrable)
     # migration_v62_remove_seeded_prices.sql is NOT loaded here: it removes the
     # placeholder prices and refuses to run until a market snapshot has been
     # loaded and aggregated (scripts/market_snapshot.py, then monthly_refresh).
@@ -57,11 +68,18 @@ def main() -> None:
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     conn = psycopg2.connect(url)
     try:
-        for rel in SEED_FILES:
+        runs = SEED_FILES + ([f for f in SEED_FILES if f.startswith("seeds/migration_v6")] if "--twice" in sys.argv else [])
+        for rel in runs:
+            if rel == STARTUP:
+                print("→ app startup migrations …")
+                from app.main import _run_startup_migrations
+                _run_startup_migrations()
+                print("  ✓ app startup migrations")
+                continue
             path = os.path.join(here, rel)
             if not os.path.exists(path):
-                print(f"✗ missing {rel} — skipping")
-                continue
+                print(f"✗ missing {rel}")
+                sys.exit(1)
             sql = open(path, encoding="utf-8").read()
             print(f"→ loading {rel} ({len(sql) // 1024} KB) …")
             try:

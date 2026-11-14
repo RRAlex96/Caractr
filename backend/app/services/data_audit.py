@@ -352,15 +352,22 @@ def run_check(db, check: Check) -> Result:
         return Result(check, 0.0, error=str(e).split("\n")[0][:160])
 
 
-def run_audit(db) -> dict:
-    """Run every check. Returns {"score", "dimensions": {name: score}, "results": [Result]}."""
-    results = [run_check(db, c) for c in CHECKS]
+def run_audit(db, only: Optional[list] = None) -> dict:
+    """Run every check, or those of the dimensions in `only`. Returns
+    {"score", "dimensions": {name: score}, "results": [Result], "critical_failures"};
+    the score is over the dimensions run."""
+    names = [n for n in DIMENSIONS if not only or n in only]
+    unknown = set(only or []) - set(DIMENSIONS)
+    if unknown:
+        raise ValueError(f"unknown dimensions: {sorted(unknown)}")
+    results = [run_check(db, c) for c in CHECKS if c.dim in names]
     dims = {}
-    for name in DIMENSIONS:
+    for name in names:
         mine = [r for r in results if r.check.dim == name]
         weight = sum(_WEIGHT[r.check.severity] for r in mine)
         dims[name] = sum(r.score * _WEIGHT[r.check.severity] for r in mine) / weight if weight else 0.0
-    overall = sum(dims[name] * w for name, (_title, w) in DIMENSIONS.items())
+    total_w = sum(DIMENSIONS[n][1] for n in names)
+    overall = sum(dims[n] * DIMENSIONS[n][1] for n in names) / total_w if total_w else 0.0
     return {"score": round(overall * 100, 1), "dimensions": {k: round(v * 100, 1) for k, v in dims.items()},
             "results": results, "as_of": date.today().isoformat(),
             "critical_failures": [r.check.id for r in results if r.check.severity == "critical" and not r.passed]}
@@ -370,8 +377,11 @@ def as_markdown(audit: dict) -> str:
     out = [f"# Data audit — {audit['as_of']}", "", f"**Overall: {audit['score']} / 100**", "",
            "| Dimension | Score | Weight |", "|---|---|---|"]
     for name, (title, w) in DIMENSIONS.items():
-        out.append(f"| {title} | {audit['dimensions'][name]} | {int(w * 100)}% |")
+        if name in audit["dimensions"]:
+            out.append(f"| {title} | {audit['dimensions'][name]} | {int(w * 100)}% |")
     for name, (title, _w) in DIMENSIONS.items():
+        if name not in audit["dimensions"]:
+            continue
         out += ["", f"## {title}", "", "| Check | | Result | Score |", "|---|---|---|---|"]
         for r in [r for r in audit["results"] if r.check.dim == name]:
             c = r.check

@@ -2,6 +2,19 @@ import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
 import { DealbreakerCardAlert } from "@/components/shared/dealbreaker-badge"
 
+// The catalogue's body types as a buyer reads them.
+const BODY_LABEL: Record<string, string> = {
+  citadino: "Citadino",
+  compacto: "Compacto",
+  berlina: "Berlina",
+  carrinha: "Carrinha",
+  suv: "SUV",
+  mpv: "Monovolume",
+  coupe: "Coupé",
+  cabrio: "Descapotável",
+  pickup: "Pick-up",
+}
+
 interface ModelCardProps {
   rec: Recommendation
   rank: number
@@ -107,7 +120,7 @@ export function ModelCard({
         )}
         {rec.body_type && !rec.is_wildcard && !rec.is_stretch && (
           <span className="rounded-full border border-border px-3 py-0.5 font-mono text-[10px] text-muted-foreground">
-            {rec.body_type.toUpperCase()}
+            {(BODY_LABEL[rec.body_type] ?? rec.body_type).toUpperCase()}
           </span>
         )}
       </div>

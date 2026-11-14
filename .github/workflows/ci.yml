@@ -29,6 +29,49 @@ jobs:
         working-directory: backend
         run: python -m pytest
 
+  database:
+    name: Database · build from seeds
+    # The whole catalogue is built from the repository on an empty Postgres:
+    # base schema, the app's boot migrations, every numbered migration, then
+    # v60 onwards a second time (each must be idempotent). The database's own
+    # constraints refuse a bad row; the audit's structural checks must then
+    # all pass. A migration that only works on production's data fails here.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: caractr
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/caractr
+      CATALOGUE_DB_URL: postgresql://postgres:postgres@localhost:5432/caractr
+      USE_RULE_ANALYSIS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Build the database from the seeds, migrations twice
+        working-directory: backend
+        run: python -m scripts.load_seed --twice
+      - name: Structural audit (integrity, plausibility, safeties)
+        working-directory: backend
+        run: python -m scripts.data_audit --only integrity,plausibility,safeties --strict
+      - name: Site-model map points at catalogue models
+        working-directory: backend
+        run: python -m pytest tests/test_data_audit.py -q
+
   frontend-build:
     name: Frontend · build
     runs-on: ubuntu-latest

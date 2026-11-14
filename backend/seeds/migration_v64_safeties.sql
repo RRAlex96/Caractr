@@ -36,6 +36,10 @@
 -- and 1100" as far as SQL is concerned), so each condition is wrapped in
 -- COALESCE(..., FALSE): a missing value fails unless the rule itself allows it.
 --
+-- The no-shared-year rule is checked when a transaction commits, not row by
+-- row: a migration that moves one generation's end and the next one's start
+-- in the same statement passes through states that break it for a moment.
+--
 -- Run it after v63 (the generation corrections): the exclusion constraint
 -- cannot be created while two generations overlap. Idempotent.
 
@@ -89,7 +93,7 @@ BEGIN
             ('generations', 'uq_generations_model_name',
              'UNIQUE (model_id, name)'),
             ('generations', 'generations_no_shared_year',
-             'EXCLUDE USING gist (model_id WITH =, int4range(year_start, COALESCE(year_end, 9999), ''[]'') WITH &&) WHERE (fuel_type IS NULL)'),
+             'EXCLUDE USING gist (model_id WITH =, int4range(year_start, COALESCE(year_end, 9999), ''[]'') WITH &&) WHERE (fuel_type IS NULL) DEFERRABLE INITIALLY DEFERRED'),
             ('engines', 'engines_model_required',
              'CHECK (COALESCE((model_id IS NOT NULL AND code IS NOT NULL), FALSE))'),
             ('engines', 'engines_fuel_known',

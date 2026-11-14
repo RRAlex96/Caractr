@@ -1,0 +1,63 @@
+name: Market snapshot
+
+# Once a month: read every listing of the catalogue's makes on Standvirtual,
+# load them into the database, recompute model-year prices, engine years and
+# depreciation, then run the data audit. Prices older than 75 days expire, so
+# without this the recommender has nothing to price cars with by the third
+# month; the daily health check alarms when the snapshot goes stale.
+#
+# Setup, once (Settings → Secrets and variables → Actions):
+#   secret DATABASE_URL — the production database URL (the value in backend/.env)
+# Until the secret exists the job stops at its first step, so nothing runs by default.
+#
+# About 35 minutes of polite reading (one request every 1-2 s) and 25 of loading.
+# The snapshot file is kept as a workflow artifact for 90 days.
+
+on:
+  schedule:
+    - cron: "0 3 2 * *"   # 03:00 UTC on the 2nd of every month
+  workflow_dispatch:
+
+concurrency:
+  group: market-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Collect, load, aggregate, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      USE_RULE_ANALYSIS: "true"
+    steps:
+      - name: Database configured
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret not set: snapshot not run"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Collect and load the snapshot, recompute prices
+        working-directory: backend
+        run: python -m scripts.monthly_refresh --skip safety_gate,nhtsa,curator,scorer,retention
+      - name: Keep the snapshot file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standvirtual-snapshot
+          path: backend/snapshots/*.jsonl
+          retention-days: 90
+          if-no-files-found: ignore
+      - name: Audit
+        working-directory: backend
+        run: python -m scripts.data_audit --strict
