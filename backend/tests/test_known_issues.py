@@ -66,11 +66,14 @@ def test_dq200_needs_low_torque_seven_speed():
 
 def test_years_gate_new_generations_out():
     n47 = ALL["bmw-n47-chain"]
-    # The current 320d (B47, 2019+) shares cc and fuel with the N47 — years keep it out
-    assert matches_engine(n47, brand="BMW", label="320d 190cv", fuel="diesel", displacement_cc=1995)
+    lo, hi = n47["years"]          # 2007-2014 after the audit of 2026-11-14
+    assert matches_engine(n47, brand="BMW", label="320d 184cv", fuel="diesel", displacement_cc=1995)
+    # The B47 that replaced it shares cc and fuel: its power outputs (190 cv)
+    # are excluded by the rule, and its years by the years.
+    assert not matches_engine(n47, brand="BMW", label="320d 190cv", fuel="diesel", displacement_cc=1995)
     assert not years_overlap(n47, 2019, None)
     assert years_overlap(n47, 2005, 2012)
-    assert applies_to_year(n47, 2009) and not applies_to_year(n47, 2013)
+    assert applies_to_year(n47, 2009) and not applies_to_year(n47, hi + 1)
     assert not applies_to_year(n47, None)
 
 

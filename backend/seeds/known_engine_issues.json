@@ -22,7 +22,7 @@
   "issues": [
     {
       "id": "psa-puretech-12-belt",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "motor",
@@ -36,13 +36,13 @@
       ],
       "years": [
         2012,
-        2022
+        2023
       ],
       "models": [
-        "Peugeot 208/2008/308/3008/5008/508",
-        "Citroën C3/C3 Aircross/C4/C5 Aircross/Berlingo",
+        "Peugeot 108/208/2008/308/3008/5008/508/Partner/Rifter",
+        "Citroën C3/C3 Aircross/C4/C4 Cactus/C5 Aircross/Berlingo",
         "DS 3/DS 4/DS 7",
-        "Opel Corsa F/Astra L/Mokka B/Crossland/Grandland (2019+)"
+        "Opel Crossland X (desde 2017)/Grandland X/Corsa F/Mokka B/Astra L"
       ],
       "problem": "Correia de distribuição em banho de óleo degrada-se cedo",
       "detail": "A correia trabalha mergulhada no óleo e desfaz-se antes do previsto. Os resíduos entopem o pescador da bomba de óleo e a bomba de vácuo dos travões; o desfecho pode ser perda de pressão de óleo, motor danificado ou perda de assistência à travagem. Associado também a consumo excessivo de óleo.",
@@ -57,7 +57,7 @@
           6000
         ]
       },
-      "mitigation": "A Stellantis alargou a cobertura dos motores 1.0 e 1.2 PureTech fabricados até junho de 2022 para 10 anos / 175.000 km (peças e mão de obra), em caso de consumo excessivo de óleo ou de degradação prematura da correia. Condições: manutenção segundo o plano do fabricante, feita por qualquer oficina profissional (são pedidas as últimas faturas), e diagnóstico e reparação na rede autorizada. Os motores fabricados a partir de meados de junho de 2022 têm correia de nova geração. Confirma a elegibilidade com o VIN num concessionário.",
+      "mitigation": "Desde maio de 2025, a Stellantis cobre a 100% (peças e mão de obra) a degradação prematura da correia e o consumo excessivo de óleo dos motores 1.0 e 1.2 PureTech de correia em óleo (geração EB2), seja qual for a data de fabrico, até 10 anos / 180.000 km (o que ocorrer primeiro). Condições: manutenção segundo o plano do fabricante, feita por qualquer oficina profissional (são pedidas as faturas das três últimas revisões, com tolerância de 3 meses / 3.000 km), e diagnóstico e reparação na rede autorizada. Os motores fabricados a partir de meados de junho de 2022 têm correia de nova geração. Confirma a elegibilidade com o VIN num concessionário.",
       "match": {
         "brands": [
           "Peugeot",
@@ -77,16 +77,6 @@
       },
       "sources": [
         {
-          "label": "Stellantis — extensão da política de compensação PureTech 1.0/1.2",
-          "url": "https://www.media.stellantis.com/uk-en/citroen/press/stellantis-extends-compensation-policy-for-european-consumers-claims-on-previous-generations-of-puretech-1-0-and-1-2-engines",
-          "kind": "official"
-        },
-        {
-          "label": "Peugeot UK — PureTech engines: solutions",
-          "url": "https://www.peugeot.co.uk/owners/puretech-engines-solutions.html",
-          "kind": "official"
-        },
-        {
           "label": "Caradisiac — extensão de garantia PureTech",
           "url": "https://www.caradisiac.com/le-moteur-puretech-profite-d-une-extension-de-garantie-208069.htm",
           "kind": "press"
@@ -105,13 +95,28 @@
           "label": "Vehicle Recall UK — R/2023/046 Citroën: material da correia, bomba de vácuo, perda de assistência à travagem (dados DVSA)",
           "url": "https://www.vehicle-recall.co.uk/recall/R/2023/046",
           "kind": "trade"
+        },
+        {
+          "label": "Automoto.it (27/05/2025) — garantia PureTech: 10 anos / 180.000 km, todos os 1.0/1.2 turbo EB2 com correia em óleo, independentemente da data de produção; manutenção por um profissional, 3 últimas revisões, tolerância de 3 meses / 3.000 km",
+          "url": "https://www.automoto.it/news/stellantis-la-garanzia-sui-puretech-cambia-rimborsi-per-tutti-entro-il-2025.html",
+          "kind": "press"
+        },
+        {
+          "label": "Mac4Ever (28/05/2025) — Stellantis alarga a garantia PureTech a 10 anos / 180.000 km para todos os 1.0 e 1.2, atmosféricos ou turbo, seja qual for a data de produção (antes: correia 04/2014-06/2022, consumo de óleo 02/2018-02/2023)",
+          "url": "https://www.mac4ever.com/auto/189575-moteurs-puretech-bonne-nouvelle-stellantis-etend-sa-garantie-a-10-ans-pour-tous-les-modeles",
+          "kind": "press"
+        },
+        {
+          "label": "J2R Auto (27/05/2025) — Stellantis alarga a garantia PureTech: todos os 1.0 e 1.2, atmosféricos e turbo, sem distinção de data de produção, 10 anos / 180.000 km",
+          "url": "https://j2rauto.com/rechange/stellantis-elargit-sa-garantie-sur-les-moteurs-puretech",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 8/10, approve_with_changes; alterações aplicadas: nome, códigos (+EB2F/EB2FA atmosféricos) e anos 2012-2022 alargados aos 1.2 atmosféricos; check e mitigation corrigidos (manutenção em qualquer oficina profissional, só diagnóstico e reparação na rede); +3 fontes (Connexion France, car-recalls.eu, Vehicle Recall UK). Mantidas, por indicação da auditoria, as páginas Stellantis e Peugeot UK, que bloqueiam acesso automático (conteúdo não lido diretamente)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
     },
     {
       "id": "psa-bluehdi-15-camchain",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "motor",
@@ -126,14 +131,15 @@
         2023
       ],
       "models": [
-        "Peugeot 208/2008/308/3008/5008/508",
+        "Peugeot 208/2008/308/3008/5008/508/Partner/Rifter/Traveller",
         "Citroën C3 Aircross/C4/C5 Aircross/Berlingo",
         "DS 3/DS 4/DS 7",
-        "Opel Corsa F/Astra L/Grandland/Combo"
+        "Opel Corsa F/Astra L/Grandland/Combo",
+        "Toyota Proace City/Proace City Verso/Proace Verso (1.5 D)"
       ],
       "problem": "Corrente entre as árvores de cames estica e parte",
       "detail": "A distribuição principal é por correia, mas uma pequena corrente de 7 mm liga as duas árvores de cames. Com óleo carbonizado e pressão de contacto alta, estica e pode partir, destruindo balanceiros, válvulas e árvores de cames. A marca passou para uma corrente de 8 mm com nova tampa de válvulas.",
-      "check": "Confirma pelo VIN num concessionário se a campanha de recolha (código MXL na Peugeot) foi feita: diagnóstico com a ferramenta própria e, se necessário, substituição da corrente de 7 mm pela de 8 mm (com nova tampa de árvores de cames). Ouve o arranque a frio: ruído metálico ou chocalhar é sinal de alerta. Pede o histórico de mudanças de óleo.",
+      "check": "Confirma pelo VIN num concessionário se a campanha de recolha foi feita (código MXL na Peugeot, CI25-021 na Toyota): diagnóstico com a ferramenta própria e, se necessário, substituição da corrente de 7 mm pela de 8 mm (com nova tampa de árvores de cames). Ouve o arranque a frio: ruído metálico ou chocalhar é sinal de alerta. Pede o histórico de mudanças de óleo.",
       "cost_eur": {
         "preventive": [
           500,
@@ -144,14 +150,15 @@
           7000
         ]
       },
-      "mitigation": "Recolha (recall) Stellantis para motores 1.5 BlueHDi fabricados entre outubro de 2017 e 31/01/2023; a inspeção e a reparação na campanha são gratuitas. Desde julho de 2025 há cobertura específica da corrente de árvores de cames até 10 anos / 240.000 km (150.000 milhas) e reembolso de reparações feitas entre 01/01/2023 e 30/06/2025, com manutenção segundo o plano do fabricante e diagnóstico e reparação na rede autorizada.",
+      "mitigation": "Recolha (recall) Stellantis para motores 1.5 BlueHDi fabricados entre outubro de 2017 e 31/01/2023 (também nos Toyota Proace com este motor); a inspeção e a reparação na campanha são gratuitas. Desde julho de 2025 há cobertura específica da corrente de árvores de cames até 10 anos / 240.000 km (150.000 milhas no Reino Unido) e reembolso de reparações feitas entre 01/01/2023 e 30/06/2025. Condições: manutenção segundo o plano do fabricante, feita por um profissional (são pedidas as três últimas faturas), e diagnóstico e reparação na rede autorizada.",
       "match": {
         "brands": [
           "Peugeot",
           "Citroën",
           "DS",
           "Opel",
-          "Fiat"
+          "Fiat",
+          "Toyota"
         ],
         "fuel": [
           "diesel"
@@ -164,11 +171,6 @@
         "exact_cc_suffices": true
       },
       "sources": [
-        {
-          "label": "Parkers — recall motores diesel Stellantis",
-          "url": "https://www.parkers.co.uk/car-news/recalls/stellantis-diesel-engines",
-          "kind": "press"
-        },
         {
           "label": "car-recalls.eu — Peugeot 308 (2017-2023) BlueHDi",
           "url": "https://car-recalls.eu/recall/peugeot-308-2017-2023-bluehdi-failure/?noamp=mobile",
@@ -188,9 +190,19 @@
           "label": "Dubhe — kit de árvores de cames 1.5 BlueHDi DV5 com corrente de 8 mm (substitui o kit de 7 mm)",
           "url": "https://www.dubhegroup.com/en/post/product-news-camshaft-kit-1-5-bluehdi-16v-yh01-dv5-with-8-mm-chain",
           "kind": "trade"
+        },
+        {
+          "label": "car-recalls.eu — Toyota Proace City / City Verso / Proace Verso 1.5 D (DV5R): corrente de 7 mm, fabricados 05/09/2018-01/02/2023, campanha Toyota CI25-021",
+          "url": "https://car-recalls.eu/recall/toyota-proace-city-2018-2023-bluehdi-failure/?noamp=mobile",
+          "kind": "trade"
+        },
+        {
+          "label": "Motor.es (03/07/2025) — cobertura especial 1.5 BlueHDi: 10 anos / 240.000 km, motores 10/2017-01/2023, reembolso de incidentes 01/2023-06/2025, manutenção por um profissional (3 últimas faturas, tolerância 3 meses / 3.000 km), diagnóstico e reparação na rede",
+          "url": "https://www.motor.es/noticias/stellantis-cobertura-problema-cadena-arbol-levas-motor-diesel-bluehdi-2025109003.html",
+          "kind": "press"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 7/10, approve_with_changes; alterações aplicadas: anos até 2023 (recall até 31/01/2023); check e mitigation atualizados (cobertura de 10 anos desde 07/2025 e janela de reembolso); match: +Fiat, cilindrada 1498-1500 (exclui o 1.5 diesel GM de 1496 cc do Insignia); removida a página Peugeot UK (inacessível); +3 fontes (Carwow, AutoTrade.ie, Dubhe)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10."
     },
     {
       "id": "ford-ecoboost-10-wetbelt",
@@ -286,7 +298,7 @@
     },
     {
       "id": "bmw-n47-chain",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "motor",
@@ -296,17 +308,19 @@
       ],
       "years": [
         2007,
-        2011
+        2014
       ],
       "models": [
-        "BMW Série 1 E87/E81 (118d/120d/123d)",
-        "BMW Série 3 E90/E91 (318d/320d)",
-        "BMW Série 5 E60/F10 (520d)",
-        "BMW X1 E84 / X3 E83-F25 (18d/20d)"
+        "BMW Série 1 E87/E81/F20 (116d/118d/120d/123d/125d)",
+        "BMW Série 2 F22 (218d/220d/225d, 2014-2015)",
+        "BMW Série 3 E90/E91/F30 (318d/320d/325d)",
+        "BMW Série 5 E60/F10 (520d/525d)",
+        "BMW X1 E84 / X3 E83-F25 (18d/20d/23d)",
+        "MINI Cooper D/SD 2.0 (R56-R61)"
       ],
       "problem": "Corrente de distribuição (na traseira do motor) desgasta-se e parte",
       "detail": "A corrente de distribuição, fina e montada na traseira do motor (do lado da caixa), estica com o uso e pode partir — o motor fica destruído. Os motores mais afetados são os fabricados entre 03/2007 e 01/2009. Como a distribuição fica do lado da caixa, a reparação preventiva é cara (muitas vezes exige retirar o motor).",
-      "check": "Ouve o motor ao ralenti: chocalhar vindo da traseira do motor é o sinal clássico. Pede faturas de substituição da corrente/tensores. Sem prova de reparação num carro de 2007-2011, conta com a despesa.",
+      "check": "Ouve o motor ao ralenti e no arranque a frio: chocalhar vindo da traseira do motor é o sinal clássico. Pede faturas de substituição da corrente/tensores. Sem prova de reparação, conta com a despesa — sobretudo em motores fabricados entre 2007 e 2009, os mais afetados.",
       "cost_eur": {
         "preventive": [
           1500,
@@ -320,7 +334,8 @@
       "mitigation": "A BMW fez ações de qualidade para alguns carros, já encerradas; não há extensão de garantia geral. Há relatos de falhas, menos frequentes, em N47 fabricados até 2015.",
       "match": {
         "brands": [
-          "BMW"
+          "BMW",
+          "MINI"
         ],
         "fuel": [
           "diesel"
@@ -329,7 +344,7 @@
           1990,
           2000
         ],
-        "label_regex": "n47|16d|18d|20d|23d|25d"
+        "label_regex": "^(?!.*\\b(150|190|224|231) ?cv\\b).*(n47|16d|18d|20d|23d|25d|cooper ?s?d)"
       },
       "sources": [
         {
@@ -341,17 +356,22 @@
           "label": "Wikipedia — BMW N47 (cita BBC Watchdog, 2013)",
           "url": "https://en.wikipedia.org/wiki/BMW_N47",
           "kind": "trade"
+        },
+        {
+          "label": "L'argus (18/06/2015) — corrente de distribuição na traseira do 2.0 diesel N47; campanha de oficina BMW 0011540300 (novo tensor) para motores fabricados até ao fim de 2008",
+          "url": "https://www.largus.fr/actualite-automobile/fiabilite-bmw-problemes-de-chaine-de-distribution-sur-le-20-diesel-6313385.html",
+          "kind": "press"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 6/10, approve_with_changes; alterações aplicadas: detail sem a afirmação 'peça revista após 03/2011' (não suportada) e com os anos piores 03/2007-01/2009; mitigation suavizada (ações de qualidade encerradas, relatos até 2015); label_regex alargado a 16d/25d; fontes: removidas Honest John (fechado) e Australian Car Reviews (inacessível), +Auto Motor und Sport (press), Wikipedia passa a 'trade' com URL en.wikipedia.org."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10."
     },
     {
       "id": "bmw-n20-chain-guide",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "motor",
-      "name": "BMW 2.0 gasolina N20 (120i/125i, 320i/328i, 520i/528i, X1/X3 20i/28i)",
+      "name": "BMW 2.0 gasolina N20 (125i, 220i/228i, 320i/328i, 420i/428i, 520i/528i, X1/X3 20i/28i, Z4)",
       "codes": [
         "N20B20"
       ],
@@ -361,14 +381,16 @@
       ],
       "models": [
         "BMW Série 1 F20 (125i)",
-        "BMW Série 3 F30/F31 (320i/328i)",
+        "BMW Série 2 F22 (220i/228i)",
+        "BMW Série 3 F30/F31/F34 (320i/328i)",
+        "BMW Série 4 F32/F33/F36 (420i/428i)",
         "BMW Série 5 F10 (520i/528i)",
-        "BMW X1 E84 / X3 F25 (20i/28i)",
-        "BMW Z4 E89 (sDrive20i/28i)"
+        "BMW X1 E84 (20i/28i) / X3 F25 (18i/20i/28i) / X4 F26 (28i)",
+        "BMW Z4 E89 (sDrive18i/20i/28i)"
       ],
       "problem": "Guias de plástico da corrente partem-se",
-      "detail": "As guias da corrente eram de policarbonato que fica quebradiço. Quando se desfazem, a corrente perde tensão (o motor pode saltar de distribuição) ou os fragmentos entopem a bomba de óleo. Peças revistas a partir do início de 2015.",
-      "check": "Data de fabrico anterior a março de 2015? Pede prova de substituição da corrente, guias e tensor (e do módulo de corrente da bomba de óleo). Um assobio/gemido agudo vindo da zona inferior do motor, que sobe com as rotações, é sinal precoce.",
+      "detail": "As guias de plástico da corrente de distribuição degradam-se e partem; a corrente estica, perde tensão e o motor pode sofrer danos graves. A corrente que aciona a bomba de óleo também é abrangida pela extensão de garantia da BMW nos EUA. Os motores fabricados a partir de março de 2015 têm peças revistas.",
+      "check": "Data de fabrico anterior a março de 2015? Pede prova de substituição da corrente, guias e tensor (e do módulo de corrente da bomba de óleo).",
       "cost_eur": {
         "preventive": [
           1500,
@@ -379,7 +401,7 @@
           9000
         ]
       },
-      "mitigation": "Nos EUA, a BMW estendeu a garantia da corrente de distribuição e da corrente da bomba de óleo dos motores N20/N26 fabricados entre 06/2011 e 02/2015 para 7 anos / 70.000 milhas (SI B11 03 17), em vários modelos (Série 2/3/4/5, X1, X3, X4, Z4). Na Europa não encontrei extensão equivalente. Os motores fabricados a partir de 2015 têm peças revistas.",
+      "mitigation": "Nos EUA, a BMW estendeu a garantia da corrente de distribuição e da corrente da bomba de óleo dos motores N20/N26 fabricados entre 06/2011 e 02/2015 para 7 anos / 70.000 milhas (SI B11 03 17), em vários modelos (Série 2/3/4/5, X1, X3, X4, Z4). Na Europa não há extensão equivalente conhecida. Os motores fabricados a partir de 2015 têm peças revistas.",
       "match": {
         "brands": [
           "BMW"
@@ -388,10 +410,10 @@
           "gasolina"
         ],
         "displacement_cc": [
-          1995,
-          2000
+          1996,
+          1998
         ],
-        "label_regex": "n20|20i|25i|28i"
+        "label_regex": "n20|18i|20i|25i|28i"
       },
       "sources": [
         {
@@ -410,7 +432,7 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 9/10, approve_with_changes; alterações aplicadas: check (antes de 03/2015, módulo da bomba de óleo, assobio da zona inferior do motor); mitigation com a extensão BMW NA SI B11 03 17 (motores 06/2011-02/2015, vários modelos, não só X3); fontes: Autodoc (inacessível) substituída pelo boletim BMW SI B11 03 17 (official); Wikipedia passa a 'trade'."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "prince-16-chain",
@@ -485,7 +507,7 @@
     },
     {
       "id": "vag-ea888-gen2-oil",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "motor",
@@ -494,8 +516,10 @@
         "CDAA",
         "CDHA",
         "CAEB",
+        "CDNB",
         "CDNC",
         "CCZA",
+        "CCZB",
         "CAWB"
       ],
       "years": [
@@ -533,8 +557,8 @@
           1790,
           1990
         ],
-        "label_regex": "^(?!.*\\b(30|35|40|45) tfsi\\b).*(tsi|tfsi|1\\.8|2\\.0)",
-        "max_power_hp": 240
+        "label_regex": "^(?!.*\\b(30|35|40|45) tfsi\\b)(?!.*\\b(23[1-9]|2[4-9]\\d|[3-9]\\d\\d) ?(cv|hp|ps)\\b).*(tsi|tfsi|1\\.8|2\\.0)",
+        "model_regex": "^(?!.*\\ba6\\b)"
       },
       "sources": [
         {
@@ -551,13 +575,18 @@
           "label": "CarComplaints — ação judicial Audi 2.0T por consumo de óleo, cita o TSB 17 13 43 2027731/5 (10/2013) para A4/A5/Q5 2009–2011",
           "url": "https://www.carcomplaints.com/news/2021/audi-oil-consumption-lawsuit-pistons.shtml",
           "kind": "trade"
+        },
+        {
+          "label": "CarComplaints (28/09/2014) — acordo da ação coletiva Audi 2.0T (A4/A5 2009-2011, Q5 2011, motor CAEB): garantia do consumo de óleo alargada para 8 anos / 80.000 milhas nos EUA",
+          "url": "https://www.carcomplaints.com/news/2014/audi-oil-consumption-lawsuit.shtml",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 7/10, approve_with_changes; alterações aplicadas: nome (1.ª e 2.ª geração; CAWB é 1.ª geração com os mesmos segmentos); anos até 2011; detail com os dados Audi via Auto Bild; mitigation sem a afirmação de que a 3.ª geração resolveu o problema; match: sem Cupra, label_regex exclui a nomenclatura '30/35/40/45 TFSI', max_power_hp 240 (exclui EA113 K04); fontes: removidas Lemon Law Help (404) e Audiworld (403), +Auto Bild (press) e CarComplaints (trade)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "renault-tce12-oil",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "alta",
       "component": "motor",
@@ -571,18 +600,16 @@
         2016
       ],
       "models": [
-        "Renault Clio IV/Captur/Mégane III-IV/Scénic III-IV/Kadjar (1.2 TCe 115-130)",
-        "Dacia Duster/Lodgy (1.2 TCe 125)",
-        "Nissan Qashqai J11/Juke/Pulsar (1.2 DIG-T)"
+        "Renault Clio IV/Captur/Mégane III/Scénic III/Kadjar/Kangoo II (1.2 TCe 115-130)",
+        "Dacia Duster/Lodgy/Dokker (1.2 TCe 115-125)",
+        "Nissan Qashqai J11/Juke/Pulsar (1.2 DIG-T 115)",
+        "Mercedes-Benz Citan (1.2 gasolina, 115 cv)"
       ],
       "problem": "Consumo excessivo de óleo que pode destruir o motor",
       "detail": "O óleo é aspirado para a câmara de combustão e queimado. Sem vigilância, o nível cai até danificar válvulas de escape e o próprio motor. Associações de consumidores em França e Espanha apontam motores fabricados entre 10/2012 e 07/2016 e reparações até ~10.000 €. A Renault introduziu uma nova calibração da centralina a partir de junho de 2015.",
       "check": "Confirma a data de fabrico do motor. Pergunta se foi feita a atualização da centralina (ou outras correções) e pede o histórico de manutenção. Mede o óleo e desconfia de um nível muito baixo ou de atestos frequentes.",
       "cost_eur": {
-        "preventive": [
-          800,
-          2000
-        ],
+        "preventive": null,
         "failure": [
           4000,
           10000
@@ -593,7 +620,8 @@
         "brands": [
           "Renault",
           "Dacia",
-          "Nissan"
+          "Nissan",
+          "Mercedes-Benz"
         ],
         "fuel": [
           "gasolina"
@@ -602,7 +630,7 @@
           1190,
           1200
         ],
-        "label_regex": "tce|dig-t"
+        "label_regex": "tce|dig-t|\\b112\\b"
       },
       "sources": [
         {
@@ -631,11 +659,11 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 6/10, approve_with_changes; alterações aplicadas: severidade critico → alto (cerca de 2% de reclamações, sem defeito reconhecido, detetável pelo comprador); anos até 2016 (produção até 07/2016); detail sem o corte de 25/07/2015 (não suportado) e com a calibração de 06/2015; check e mitigation revistos; label_regex só 'tce|dig-t' (exclui o Note 1.2 atmosférico); fontes: OCU passa a 'press', removida Australian Car Reviews (inacessível), +Assemblée nationale (official) e UFC-Que Choisir (press)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "vag-dq200-dsg7",
-      "status": "draft",
+      "status": "approved",
       "severity": "critico",
       "confidence": "alta",
       "component": "caixa",
@@ -650,14 +678,14 @@
         2014
       ],
       "models": [
-        "VW Polo/Golf/Golf Plus/Jetta/Touran/Caddy (1.2/1.4 TSI, 1.6 TDI DSG7)",
+        "VW Polo/Polo GTI/Golf/Golf Plus/Jetta/Touran/Caddy (1.2/1.4 TSI, 1.6 TDI DSG7)",
         "Audi A1/A3 (S tronic 7)",
         "SEAT Ibiza/Leon/Toledo (DSG7)",
         "Skoda Fabia/Rapid/Octavia (DSG7)"
       ],
       "problem": "Mecatrónica e embraiagem da DSG7 a seco falham",
       "detail": "A unidade mecatrónica (centralina hidráulica) e a dupla embraiagem a seco falham: trancos, luz de avaria, perda de mudanças e, no limite, o carro deixa de andar. Uma das causas é uma fissura no acumulador de pressão da mecatrónica (campanha VW para caixas fabricadas entre 10/2008 e 11/2014). A partir de 2015 houve melhorias, mas o componente continua sensível.",
-      "check": "No test-drive, arranca devagar várias vezes e faz pára-arranca: trancos, patinar ou hesitação entre 1.ª e 2.ª são sinal de alerta. Pede o histórico de reparações da caixa e confirma pelo VIN se a campanha da mecatrónica foi feita. As DSG de 6 velocidades (DQ250, em banho de óleo) e a DQ381 não são esta caixa.",
+      "check": "No test-drive, arranca devagar várias vezes e faz pára-arranca: trancos, patinar ou hesitação entre 1.ª e 2.ª são sinal de alerta. Pede o histórico de reparações da caixa e confirma pelo VIN, num concessionário, se há campanhas pendentes para a caixa. As DSG de 6 velocidades (DQ250, em banho de óleo) e a DQ381 não são esta caixa.",
       "cost_eur": {
         "preventive": null,
         "failure": [
@@ -665,7 +693,7 @@
           3500
         ]
       },
-      "mitigation": "Campanhas da VW em vários mercados: recolhas na China, no Japão e na Austrália (06/2008 a 09/2011, ~26.000 carros) e a campanha do acumulador de pressão da mecatrónica (caixas de 10/2008 a 11/2014: inspeção, reparação e software gratuitos). Na Alemanha, a VW trocou o óleo da caixa em ~257.000 carros sem recolha formal. A VW tratou muitos casos fora da garantia por boa vontade.",
+      "mitigation": "A VW fez campanhas em vários mercados: recolhas na China (2013, mais de 384.000 carros) e na Austrália (carros fabricados entre 06/2008 e 09/2011, cerca de 26.000), e uma campanha documentada na Nova Zelândia para o acumulador de pressão da mecatrónica (caixas fabricadas entre 10/2008 e 11/2014: inspeção e, se necessário, reparação e atualização de software, gratuitas). Na Alemanha, a VW trocou o óleo da caixa (de sintético para mineral) em cerca de 257.000 carros, sem recolha formal.",
       "match": {
         "brands": [
           "Volkswagen",
@@ -676,11 +704,11 @@
         ],
         "displacement_cc": [
           990,
-          1600
+          1800
         ],
         "transmission_regex": "^(?!.*(dsg ?6|6 ?vel|auto 6)).*(dsg|auto 7|s ?tronic)",
         "max_torque_nm": 250,
-        "max_power_hp": 160
+        "max_power_hp": 180
       },
       "sources": [
         {
@@ -702,13 +730,23 @@
           "label": "Euro Racing Parts — fiabilidade da DSG7 em usados",
           "url": "https://www.euroracingparts.fr/en/blogs/guide-dachat-pour-volkswagen/fiabilite-boite-double-embrayage-dsg-7-en-occasion-notre-guide-vag",
           "kind": "trade"
+        },
+        {
+          "label": "CarsGuide — VW Austrália chama à oficina perto de 26.000 carros com DSG7 DQ200 (fabricados 06/2008-09/2011), inspeção e reparação da caixa DSG, se necessário",
+          "url": "https://www.carsguide.com.au/car-news/vw-recalls-close-to-26000-cars-22074",
+          "kind": "press"
+        },
+        {
+          "label": "Volkswagen Newsroom — Polo GTI 1.4 TSI 180 cv / 250 Nm com DSG de 7 velocidades e duas embraiagens a seco (2010)",
+          "url": "https://www.volkswagen-newsroom.com/en/the-new-polo-gti-2333/the-new-polo-gti-engine-and-gearbox-2336",
+          "kind": "official"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 8/10, approve_with_changes; alterações aplicadas: anos até 2014 (campanha VW até 11/2014); detail, check e mitigation com a campanha do acumulador de pressão e a troca de óleo na Alemanha; transmission_regex exclui também 'auto 6' (DQ250); fontes: removidas Carsales e ECU Testing (inacessíveis), +VW Nova Zelândia (official), Auto Bild e CarsGuide (press)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "toyota-ad-d4d",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "alta",
       "component": "motor",
@@ -730,7 +768,7 @@
         "Lexus IS 220d"
       ],
       "problem": "Junta da cabeça queima por consumo de óleo e carvão",
-      "detail": "Consumo excessivo de óleo cria depósitos de carvão que acabam por queimar a junta da cabeça; numa primeira fase, havia também um defeito no material da junta (corrigido em 11/2007). Reparação cara e, sem diagnóstico, repetível.",
+      "detail": "Consumo excessivo de óleo cria depósitos de carvão que acabam por queimar a junta da cabeça; nos primeiros motores, a Toyota reconheceu também um defeito de construção. Reparação cara e, sem diagnóstico, repetível.",
       "check": "Pergunta se a junta da cabeça já foi substituída e se foi feito o teste de consumo de óleo. Fumo branco, perda de líquido de refrigeração ou sobreaquecimento são sinais de alerta. Prefere unidades com reparação documentada na Toyota.",
       "cost_eur": {
         "preventive": null,
@@ -756,22 +794,17 @@
       },
       "sources": [
         {
-          "label": "Toyota Owners Club — guia do motor 2AD e problemas",
-          "url": "https://www.toyotaownersclub.com/tutorials/article/92-guide-to-the-2ad-engine-and-its-issues",
-          "kind": "forum"
-        },
-        {
           "label": "Toyota-Club.net — FAQ dos diesel da série AD: consumo de óleo e junta da cabeça, lista de boletins Toyota (EG-0072T-0610, EG-0067T-0510, EG-00127T-TME ...), Europa 7 anos / 180.000 km",
           "url": "https://toyota-club.net/files/faq/13-01-01_faq_ad-engine_eng.htm",
           "kind": "trade"
         },
         {
-          "label": "Toyota Owners Club — posição da Toyota sobre a junta da cabeça",
-          "url": "https://toyotaownersclub.com/forums/topic/105938-definitive-22-d4d-head-gasket-stance-by-toyota",
-          "kind": "forum"
+          "label": "Cararac — problemas do 2.2 D-4D (2AD-FTV): junta da cabeça sobretudo em 2005-2008, consumo de óleo, garantia alargada Toyota 7 anos / 111.846 milhas",
+          "url": "https://cararac.com/blog/toyota-2-2-d4d-engine-problems-durability-facts.html",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 6/10, approve_with_changes; alterações aplicadas: severidade critico → alto (sem fonte de imprensa ou oficial legível; o boletim Toyota só é citado em fórum); modelos precisados por geração; mitigation com os termos das orientações Toyota Europa; cilindrada mínima 1996 cc (exclui o 1CD-FTV de 1995 cc); fontes: removida Honest John (fechado), URL do guia Toyota Owners Club com www, +Toyota-Club.net (trade)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "jlr-ingenium-20d-chain",
@@ -842,7 +875,7 @@
     },
     {
       "id": "jlr-ingenium-20d-balanceshaft",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
@@ -867,7 +900,7 @@
         "preventive": null,
         "failure": null
       },
-      "mitigation": "Sem recolha nem extensão de garantia conhecidas. Em 2018 a JLR publicou na América do Norte um boletim técnico para substituir o veio de equilíbrio do Velar MY2018 num intervalo de VIN, por causa de um assobio.",
+      "mitigation": "Sem recolha nem extensão de garantia conhecidas na Europa. Em 2018 a JLR publicou na América do Norte ações de serviço para substituir o veio de equilíbrio por causa de um assobio no habitáculo: nos Jaguar XE, XF e F-Pace 2.0 diesel dos anos-modelo 2017–2018 (SSM73839, ação H059) e no Range Rover Velar MY2018 num intervalo de VIN (N128NAS2, programa encerrado em janeiro de 2020).",
       "match": {
         "brands": [
           "Land Rover",
@@ -880,7 +913,7 @@
           1995,
           2000
         ],
-        "label_regex": "td4|ed4|d1[58]0|d2[04]0|20d|2\\.0"
+        "label_regex": "td4|ed4|sd4|i4d|d150|d165|d180|d200|d240|20d|2\\.0"
       },
       "sources": [
         {
@@ -897,9 +930,19 @@
           "label": "JLR América do Norte — boletim técnico N128NAS1/N128NAS2 (03 e 08/2018): Ingenium I4 2.0 diesel, assobio do veio de equilíbrio, Velar MY2018 (intervalo de VIN), substituição do veio de equilíbrio (via NHTSA)",
           "url": "https://static.nhtsa.gov/odi/tsbs/2018/MC-10146360-9999.pdf",
           "kind": "official"
+        },
+        {
+          "label": "JLR SSM73839 (03/04/2018) — Ingenium I4 2.0 diesel, assobio do veio de equilíbrio, Jaguar XE/XF/F-Pace MY2017–2018, ação de serviço H059 (via NHTSA)",
+          "url": "https://static.nhtsa.gov/odi/tsbs/2018/MC-10142392-9999.pdf",
+          "kind": "official"
+        },
+        {
+          "label": "DOLZ — JLR Ingenium 2.0 diesel: danos nos rolamentos dos veios de equilíbrio e modificação da JLR",
+          "url": "https://www.idolz.com/en/spotlight-on-the-jlr-ingenium-2-0-litre-diesel-engine-and-dolz-solutions/",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Redigido a partir da auditoria de 2026-11-14 (notas do auditor de jlr-ingenium-20d-chain, rejeitado); tem de ser re-auditado antes de aprovação. Em aberto: nenhuma fonte dá o ano final — 2026 é provisório; as fontes não dão custos (cost_eur vazio); frequência desconhecida, por isso 'alto'; nome, códigos, modelos e regra de match vêm do rascunho rejeitado (o auditor considerou o match adequado); verificar se a linha do catálogo 'Land Rover Defender D200 1997cc', sem anos de venda, é o 2.0 Ingenium."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "vw-ea111-tsi-chain",
@@ -1062,7 +1105,7 @@
     },
     {
       "id": "mb-om651-delphi-injectors",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
@@ -1080,8 +1123,8 @@
         "Mercedes GLK X204 (220/250 CDI)"
       ],
       "problem": "Injetores piezo Delphi falham (modo de segurança)",
-      "detail": "Nas versões 220 CDI e 250 CDI de 2008–2012, os injetores piezo da Delphi tinham uma taxa de falha elevada: luz de avaria, modo de segurança, ralenti irregular e falhas. Em 2009 a Mercedes reconheceu defeitos de produção nos injetores (em França, cerca de 10 % dos carros vendidos até então) e trocou-os em garantia; em 2011–2012 houve novas falhas, sobretudo em táxis, que a Mercedes atribuiu à ficha/cablagem dos injetores. O 200 CDI usa outros injetores e não está abrangido.",
-      "check": "Pede a um concessionário Mercedes que confirme pelo VIN se os injetores e a cablagem foram substituídos e se há ações de serviço pendentes; pede as faturas. Ralenti irregular, falhas, solavancos ou luz de motor são sinais de alerta.",
+      "detail": "Nas versões 220 CDI e 250 CDI com injetores piezo da Delphi, estes injetores tinham uma taxa de falha elevada: luz de avaria, modo de segurança, ralenti irregular e falhas. Em 2009 a Mercedes reconheceu defeitos de produção nos injetores (pouco mais de 10 % dos carros vendidos até então, segundo o fabricante) e trocou-os em garantia; em 2011–2012 houve novas falhas, sobretudo em táxis, que a Mercedes atribuiu a problemas de contacto na ficha dos injetores. O 220 CDI passou a usar injetores de solenoide entre meados de 2010 e 2011; o 250 CDI manteve os injetores piezo durante mais tempo. O 200 CDI usa outros injetores e não está abrangido.",
+      "check": "Pede a um concessionário Mercedes que confirme pelo VIN se o motor tem injetores piezo ou de solenoide, se os injetores e a cablagem foram substituídos e se há ações de serviço pendentes; pede as faturas. Os injetores de solenoide não estão abrangidos. Ralenti irregular, falhas, solavancos ou luz de motor são sinais de alerta.",
       "cost_eur": {
         "preventive": null,
         "failure": [
@@ -1118,9 +1161,14 @@
           "label": "Auto Bild (2012) — Mercedes 220 CDI e 250 CDI: problemas",
           "url": "https://www.autobild.de/artikel/mercedes-220-cdi-und-250-cdi-2795392.html",
           "kind": "press"
+        },
+        {
+          "label": "Gebrauchtwagenberater — Mercedes OM651: problemas (injetores piezo 220/250 CDI; 220 CDI com injetores de solenoide desde 2010–2011)",
+          "url": "https://gebrauchtwagenberater.de/om651-probleme/",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 7/10, approve_with_changes; alterações aplicadas: nome e modelos limitados aos 220/250 CDI (sem 200 CDI, Sprinter e Vito); detail, check e mitigation revistos (defeito reconhecido em 2009, cablagem em 2011-2012, extensão de 1 ano em França); label_regex só 220/250 CDI ou OM651; fontes: Australian Car Reviews e MBWorld (inacessíveis) substituídas por Auto Bild 2009, L'argus 2009 e Auto Bild 2012 (press)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
     },
     {
       "id": "opel-m32-bearings",
@@ -1140,7 +1188,8 @@
         "Opel Astra H/J, Insignia A, Meriva B, Zafira B/Tourer, Mokka",
         "Opel Vectra C (1.9 CDTi)",
         "Opel Corsa D 1.6 Turbo (OPC)",
-        "Fiat Grande Punto/Bravo (1.4 T-Jet, 1.9 Multijet)",
+        "Fiat Grande Punto/Bravo (1.4 T-Jet)",
+        "Alfa Romeo 159 (1.9 JTDm)",
         "Alfa Romeo MiTo/Giulietta (algumas versões)"
       ],
       "problem": "Rolamentos da caixa desgastam-se (assobio em 5.ª/6.ª)",
@@ -1164,17 +1213,27 @@
           "Alfa Romeo"
         ],
         "transmission_regex": "manual 6",
-        "model_regex": "astra|insignia|meriva|zafira|mokka|corsa|vectra|punto|bravo|mito|giulietta",
-        "label_regex": "^(?!.*(puretech|bluehdi|1\\.5 diesel)).*(turbo|cdti|t-jet|multijet|1\\.4 t|1\\.6 t|1\\.9|2\\.0)"
+        "model_regex": "astra|insignia|meriva|zafira|mokka|corsa|vectra|punto|bravo|mito|giulietta|159",
+        "label_regex": "^(?!.*(puretech|bluehdi|1\\.5 diesel)).*(turbo|cdti|t-jet|multijet|jtdm|1\\.4 t|1\\.6 t|1\\.9|2\\.0)"
       },
       "sources": [
         {
           "label": "Service4Service — Vauxhall M32: falha de rolamentos (assobio em 6.ª)",
           "url": "https://www.service4service.co.uk/car-repairs/gearboxes/vauxhall-gearboxes",
           "kind": "trade"
+        },
+        {
+          "label": "Alfa Romeo 159 — material de formação: caixa M32 (1.9 JTDm 8V/16V, 1.9 e 2.2 JTS)",
+          "url": "https://manualslib.com/manual/1110450/Alfa-Romeo-159.html?page=198",
+          "kind": "official"
+        },
+        {
+          "label": "Fiat Forum — M32 gearbox whine (1.4 T-Jet; reparação de rolamentos ~£400–480)",
+          "url": "https://www.fiatforum.com/threads/m32-gearbox-whine.358916",
+          "kind": "forum"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 8/10, approve_with_changes; alterações aplicadas: detail sem a data 'por volta de 2012' (não verificada); modelos +Vectra C e Corsa D OPC, Mokka sem limite de ano; model_regex +vectra; fontes: removidas as três originais (todas inacessíveis), +Service4Service (trade, a única legível). Em aberto: o ano final 2012 não está verificado (o Insignia A usou a M32 até 2017)."
+      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. Matching 0: the entry attaches to Alfa Romeo Giulietta 1.6 JTDm 105/120 (2010-2012 overlap). The Giulietta was launched in 2010 with the Fiat C635 6-speed, which gearboxlist, parts listings and Fiat forum posts all tie to the 1.6 Multijet/JTDm, so this is very likely a false positive. The proposed l"
     },
     {
       "id": "fiat-multiair-14",
@@ -1266,8 +1325,8 @@
         "Nissan Micra/Note/Qashqai J10 (1.5 dCi)"
       ],
       "problem": "Casquilhos da cambota 'giram' e destroem o motor",
-      "detail": "Com mudanças de óleo demasiado espaçadas (o intervalo de fábrica de 30.000 km é longo para este motor), os casquilhos perdem lubrificação, giram e destroem a cambota. As versões até ~2008 são as mais afetadas; as posteriores têm casquilhos reforçados, mas o risco mantém-se com manutenção descuidada.",
-      "check": "Pede histórico de óleo — idealmente a cada 10.000–15.000 km. Ruído metálico ritmado ao acelerar é sinal de casquilhos. Sem histórico, desconfia.",
+      "detail": "Os casquilhos das bielas podem desgastar-se e rodar, o que obriga a reparar ou trocar o motor. A causa mais apontada são mudanças de óleo tardias ou óleo inadequado. Os casos concentram-se nos primeiros anos (sobretudo 2003–2006) e nas versões de 65, 80, 100 e 105 cv; não é uma falha generalizada, mas quando acontece é cara.",
+      "check": "Pede histórico de óleo — idealmente a cada 10.000–15.000 km. Sem histórico, desconfia.",
       "cost_eur": {
         "preventive": [
           400,
@@ -1316,7 +1375,7 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 9/10, approve_with_changes; alterações aplicadas: nome sem 'Mercedes' (uso do K9K pela Mercedes é de 2012+, fora dos anos); fontes: AutoHints (inacessível) substituída por Fiches-auto.fr (trade) e Auto Świat (press), mantidas Motor Reviewer e Planète Renault."
+      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. The title says crankshaft bearings ('casquilhos da cambota'), but the detail and every source say connecting-rod bearings, so the title is wrong. The models list includes Dacia Duster, which launched in 2010, outside the 2001-2008 window. The Suzuki Jimny 1.5 DDiS (K9K 700/266, 2004+) uses the K9K b"
     },
     {
       "id": "mazda-skyactiv-d22",
@@ -1402,7 +1461,7 @@
         "JF017E"
       ],
       "years": [
-        2014,
+        2013,
         2018
       ],
       "models": [
@@ -1411,8 +1470,8 @@
         "Nissan Juke F15 (Xtronic)"
       ],
       "problem": "Caixa CVT trepida e pode falhar",
-      "detail": "A correia, as polias e os rolamentos da CVT desgastam-se: trepidação ao arrancar, hesitação, rotação a subir e descer sem razão e, sem reparação, falha da caixa. Na Dinamarca, cerca de 400 dos primeiros Qashqai J11 automáticos tiveram problemas graves na caixa (FDM, 2014); a Nissan atualizou o software e trocou caixas. Nos EUA, a Nissan estendeu a garantia da caixa do Rogue de 2014–2018 (equivalente ao X-Trail T32) na sequência de uma ação coletiva.",
-      "check": "Pede faturas de mudança de óleo da CVT (recomenda-se a cada 50.000–60.000 km; nunca ter sido mudado é mau sinal) e pergunta se o software da caixa foi atualizado. No test-drive, arranque suave e acelerações moderadas: trepidação, zumbido ou rotação a subir sem velocidade são sinais de alerta.",
+      "detail": "A correia, as polias e os rolamentos da CVT desgastam-se: trepidação ao arrancar, hesitação, rotação a subir e descer sem razão e, sem reparação, falha da caixa. Nos primeiros Qashqai J11 com Xtronic (fabricados entre 20/07/2013 e 21/07/2014) a centralina da caixa tinha parâmetros de software incorretos que causavam oscilações de rotação; a Nissan fez uma campanha de recolha para a reprogramar. Na Dinamarca, a FDM relatou em 2014 vários problemas graves nos cerca de 400 Qashqai Xtronic vendidos, com caixas trocadas em alguns casos. Nos EUA, a Nissan estendeu a garantia da caixa do Rogue de 2014–2018 (equivalente ao X-Trail T32) na sequência de uma ação coletiva.",
+      "check": "Pede faturas de mudança de óleo da CVT (recomenda-se a cada 50.000–60.000 km; nunca ter sido mudado é mau sinal). Num Qashqai fabricado entre julho de 2013 e julho de 2014, confirma num concessionário Nissan, pelo VIN, que a reprogramação da caixa da campanha de recolha foi feita. No test-drive, arranque suave e acelerações moderadas: trepidação, zumbido ou rotação a subir sem velocidade são sinais de alerta.",
       "cost_eur": {
         "preventive": [
           200,
@@ -1423,7 +1482,7 @@
           6000
         ]
       },
-      "mitigation": "Sem recall europeu para o Qashqai J11/X-Trail T32; atualizações de software na rede Nissan. Nos EUA, a garantia da caixa do Rogue 2014–2018 foi estendida para 84 meses/84.000 milhas, o que não se aplica a carros europeus.",
+      "mitigation": "Em 2014 houve na Europa uma campanha de recolha para os Qashqai com Xtronic fabricados entre 20/07/2013 e 21/07/2014: a centralina da caixa é reprogramada (cerca de 20 minutos). Não há extensão de garantia europeia conhecida. Nos EUA, a garantia da caixa do Rogue 2014–2018 foi estendida para 84 meses/84.000 milhas, o que não se aplica a carros europeus.",
       "match": {
         "brands": [
           "Nissan"
@@ -1446,9 +1505,14 @@
           "label": "BBB National Programs — Nissan/Infiniti CVT: extensão de garantia Rogue 2014-2018 (EUA)",
           "url": "https://bbbprograms.org/programs/dr/class-action/nissan-infiniti-cvt",
           "kind": "official"
+        },
+        {
+          "label": "Auto Bild (2014) — Nissan Qashqai: dupla campanha de recolha (CVT: software da caixa, fabrico 20/07/2013–21/07/2014)",
+          "url": "https://www.autobild.de/artikel/nissan-qashqai-doppelrueckruf-5507075.html",
+          "kind": "press"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 7/10, approve_with_changes; alterações aplicadas: detail sem a frase da 'oficina alemã' (não suportada) e com os dados FDM e a extensão EUA do Rogue; check sem 'a Nissan não prevê mudança' (não verificado); mitigation sem a ação coletiva no Canadá (não verificada); fontes: removidas Australian Car Reviews (inacessível) e Kfz-Dietrich (não suporta), +Gebrauchtwagenberater (trade) e BBB National Programs (official, EUA)."
+      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. No source mentions the Juke F15 CVT (JF015E), so flagging it is unsupported; remove it from models and model_regex (or find a source). Matching 0: the only catalogue match is the Qashqai J12 1.3 DIG-T Xtronic (2019+), which is filtered out by year, so today the entry attaches to no car. The catalogu"
     },
     {
       "id": "ford-powershift-dps6",
@@ -1518,7 +1582,7 @@
     },
     {
       "id": "psa-dv6-turbo",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
@@ -1544,7 +1608,7 @@
         "Mazda 3 (1.6 MZ-CD)"
       ],
       "problem": "Turbo destruído por carvão no óleo",
-      "detail": "Carvão no óleo (muitas vezes de anilhas de injetor a vazar) entope o tubo de alimentação de óleo do turbo e o filtro no parafuso banjo; o turbo fica sem lubrificação e destrói-se — e um turbo novo falha de novo se a causa não for resolvida.",
+      "detail": "Carvão, fuligem e borras no óleo (mudanças de óleo espaçadas, óleo de má qualidade ou nível baixo) entopem o tubo de alimentação de óleo do turbo e o pequeno filtro no parafuso banjo; o turbo fica sem lubrificação e destrói-se — e um turbo novo falha de novo se a causa não for resolvida.",
       "check": "Pergunta se o turbo já foi trocado e, se sim, se o tubo de óleo e o filtro do banjo foram substituídos e o cárter limpo. Fumo azul, assobio ou perda de potência são sinais de alerta. Óleo sintético correto e mudanças frequentes são essenciais.",
       "cost_eur": {
         "preventive": [
@@ -1556,7 +1620,7 @@
           2500
         ]
       },
-      "mitigation": "Parafuso banjo revisto com filtro maior disponível; sem extensão de garantia.",
+      "mitigation": "Sem extensão de garantia. Ao trocar o turbo, os fabricantes de turbos recomendam substituir também os tubos de alimentação e de retorno de óleo, os parafusos banjo e o chupador do cárter, e mudar óleo e filtro; existem kits completos para isso.",
       "match": {
         "brands": [
           "Peugeot",
@@ -1573,7 +1637,7 @@
           1555,
           1565
         ],
-        "label_regex": "^(?!.*(e-?hdi|bluehdi|\\bd2\\b)).*(hdi|tdci|1\\.6|cooper d)"
+        "label_regex": "^(?!.*(e-?hdi|bluehdi|\\bd2\\b|\\b(92|11[1-6]) ?cv)).*(hdi|tdci|1\\.6|cooper d)"
       },
       "sources": [
         {
@@ -1590,9 +1654,19 @@
           "label": "Melett — falhas de turbo por referência OE (PSA 1.6 HDi)",
           "url": "https://www.melett.com/technical/why-turbos-fail/specific-failures-turbo-number/",
           "kind": "trade"
+        },
+        {
+          "label": "PMF / Nissens — substituição do turbo PSA DV6 1.6 HDi: causas e kits de montagem",
+          "url": "https://pmfmag.co.uk/?p=15899",
+          "kind": "trade"
+        },
+        {
+          "label": "Klokkerholm — códigos de motor 1.6 HDi (9HP DV6DTED 92 cv e 9HR DV6C 112/114 cv a partir de 07/2010)",
+          "url": "https://shop.klokkerholm.com/en/05390280",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditado em 2026-11-14: 8/10, approve_with_changes; alterações aplicadas: anos até 2010 e códigos só 16V (sem DV6C 8V, +DV6ATED4); label_regex exclui e-HDi, BlueHDi e D2; +Melett (trade)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
     },
     {
       "id": "vag-20tdi-pd",
@@ -1670,7 +1744,7 @@
     },
     {
       "id": "vag-20tdi-pd-oilpump-hex",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
@@ -1683,7 +1757,7 @@
       ],
       "years": [
         2005,
-        2008
+        2009
       ],
       "models": [
         "VW Passat B6 e Sharan (2.0 TDI)",
@@ -1692,8 +1766,8 @@
         "Skoda Superb (2.0 TDI)"
       ],
       "problem": "Veio sextavado da bomba de óleo desgasta-se: perda súbita de pressão de óleo",
-      "detail": "Nos 2.0 TDI bomba-injetor com módulo de veios de equilíbrio, a bomba de óleo é acionada por um veio sextavado que se desgasta. A bomba pode deixar de funcionar de repente, sobretudo a rotações altas; a luz de pressão de óleo só acende quando o dano já está feito, e o turbo e o motor podem ficar destruídos. A VW confirmou casos na ordem das centenas e atribuiu-os a desvios de tolerância. Os 2.0 TDI do Golf, Touran, A3, Leon e Octavia usam outro acionamento e não estão abrangidos.",
-      "check": "Pede prova de que o módulo de veios de equilíbrio/bomba de óleo foi substituído pela versão revista (sextavado mais comprido). Sem prova, conta com a despesa preventiva. Luz de pressão de óleo ou ruído metálico vindo de baixo do motor são motivo para não comprar.",
+      "detail": "Nos 2.0 TDI bomba-injetor com módulo de veios de equilíbrio, a bomba de óleo é acionada por um veio sextavado que se desgasta. A bomba pode deixar de funcionar de repente, sobretudo a rotações altas; a luz de pressão de óleo só acende quando o dano já está feito, e o turbo e o motor podem ficar destruídos. A VW confirmou casos na ordem das centenas e atribuiu-os a desvios de tolerância. Os 2.0 TDI de outras séries usam outro acionamento e não estão abrangidos.",
+      "check": "Confirma o código do motor (BLB, BRE, BRD, BKP e outros bomba-injetor; as versões common-rail não estão abrangidas). Pede prova de que o módulo de veios de equilíbrio/bomba de óleo foi substituído pela versão revista (sextavado mais comprido). Sem prova, conta com a despesa preventiva. Luz de pressão de óleo ou ruído metálico vindo de baixo do motor são motivo para não comprar.",
       "cost_eur": {
         "preventive": [
           650,
@@ -1704,7 +1778,7 @@
           6000
         ]
       },
-      "mitigation": "Módulo revisto disponível. A VW analisa caso a caso uma eventual comparticipação; sem extensão de garantia. A Audi fez uma ação de serviço (13D7), sem detalhes públicos sobre o âmbito.",
+      "mitigation": "Há módulo revisto disponível, e as oficinas especializadas substituem apenas o sextavado e o seu apoio por peças melhoradas. Sem extensão de garantia. Em 2013, a VW analisava caso a caso uma eventual comparticipação, mas na idade atual destes carros não é de esperar cobertura. A Audi fez uma ação de serviço (13D7), sem detalhes públicos sobre o âmbito.",
       "match": {
         "brands": [
           "Volkswagen",
@@ -1739,31 +1813,33 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Redigido a partir da auditoria de 2026-11-14 (substitui vag-20tdi-pd, rejeitado); tem de ser re-auditado antes de aprovação. Em aberto: a Auto Bild indica produção até 2009 e os Sharan/Alhambra PD foram fabricados até 2010, por isso carros de 2009-2010 ficam de fora; um A4 B8 ou Passat common-rail de 2008 sem 'CR' no anúncio ainda corresponde; a TorqueCars refere o problema também em alguns common-rail com veios de equilíbrio (não confirmado pela Auto Bild). Custos da Auto Bild (concessionário 1.300-1.700 €, independente desde 650 €)."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     },
     {
       "id": "vag-20tdi-pd-16v-head",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
       "name": "2.0 TDI 16V bomba-injetor (BKD/AZV)",
       "codes": [
         "BKD",
-        "AZV"
+        "AZV",
+        "BMN"
       ],
       "years": [
         2003,
         2007
       ],
       "models": [
-        "VW Golf 5/Touran (2.0 TDI 136/140)",
+        "VW Golf 5/Touran (2.0 TDI 136/140/170)",
         "Audi A3 8P (2.0 TDI)",
-        "Skoda Octavia II (2.0 TDI)"
+        "Skoda Octavia II (2.0 TDI)",
+        "SEAT Leon/Altea/Toledo (2.0 TDI 140/170)"
       ],
       "problem": "Cabeça do motor 16V pode rachar (perda de líquido de refrigeração)",
       "detail": "Nas primeiras cabeças de 16 válvulas, fissuras finas ou porosidade na fundição deixam passar líquido de refrigeração: o nível desce sem fuga visível e o problema pode acabar na junta da cabeça. As cabeças de fundição posterior são mais resistentes. Os 2.0 TDI de 8 válvulas e os common-rail (2008+) não estão abrangidos.",
-      "check": "Verifica se o nível do líquido de refrigeração desce sem fuga visível e pede o historial. Uma oficina pode fazer um teste de pressão ao sistema de arrefecimento e procurar líquido no óleo. Pergunta se a cabeça já foi substituída.",
+      "check": "Verifica se o nível do líquido de refrigeração desce sem fuga visível e pede o historial. Uma oficina pode fazer um teste de pressão ao sistema de arrefecimento e procurar líquido no óleo; a mesma perda pode vir do radiador do EGR ou da junta da cabeça, por isso o diagnóstico tem de excluir essas causas. Pergunta se a cabeça já foi substituída. A referência fundida na cabeça (03G 103 308 ou 03G 103 351) termina numa letra: as de letra A são as mais afetadas, as de letra C quase não têm casos.",
       "cost_eur": {
         "preventive": null,
         "failure": [
@@ -1776,7 +1852,8 @@
         "brands": [
           "Volkswagen",
           "Audi",
-          "Skoda"
+          "Skoda",
+          "SEAT"
         ],
         "fuel": [
           "diesel"
@@ -1785,8 +1862,8 @@
           1965,
           1970
         ],
-        "label_regex": "tdi|2\\.0",
-        "model_regex": "golf|touran|a3|octavia"
+        "label_regex": "tdi",
+        "model_regex": "golf|touran|a3|octavia|leon|altea|toledo"
       },
       "sources": [
         {
@@ -1803,9 +1880,19 @@
           "label": "Euro Premium Parts — guia do motor EA188",
           "url": "https://europremiumparts.com/blogs/audi-buying-guides/audi-ea188-engine-guide-reliability-common-problems-tuning-potential",
           "kind": "trade"
+        },
+        {
+          "label": "Gebrauchtwagenberater — 2.0 TDI EA188: problemas (fissuras na cabeça nos BKD 140 cv e BMN 170 cv)",
+          "url": "https://gebrauchtwagenberater.de/20-tdi-ea188-probleme/",
+          "kind": "trade"
+        },
+        {
+          "label": "SEAT Cupra forum — cabeça porosa no 2.0 TDI BKD (Leon), levantamento por letra de fundição 03G 103 308 A/B/C",
+          "url": "https://www.seatcupra.net/forums/threads/close-call-coolant-s.261427/post-2877159",
+          "kind": "forum"
         }
       ],
-      "review_notes": "Redigido a partir da auditoria de 2026-11-14 (substitui vag-20tdi-pd, rejeitado); tem de ser re-auditado antes de aprovação. Em aberto: o BMM 8V (Golf/Touran/A3/Octavia, cerca de 2006-2007, também 140 cv) não se distingue pela cilindrada nem pela potência; SEAT Leon/Altea/Toledo muito provavelmente usam o BKD, mas sem fonte, por isso ficam de fora; o custo da cabeça é estimativa; sem fonte oficial ou de imprensa, por isso 'alto'."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
     }
   ]
 }
