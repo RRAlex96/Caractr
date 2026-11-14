@@ -209,18 +209,22 @@ def save_reliability(db: Session, model_id: int, draft: dict) -> None:
             WHERE id = :g
         """), params)
 
+    grounded = bool(draft.get("_grounded")) and bool(draft.get("_sources"))
+    # The row says an AI wrote it (the audit and the buyer-facing code tell
+    # such rows apart). The database's own constraints reject a draft with no
+    # fuel, no power or a score off the scale: that is intended.
     eng_id = db.execute(text("""
         INSERT INTO engines (model_id, code, fuel_type, displacement_cc, power_hp,
-                             reliability_score, maintenance_cost_year)
-        VALUES (:m, :code, :fuel, :disp, :pow, :sc, :maint) RETURNING id
+                             reliability_score, maintenance_cost_year, source)
+        VALUES (:m, :code, :fuel, :disp, :pow, :sc, :maint, :src) RETURNING id
     """), {
+        "src": _issue_source_label(grounded),
         "m": model_id, "code": (draft.get("engine_code") or "")[:80] or None,
         "fuel": (draft.get("fuel_type") or "")[:20] or None,
         "disp": draft.get("displacement_cc"), "pow": draft.get("power_hp"),
         "sc": score, "maint": draft.get("maintenance_cost_year"),
     }).scalar()
 
-    grounded = bool(draft.get("_grounded")) and bool(draft.get("_sources"))
     for iss in (draft.get("known_issues") or [])[:6]:
         if not isinstance(iss, dict) or not iss.get("description"):
             continue

@@ -49,6 +49,9 @@ BODY_TYPE_ADJACENCY = {
     "berlina":   ["compacto", "suv", "carrinha"],   # carrinhas are highway-natural
     "mpv":       ["suv", "berlina"],
     "carrinha":  ["berlina", "suv"],
+    "coupe":     ["berlina", "compacto", "cabrio"],
+    "cabrio":    ["coupe"],
+    "pickup":    ["suv"],
 }
 
 BRAND_STATUS = {
@@ -578,20 +581,87 @@ def price_for_budget(prices_by_year: list, budget_max: int, stretch_limit: float
     return None
 
 
+ENGINES_SQL = text("""
+    SELECT model_id, fuel_type, plug_in, consumption_mixed::float AS consumption, power_hp,
+           reliability_score::float AS reliability, maintenance_cost_year AS maintenance,
+           year_from, year_to
+    FROM engines
+""")
+
+
+def load_engines(db: Session) -> dict:
+    """{model_id: [engine dicts]} — or {} on a database whose engines have no
+    years yet (before migration v61): the model-wide figures are used then."""
+    try:
+        rows = db.execute(ENGINES_SQL).mappings().fetchall()
+    except Exception:
+        db.rollback()
+        return {}
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["model_id"], []).append(dict(r))
+    return out
+
+
+def engine_figures(engines: Optional[list], year: Optional[int]) -> dict:
+    """
+    The model's engine figures as they were in one registration year: the
+    engines on sale that year (an engine with no known years counts for every
+    year). {} when the year is unknown or no engine covers it — the model-wide
+    figures stand.
+
+    A Série 5 recommended at its 2016 price was described by every engine it
+    ever had: the consumption of a 2021 plug-in, the power of a 2023 M version.
+    The rules are those of LOAD_MODELS_SQL: litres and kWh apart, a plug-in's
+    homologated litres left out.
+    """
+    if not year or not engines:
+        return {}
+    then = [e for e in engines
+            if e.get("year_from") is None or e["year_from"] <= year <= (e.get("year_to") or e["year_from"])]
+    if not then or len(then) == len(engines):
+        return {}
+    litres = [e["consumption"] for e in then if e.get("consumption") and e["fuel_type"] != "eletrico"
+              and not (e["fuel_type"].startswith("h") and e["consumption"] < 3.5)]
+    kwh = [e["consumption"] for e in then if e.get("consumption") and e["fuel_type"] == "eletrico"]
+    rel = [e["reliability"] for e in then if e.get("reliability")]
+    maint = [e["maintenance"] for e in then if e.get("maintenance")]
+    power = [e["power_hp"] for e in then if e.get("power_hp")]
+    out: dict = {"best_consumption": min(litres) if litres else None, "best_kwh": min(kwh) if kwh else None,
+                 "max_power": max(power) if power else None}
+    if litres or kwh:
+        out["avg_consumption"] = sum(litres) / len(litres) if litres else sum(kwh) / len(kwh)
+    if rel:
+        mean = sum(rel) / len(rel)
+        out.update(avg_reliability=mean, reliability_score=round(mean, 1),
+                   reliability_ci_low=round(max(1.0, min(rel) - 0.5), 1),
+                   reliability_ci_high=round(min(10.0, max(rel) + 0.5), 1))
+    if maint:
+        out["avg_maintenance"] = sum(maint) / len(maint)
+    return out
+
+
 def _with_price(m: dict, row: dict) -> dict:
-    """A copy of the model priced at one registration year."""
-    return {**m,
-            "avg_price": row["p50"], "min_price": row["p10"], "max_price": row["p90"],
-            "price_year": row["year"],
-            "market_p50": row["p50"],
-            "market_band": {"p10": row["p10"], "p90": row["p90"], "sample_count": row["n"]},
-            "market_as_of": row["as_of"]}
+    """A copy of the model priced at one registration year, with the engine
+    figures of that year."""
+    out = {**m,
+           "avg_price": row["p50"], "min_price": row["p10"], "max_price": row["p90"],
+           "price_year": row["year"],
+           "market_p50": row["p50"],
+           "market_band": {"p10": row["p10"], "p90": row["p90"], "sample_count": row["n"]},
+           "market_as_of": row["as_of"]}
+    figures = engine_figures(m.get("engines"), row["year"])
+    if figures:
+        out.update(figures)
+        out["vector"] = _build_model_vector(out)
+    return out
 
 
 def load_models(db: Session) -> list:
     """Load all models with aggregated data, grouped by model."""
     rows = db.execute(LOAD_MODELS_SQL).fetchall()
     prices = load_prices_by_year(db)
+    engines = load_engines(db)
     legacy: dict = {}
     if len(prices) < _MIN_MODELS_WITH_MEASURED_PRICE:
         # No snapshot in this database yet: one price per model, as before.
@@ -660,7 +730,10 @@ def load_models(db: Session) -> list:
             "market_band":              dict(row.market_band) if row.market_band else None,
             "market_as_of":             str(row.market_as_of) if row.market_as_of else None,
             "has_critical_issue":       row.id in critical_ids,
+            "engines":                  engines.get(row.id, []),
         }
+        if typical.get("year"):
+            m.update(engine_figures(m["engines"], typical["year"]))
         m["vector"] = _build_model_vector(m)
         models.append(m)
     return models
@@ -727,6 +800,11 @@ def apply_hard_constraints(models: list, answers: dict) -> tuple:
             if m["body_type"] in ("compacto", "berlina") and m["family_score"] < 7:
                 continue
         # Highway context: city cars have no place on a road trip
+        # Two-door sports bodies are not family cars; a pickup is not a city car.
+        if ctx == "familia" and m["body_type"] in ("coupe", "cabrio"):
+            continue
+        if ctx == "cidade" and m["body_type"] == "pickup":
+            continue
         if ctx == "estrada" and m["body_type"] == "citadino":
             continue
         # City context: MPVs need good city score

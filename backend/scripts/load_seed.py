@@ -33,6 +33,13 @@ SEED_FILES = [
     "seeds/migration_v59_generation_fuel.sql",  # fuel_type column; Fiat 500e is electric-only
     "seeds/migration_v60_merge_bmw_530.sql",  # no-op on a fresh database (no stub model to merge)
     "seeds/migration_v61_engines_and_character.sql",  # engines + character for the models that had none
+    "seeds/migration_v63_generation_corrections.sql",  # generation years checked against published sources
+    "seeds/migration_v64_safeties.sql",  # constraints; provenance columns and tables
+    "seeds/migration_v65_engine_corrections.sql",  # engine figures checked against published specifications
+    "seeds/migration_v66_new_models.sql",  # 193 models the market sells and the catalogue lacked
+    "seeds/migration_v67_engines_new_models.sql",  # their engines, from the market snapshot
+    "seeds/migration_v68_brand_reliability.sql",  # reliability anchored on published studies
+    "seeds/migration_v69_retire_unsourced_ai_issues.sql",  # no-op on a fresh database
     # migration_v62_remove_seeded_prices.sql is NOT loaded here: it removes the
     # placeholder prices and refuses to run until a market snapshot has been
     # loaded and aggregated (scripts/market_snapshot.py, then monthly_refresh).

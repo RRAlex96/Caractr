@@ -476,6 +476,54 @@ def _refresh_market_price_stats(db: Session) -> dict:
     return {"upserted": upserted, "skipped_thin_or_noisy": skipped, "expired": expired}
 
 
+# The site's fuel ids -> the catalogue's fuel, and whether it is a plug-in.
+_ENGINE_FUEL_OF_POWERTRAIN = """
+    CASE po.powertrain
+        WHEN 'gaz' THEN 'gasolina' WHEN 'diesel' THEN 'diesel' WHEN 'electric' THEN 'eletrico'
+        WHEN 'gpl' THEN 'gpl' WHEN 'hibride-gaz' THEN 'hibrido' WHEN 'hibride-diesel' THEN 'hibrido'
+        WHEN 'plugin-hybrid' THEN 'hibrido' END
+"""
+
+
+def fill_engine_years(db: Session) -> dict:
+    """
+    Give each engine that has none the years it is on sale with, from the
+    snapshot listings of its model with the same fuel and power (within 3 cv):
+    the 2nd and 98th percentile of their registration years, so one mistyped
+    listing does not stretch the range. Needs 3 listings. Rows that already
+    have years (measured when the engine was added) are not touched.
+
+    With years, a model recommended at a 2016 price is described by the
+    engines of 2016, not by the plug-in that arrived in 2021.
+    """
+    res = db.execute(text(f"""
+        WITH seen AS (
+            SELECT e.id,
+                   percentile_disc(0.02) WITHIN GROUP (ORDER BY po.vehicle_year) AS y_from,
+                   percentile_disc(0.98) WITHIN GROUP (ORDER BY po.vehicle_year) AS y_to,
+                   COUNT(*) AS n
+            FROM engines e
+            JOIN price_observations po
+              ON po.model_id = e.model_id
+             AND po.extraction_method = 'search_snapshot'
+             AND po.vehicle_year IS NOT NULL
+             AND po.engine_power_hp BETWEEN e.power_hp - 3 AND e.power_hp + 3
+             AND ({_ENGINE_FUEL_OF_POWERTRAIN}) = e.fuel_type
+             AND (po.powertrain = 'plugin-hybrid') = e.plug_in
+            WHERE e.year_from IS NULL
+            GROUP BY e.id
+            HAVING COUNT(*) >= 3
+        )
+        UPDATE engines e
+        SET year_from = seen.y_from, year_to = seen.y_to, listings_seen = seen.n
+        FROM seen
+        WHERE e.id = seen.id AND seen.y_from >= 1985
+    """))
+    db.commit()
+    left = db.execute(text("SELECT COUNT(*) FROM engines WHERE year_from IS NULL")).scalar()
+    return {"engines_given_years": res.rowcount, "engines_without_years": left}
+
+
 def get_price_band_for_listing(
     db: Session,
     generation_id: int,

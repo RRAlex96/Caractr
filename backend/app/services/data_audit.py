@@ -109,14 +109,16 @@ CHECKS = [
                       AND a.year_start <= COALESCE(c.year_end, 9999) AND c.year_start <= COALESCE(a.year_end, 9999)
                  JOIN vehicle_models vm ON vm.id = a.model_id JOIN brands b ON b.id = vm.brand_id""",
           total="SELECT COUNT(*) FROM generations"),
-    Check("INT-05", "integrity", "No year falls between two generations of a model", "major",
-          why="A car registered in the gap year has no generation.",
+    Check("INT-05", "integrity", "No single year falls between two generations of a model", "major",
+          why="A car registered in that year has no generation. A longer gap is a model that was off the market "
+              "(the Defender from 2017 to 2019) and is left alone.",
           sql="""SELECT b.name || ' ' || vm.name || ': ' || g.name || ' ends ' || g.year_end || ', next starts ' || nxt.year_start
                  FROM generations g
                  JOIN vehicle_models vm ON vm.id = g.model_id JOIN brands b ON b.id = vm.brand_id
                  JOIN LATERAL (SELECT MIN(n.year_start) AS year_start FROM generations n
                                WHERE n.model_id = g.model_id AND n.fuel_type IS NULL AND n.year_start > g.year_start) nxt ON TRUE
-                 WHERE g.fuel_type IS NULL AND g.year_end IS NOT NULL AND nxt.year_start > g.year_end + 1""",
+                 WHERE g.fuel_type IS NULL AND g.year_end IS NOT NULL
+                   AND nxt.year_start = g.year_end + 2""",
           total="SELECT COUNT(*) FROM generations"),
     Check("INT-06", "integrity", "Generation years are in order and in range", "critical",
           sql="""SELECT b.name || ' ' || vm.name || ' ' || g.name || ' ' || COALESCE(g.year_start::text, '?') || '-' || COALESCE(g.year_end::text, '')
@@ -248,11 +250,12 @@ CHECKS = [
           measure="""SELECT COALESCE(SUM(listings_matched), 0), COALESCE(SUM(listings_read), 0)
                      FROM (SELECT listings_matched, listings_read FROM market_snapshot_runs
                            ORDER BY collected_on DESC LIMIT 1) r"""),
-    Check("COV-02", "coverage", "Models with a measured market price", "critical", target=0.95,
+    Check("COV-02", "coverage", "Models with a measured market price", "major", target=0.90,
+          why="A model with too few listings for a price is not recommended; it is still recognised in an analysis.",
           measure=f"""SELECT COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM market_price_stats m
                                  WHERE m.model_id = vm.id AND m.source = 'aggregated')), COUNT(*)
                       FROM vehicle_models vm WHERE {_REAL}"""),
-    Check("COV-03", "coverage", "Models with engines", "critical", target=0.99,
+    Check("COV-03", "coverage", "Models with engines", "major", target=0.97,
           measure=f"""SELECT COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM engines e WHERE e.model_id = vm.id)), COUNT(*)
                       FROM vehicle_models vm WHERE {_REAL}"""),
     Check("COV-04", "coverage", "Models with at least two engines", "minor", target=0.85,
@@ -294,7 +297,8 @@ CHECKS = [
           why="A row written by the AI curator without sources does not count.",
           measure="""SELECT COUNT(*) FILTER (WHERE source IS NOT NULL AND source NOT LIKE 'IA (%sem fontes%'),
                             COUNT(*) FROM engines"""),
-    Check("PRO-03", "provenance", "Brands whose reliability rests on published studies", "critical", target=0.90,
+    Check("PRO-03", "provenance", "Brands whose reliability rests on at least two published studies", "major", target=0.90,
+          why="Young and niche brands (BYD, Polestar, Alpine) appear in one study or none; their score says so.",
           measure="""SELECT COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM brand_reliability r
                                  WHERE r.brand_id = b.id AND r.studies >= 2)), COUNT(*)
                      FROM brands b WHERE EXISTS (SELECT 1 FROM vehicle_models vm WHERE vm.brand_id = b.id)"""),

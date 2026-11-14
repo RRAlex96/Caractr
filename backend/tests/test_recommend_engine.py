@@ -473,3 +473,44 @@ def test_template_explanations_do_not_contradict_themselves():
         # every car here gets "Nota 7/10 para famílias" as a reason
         assert any("famílias" in r or "familiar" in r for r in out["reasons"])
         assert out["tradeoff"] not in TRADEOFF_TEMPLATES["practical"]
+
+
+# ── a model recommended at a year is described by the engines of that year ──
+from app.services.recommend_service import _with_price, engine_figures
+
+_ENGINES = [
+    {"fuel_type": "diesel", "plug_in": False, "consumption": 5.0, "power_hp": 190, "reliability": 7.5,
+     "maintenance": 800, "year_from": 2010, "year_to": 2016},
+    {"fuel_type": "hibrido", "plug_in": True, "consumption": 1.8, "power_hp": 292, "reliability": 7.0,
+     "maintenance": 950, "year_from": 2019, "year_to": 2023},
+    {"fuel_type": "gasolina", "plug_in": False, "consumption": 9.5, "power_hp": 510, "reliability": 7.2,
+     "maintenance": 1400, "year_from": 2021, "year_to": 2023},
+]
+
+
+def test_engine_figures_are_those_of_the_year():
+    f = engine_figures(_ENGINES, 2015)
+    assert f["max_power"] == 190 and f["best_consumption"] == 5.0
+    assert f["avg_reliability"] == 7.5 and f["avg_maintenance"] == 800
+    later = engine_figures(_ENGINES, 2022)
+    assert later["max_power"] == 510
+    assert later["best_consumption"] == 9.5        # the plug-in's 1.8 L is not a real consumption
+    assert later["reliability_score"] == 7.1
+
+
+def test_engine_figures_stand_aside_when_they_cannot_tell():
+    assert engine_figures(_ENGINES, None) == {}
+    assert engine_figures([], 2015) == {}
+    assert engine_figures(_ENGINES, 2005) == {}                       # no engine known for that year
+    undated = [{**e, "year_from": None, "year_to": None} for e in _ENGINES]
+    assert engine_figures(undated, 2015) == {}                        # all engines, as before
+
+
+def test_pricing_a_model_at_a_year_takes_that_years_engines():
+    m = _model(id=7, max_power=510, best_consumption=1.8)
+    m["engines"] = _ENGINES
+    row = {"p50": 21000, "p10": 18000, "p90": 25000, "year": 2015, "n": 20, "as_of": "2026-11-13"}
+    priced = _with_price(m, row)
+    assert priced["max_power"] == 190 and priced["best_consumption"] == 5.0
+    assert priced["price_year"] == 2015 and priced["avg_price"] == 21000
+    assert m["max_power"] == 510                                      # the model itself is untouched

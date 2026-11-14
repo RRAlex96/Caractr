@@ -632,6 +632,28 @@ def health_check():
     }
 
 
+@app.get("/api/health/data")
+def health_data():
+    """The reference data audited (app/services/data_audit.py): overall score,
+    score per dimension and the critical checks that fail. Read-only; no rows
+    and nothing private in the answer. The daily health workflow fails on a
+    critical failure, the commonest being a market snapshot gone stale."""
+    from app.db.database import SessionLocal
+    from app.services.data_audit import as_json, run_audit
+    db = SessionLocal()
+    try:
+        audit = as_json(run_audit(db))
+    finally:
+        db.rollback()
+        db.close()
+    return {
+        "status": "ok" if not audit["critical_failures"] else "failing",
+        "score": audit["score"], "dimensions": audit["dimensions"], "as_of": audit["as_of"],
+        "critical_failures": [{"id": c["id"], "title": c["title"], "found": c["found"], "of": c["of"]}
+                              for c in audit["checks"] if c["id"] in audit["critical_failures"]],
+    }
+
+
 @app.get("/api/health/llm")
 def health_llm():
     """Live LLM selftest — calls Gemini with a minimal prompt."""
