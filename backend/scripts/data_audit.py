@@ -5,6 +5,8 @@ Audit the reference data and score it. Read-only. See app/services/data_audit.py
     python -m scripts.data_audit --out file.md   # ... and written to a file
     python -m scripts.data_audit --json          # machine-readable
     python -m scripts.data_audit --strict        # exit 1 when a critical check fails
+    python -m scripts.data_audit --only integrity,plausibility,safeties --strict
+                                                 # a database built from the seeds (CI): no market data in it
 
 Reads whatever database DATABASE_URL names.
 """
@@ -22,6 +24,8 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--out")
+    ap.add_argument("--only", help="dimensions to run, comma-separated (integrity, plausibility, coverage, "
+                                   "freshness, provenance, safeties)")
     args = ap.parse_args()
 
     from dotenv import load_dotenv
@@ -34,7 +38,7 @@ def main() -> int:
     db = SessionLocal()
     try:
         db.execute(text("SET TRANSACTION READ ONLY"))
-        audit = run_audit(db)
+        audit = run_audit(db, only=args.only.split(",") if args.only else None)
     finally:
         db.rollback()
         db.close()

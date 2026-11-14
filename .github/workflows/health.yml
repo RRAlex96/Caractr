@@ -8,7 +8,8 @@ name: Health
 #
 # Setup, once (Settings → Secrets and variables → Actions):
 #   variable CARACTR_API_URL  — the backend's base URL, no trailing slash
-#   secret   ADMIN_TOKEN      — the same value the backend has
+#   secret   ADMIN_TOKEN      — the same value the backend has (optional: without
+#                               it the listing check is skipped, the rest runs)
 # Until the variable exists the job is skipped, so nothing fails by default.
 
 on:
@@ -42,6 +43,10 @@ jobs:
 
       - name: A listing can still be found and read
         run: |
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "::notice::ADMIN_TOKEN secret not set: listing check skipped"
+            exit 0
+          fi
           for attempt in 1 2; do
             code=$(curl --silent --show-error --max-time 90 -o result.json -w '%{http_code}' \
               -H "X-Admin-Token: $ADMIN_TOKEN" "$API/api/admin/health/extraction" || echo 000)
