@@ -54,7 +54,11 @@ jobs:
         # the dump, which is kept as an artifact. pg_dump 18, as the server.
         run: |
           mkdir -p backup
-          docker run --rm -e DATABASE_URL -v "$PWD/backup:/out" postgres:18 sh -c             'pg_dump --no-owner --no-privileges -n public                --exclude-table-data=public.analytics_events --exclude-table-data=public.concierge_requests                --exclude-table-data=public.recommendation_sessions --exclude-table-data=public.user_feedback                --dbname "$DATABASE_URL" | gzip > /out/reference_data.sql.gz'
+          set -o pipefail
+          docker run --rm -e DATABASE_URL postgres:18 pg_dump --no-owner --no-privileges -n public \
+            --exclude-table-data=public.analytics_events --exclude-table-data=public.concierge_requests \
+            --exclude-table-data=public.recommendation_sessions --exclude-table-data=public.user_feedback \
+            --dbname "$DATABASE_URL" | gzip > backup/reference_data.sql.gz
           ls -la backup
       - name: Keep the backup
         uses: actions/upload-artifact@v4
