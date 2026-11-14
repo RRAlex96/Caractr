@@ -114,8 +114,11 @@ def test_exact_cc_from_spec_sheet_also_matches():
 
 
 def test_year_outside_the_affected_range_is_not_flagged():
-    assert _ids(_listing(year=2024)) == []
-    assert _ids(_listing(year=2012)) == []
+    # PureTech 1.2: 2012-2022 after the audit of 2026-11-14 (the atmospheric
+    # 1.2 from 2012 has the same wet belt)
+    lo, hi = ALL["psa-puretech-12-belt"]["years"]
+    assert _ids(_listing(year=hi + 2)) == []
+    assert _ids(_listing(year=lo - 1)) == []
 
 
 def test_no_year_means_no_flag():
@@ -184,7 +187,8 @@ def test_merge_puts_curated_red_first_and_amber_in_watch_items():
 def test_payload_shape_for_frontend():
     p = to_payload(ALL["psa-puretech-12-belt"])
     assert p["curated"] and p["engine"] and p["problem"] and p["check"]
-    assert p["affected_years"] == "2014–2022"
+    lo, hi = ALL["psa-puretech-12-belt"]["years"]
+    assert p["affected_years"] == f"{lo}–{hi}"
     assert "preventivo" in p["fix_cost_estimate"] and "se falhar" in p["fix_cost_estimate"]
     assert all(s["url"].startswith("https://") for s in p["sources"])
 
