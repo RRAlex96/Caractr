@@ -38,6 +38,10 @@ export interface ModelGeneration {
 
 export interface KnownIssue {
   id: string
+  /** the engine page's address, /motores/<page> */
+  page: string
+  component: string
+  mitigation: string | null
   severity: string
   engine: string
   problem: string
@@ -65,8 +69,17 @@ export interface ModelPage {
   related: string[]
 }
 
+export interface EnginePage extends KnownIssue {
+  codes: string[]
+  years: [number, number]
+  models_text: string[]
+  confidence: string
+  affected_models: { slug: string; brand: string; model: string; engines: string[] }[]
+}
+
 interface ModelData {
   generated_on: string
+  engines?: EnginePage[]
   snapshot: { collected_on: string; listings: number } | null
   models: ModelPage[]
 }
@@ -75,6 +88,12 @@ const DATA = data as unknown as ModelData
 
 export const MODELS: ModelPage[] = DATA.models
 export const SNAPSHOT = DATA.snapshot
+export const ENGINE_PAGES: EnginePage[] = DATA.engines ?? []
+const ENGINE_BY_SLUG = new Map(ENGINE_PAGES.map((e) => [e.page, e]))
+
+export function getEnginePage(slug: string): EnginePage | undefined {
+  return ENGINE_BY_SLUG.get(slug)
+}
 const BY_SLUG = new Map(MODELS.map((m) => [m.slug, m]))
 
 export function getModel(slug: string): ModelPage | undefined {
