@@ -1,4 +1,4 @@
--- Migration v6.6 — 193 models the Portuguese market sells and the catalogue lacked
+-- Migration v6.6 — 211 models the Portuguese market sells and the catalogue lacked
 --
 -- The market snapshot of 2026-11-13 read 44 924 listings of the catalogue's 38
 -- makes; 10 112 of them (22.5%) belonged to no catalogue model: Smart Fortwo
@@ -6,7 +6,7 @@
 -- Cactus (132) ... Every site model with 8 listings or more was classified:
 -- a model we lack (this file), a body style or sub-model of a model we have
 -- (app/scrapers/sv_catalogue_map.py), or out of scope (panel vans, classics,
--- quadricycles). Together they account for 8203 of those listings.
+-- quadricycles). Together they account for 8694 of those listings.
 --
 -- Per model: body type, price class, the generations sold in Europe with the
 -- page their years were read on (source_url, checked 2026-11-14), and editorial
@@ -19,9 +19,23 @@
 
 BEGIN;
 
+-- Makes new to the catalogue.
+INSERT INTO brands (name, country, segment)
+VALUES
+    ('Mitsubishi', 'Japão', 'generalista'),
+    ('Abarth', 'Itália', 'generalista'),
+    ('Polestar', 'Suécia', 'premium')
+ON CONFLICT (name) DO NOTHING;
+
 INSERT INTO vehicle_models (brand_id, name, body_type, segment, years_produced)
 SELECT b.id, v.model, v.body_type, v.segment, v.years
 FROM (VALUES
+    ('Abarth', '124 Spider', 'cabrio', 'medio', '2016-2019'),
+    ('Abarth', '500e', 'citadino', 'medio', '2023-presente'),
+    ('Abarth', '500e Cabrio', 'cabrio', 'medio', '2023-presente'),
+    ('Abarth', '595', 'citadino', 'medio', '2008-2024'),
+    ('Abarth', '595C', 'cabrio', 'medio', '2010-2024'),
+    ('Abarth', '600e', 'suv', 'medio', '2024-presente'),
     ('Alfa Romeo', 'Giulietta', 'compacto', 'medio', '2010-2020'),
     ('Alfa Romeo', 'Junior', 'suv', 'medio', '2024-presente'),
     ('Alfa Romeo', 'MiTo', 'citadino', 'medio', '2008-2019'),
@@ -144,6 +158,15 @@ FROM (VALUES
     ('Mercedes-Benz', 'SL', 'cabrio', 'luxo', '2001-presente'),
     ('Mercedes-Benz', 'SLK', 'cabrio', 'premium', '1996-2016'),
     ('Mercedes-Benz', 'Vito Tourer', 'mpv', 'medio', '2014-presente'),
+    ('Mitsubishi', 'ASX', 'suv', 'medio', '2010-presente'),
+    ('Mitsubishi', 'Colt', 'citadino', 'economico', '2004-2026'),
+    ('Mitsubishi', 'Eclipse Cross', 'suv', 'medio', '2018-presente'),
+    ('Mitsubishi', 'Grandis', 'mpv', 'medio', '2004-presente'),
+    ('Mitsubishi', 'L200', 'pickup', 'medio', '1996-2023'),
+    ('Mitsubishi', 'Outlander', 'suv', 'medio', '2003-presente'),
+    ('Mitsubishi', 'Pajero', 'suv', 'medio', '1991-2018'),
+    ('Mitsubishi', 'Pajero Sport', 'suv', 'medio', '1996-2008'),
+    ('Mitsubishi', 'Space Star', 'citadino', 'economico', '2013-2024'),
     ('Nissan', 'Almera', 'compacto', 'medio', '1995-2007'),
     ('Nissan', 'Ariya', 'suv', 'medio', '2022-presente'),
     ('Nissan', 'Leaf', 'compacto', 'medio', '2011-presente'),
@@ -165,6 +188,9 @@ FROM (VALUES
     ('Peugeot', '408', 'compacto', 'medio', '2022-presente'),
     ('Peugeot', 'RCZ', 'coupe', 'medio', '2010-2015'),
     ('Peugeot', 'Traveller', 'mpv', 'medio', '2016-presente'),
+    ('Polestar', '2', 'berlina', 'premium', '2020-2026'),
+    ('Polestar', '3', 'suv', 'premium', '2024-presente'),
+    ('Polestar', '4', 'suv', 'premium', '2024-presente'),
     ('Porsche', '911', 'coupe', 'luxo', '1998-presente'),
     ('Porsche', 'Boxster', 'cabrio', 'premium', '1996-2025'),
     ('Porsche', 'Cayman', 'coupe', 'premium', '2005-2025'),
@@ -222,6 +248,12 @@ WHERE NOT EXISTS (SELECT 1 FROM vehicle_models vm WHERE vm.brand_id = b.id AND v
 INSERT INTO generations (model_id, name, year_start, year_end, fuel_type, source_url, verified_on)
 SELECT vm.id, v.name, v.year_start, v.year_end, v.fuel_type, v.source_url, DATE '2026-11-14'
 FROM (VALUES
+    ('Abarth', '124 Spider', 'Type 348', 2016, 2019::int, NULL::text, 'https://en.wikipedia.org/wiki/Fiat_124_Spider_(2016)'::text),
+    ('Abarth', '500e', 'Type 332', 2023, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Fiat_New_500'::text),
+    ('Abarth', '500e Cabrio', 'Type 332', 2023, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Fiat_New_500'::text),
+    ('Abarth', '595', 'Type 312 (500/595/695)', 2008, 2024::int, NULL::text, 'https://en.wikipedia.org/wiki/Fiat_500_(2007)'::text),
+    ('Abarth', '595C', 'Type 312 (500C/595C/695C)', 2010, 2024::int, NULL::text, 'https://www.autoblog.com/2010/06/17/hotter-versions-planned-as-abarth-500c-and-punto-evo-hit-the-mar/'::text),
+    ('Abarth', '600e', 'I', 2024, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Fiat_600_(2023)'::text),
     ('Alfa Romeo', 'Giulietta', 'Giulietta (940)', 2010, 2020::int, NULL::text, 'https://en.wikipedia.org/wiki/Alfa_Romeo_Giulietta_(940)'::text),
     ('Alfa Romeo', 'Junior', 'Junior (966)', 2024, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Alfa_Romeo_Junior_(2024)'::text),
     ('Alfa Romeo', 'MiTo', 'MiTo (955)', 2008, 2019::int, NULL::text, 'https://en.wikipedia.org/wiki/Alfa_Romeo_MiTo'::text),
@@ -430,6 +462,26 @@ FROM (VALUES
     ('Mercedes-Benz', 'SLK', 'R171', 2004, 2010::int, NULL::text, 'https://en.wikipedia.org/wiki/Mercedes-Benz_SLK-Class'::text),
     ('Mercedes-Benz', 'SLK', 'R172', 2011, 2016::int, NULL::text, 'https://en.wikipedia.org/wiki/Mercedes-Benz_SLK-Class'::text),
     ('Mercedes-Benz', 'Vito Tourer', 'W447', 2014, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Mercedes-Benz_Vito'::text),
+    ('Mitsubishi', 'ASX', 'GA', 2010, 2021::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_ASX'::text),
+    ('Mitsubishi', 'ASX', 'II (base Renault Captur)', 2023, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_ASX'::text),
+    ('Mitsubishi', 'Colt', 'Z30', 2004, 2012::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Colt'::text),
+    ('Mitsubishi', 'Colt', 'VII (base Renault Clio V)', 2023, 2026::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Colt'::text),
+    ('Mitsubishi', 'Eclipse Cross', 'GK/GL', 2018, 2024::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Eclipse_Cross'::text),
+    ('Mitsubishi', 'Eclipse Cross', 'II (elétrico, base Renault Scenic E-Tech)', 2025, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Eclipse_Cross'::text),
+    ('Mitsubishi', 'Grandis', 'NA', 2004, 2011::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Grandis'::text),
+    ('Mitsubishi', 'Grandis', 'II (SUV, base Renault Symbioz)', 2025, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Grandis'::text),
+    ('Mitsubishi', 'L200', 'K60/K70', 1996, 2005::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Triton'::text),
+    ('Mitsubishi', 'L200', 'KA/KB', 2006, 2014::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_L200'::text),
+    ('Mitsubishi', 'L200', 'KJ/KK/KL', 2015, 2023::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Triton'::text),
+    ('Mitsubishi', 'Outlander', 'CU', 2003, 2006::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Outlander'::text),
+    ('Mitsubishi', 'Outlander', 'CW', 2007, 2011::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Outlander'::text),
+    ('Mitsubishi', 'Outlander', 'GF/GG', 2012, 2022::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Outlander'::text),
+    ('Mitsubishi', 'Outlander', 'GN', 2025, NULL::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Outlander'::text),
+    ('Mitsubishi', 'Pajero', 'V20', 1991, 1999::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Pajero'::text),
+    ('Mitsubishi', 'Pajero', 'V60', 2000, 2006::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Pajero'::text),
+    ('Mitsubishi', 'Pajero', 'V80', 2007, 2018::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Pajero'::text),
+    ('Mitsubishi', 'Pajero Sport', 'K90', 1996, 2008::int, NULL::text, 'https://en.wikipedia.org/wiki/Mitsubishi_Pajero_Sport'::text),
+    ('Mitsubishi', 'Space Star', 'A00', 2013, 2024::int, NULL::text, 'https://de.wikipedia.org/wiki/Mitsubishi_Space_Star_(2012)'::text),
     ('Nissan', 'Almera', 'Almera N15', 1995, 1999::int, NULL::text, 'https://en.wikipedia.org/wiki/Nissan_Almera'::text),
     ('Nissan', 'Almera', 'Almera N16', 2000, 2007::int, NULL::text, 'https://en.wikipedia.org/wiki/Nissan_Almera'::text),
     ('Nissan', 'Ariya', 'Ariya I', 2022, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Nissan_Ariya'::text),
@@ -463,6 +515,9 @@ FROM (VALUES
     ('Peugeot', '408', '408 I (P54)', 2022, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Peugeot_408_(crossover)'::text),
     ('Peugeot', 'RCZ', 'RCZ (T75)', 2010, 2015::int, NULL::text, 'https://en.wikipedia.org/wiki/Peugeot_RCZ'::text),
     ('Peugeot', 'Traveller', 'Traveller I (K0)', 2016, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Citro%C3%ABn_Jumpy'::text),
+    ('Polestar', '2', 'I', 2020, 2026::int, NULL::text, 'https://en.wikipedia.org/wiki/Polestar_2'::text),
+    ('Polestar', '3', 'I', 2024, NULL::int, NULL::text, 'https://de.wikipedia.org/wiki/Polestar_3'::text),
+    ('Polestar', '4', 'I', 2024, NULL::int, NULL::text, 'https://en.wikipedia.org/wiki/Polestar_4'::text),
     ('Porsche', '911', '996', 1998, 2004::int, NULL::text, 'https://en.wikipedia.org/wiki/Porsche_911'::text),
     ('Porsche', '911', '997', 2005, 2011::int, NULL::text, 'https://en.wikipedia.org/wiki/Porsche_911'::text),
     ('Porsche', '911', '991', 2012, 2018::int, NULL::text, 'https://en.wikipedia.org/wiki/Porsche_911'::text),
@@ -566,6 +621,12 @@ INSERT INTO driving_character
     (model_id, comfort_score, driving_fun_score, city_score, highway_score, family_score, noise_level, description)
 SELECT vm.id, v.comfort, v.fun, v.city, v.highway, v.family, v.noise, v.description
 FROM (VALUES
+    ('Abarth', '124 Spider', 5, 9, 6, 5, 1, 'alto', 'Roadster de dois lugares e tração traseira com base Mazda MX-5 e motor 1.4 turbo de 170 cv. Leve e muito divertido; bagageira pequena e habitáculo apertado.'),
+    ('Abarth', '500e', 5, 7, 9, 4, 2, 'baixo', 'Citadino elétrico de 155 cv, ágil e rápido a baixa velocidade, com gerador de som opcional a imitar o motor a gasolina. Autonomia real curta e lugares traseiros simbólicos.'),
+    ('Abarth', '500e Cabrio', 5, 7, 9, 4, 2, 'baixo', 'Abarth 500e com capota de lona deslizante. Mesma mecânica de 155 cv e a mesma autonomia curta; a capota aberta reduz a visibilidade traseira.'),
+    ('Abarth', '595', 4, 8, 8, 4, 2, 'alto', 'Fiat 500 com motor 1.4 turbo de 135 a 180 cv. Divertido, ruidoso e fácil de estacionar; suspensão dura, posição de condução alta e pouco espaço atrás.'),
+    ('Abarth', '595C', 4, 8, 8, 4, 2, 'alto', 'Versão de capota de lona deslizante do Abarth 595: os pilares e as portas mantêm-se, só o tejadilho abre. Mesmo carácter ruidoso e firme, com bagageira de acesso mais estreito.'),
+    ('Abarth', '600e', 5, 8, 7, 6, 5, 'medio', 'Crossover elétrico de 240 ou 280 cv com diferencial autoblocante. Rápido e eficaz em curva, mas com suspensão firme e autonomia curta para viagens.'),
     ('Alfa Romeo', 'Giulietta', 6, 7, 6, 7, 5, 'medio', 'Compacto de cinco portas com bom comportamento e direção rápida. Habitabilidade traseira e ergonomia fracas; fiabilidade elétrica irregular.'),
     ('Alfa Romeo', 'Junior', 7, 6, 8, 6, 4, 'baixo', 'SUV urbano em híbrido ligeiro ou elétrico. Ágil para a classe; lugares traseiros apertados.'),
     ('Alfa Romeo', 'MiTo', 5, 6, 8, 5, 3, 'medio', 'Utilitário de três portas com estilo e motores vivos. Suspensão seca e pouco espaço atrás.'),
@@ -688,6 +749,15 @@ FROM (VALUES
     ('Mercedes-Benz', 'SL', 8, 7, 4, 9, 1, 'baixo', 'Roadster de luxo de grande turismo. Confortável e rápido em viagem a dois; sistemas hidráulicos da capota e da suspensão caros de reparar.'),
     ('Mercedes-Benz', 'SLK', 6, 7, 6, 7, 1, 'medio', 'Roadster de dois lugares com capota rígida retrátil. Agradável em passeio e utilizável todo o ano; bagageira reduzida com a capota aberta.'),
     ('Mercedes-Benz', 'Vito Tourer', 6, 3, 3, 7, 9, 'medio', 'Versão de passageiros da Vito, até nove lugares. Muito espaço e motores diesel robustos; acabamentos mais simples e mais ruído do que no Classe V.'),
+    ('Mitsubishi', 'ASX', 6, 4, 7, 6, 6, 'medio', 'SUV compacto simples e robusto na primeira geração, com interior datado. Desde 2023 é um Renault Captur com outro emblema, mais moderno e económico.'),
+    ('Mitsubishi', 'Colt', 6, 5, 8, 5, 5, 'medio', 'Utilitário prático e alto na geração Z30, com mecânica simples. O Colt de 2023 é um Renault Clio com outro emblema: mais confortável, refinado e com versão híbrida.'),
+    ('Mitsubishi', 'Eclipse Cross', 7, 5, 6, 7, 6, 'baixo', 'SUV coupé confortável e bem equipado. O PHEV faz cerca de 45 km em modo elétrico e tem tração integral, mas o depósito e a bagageira são pequenos.'),
+    ('Mitsubishi', 'Grandis', 7, 4, 5, 7, 9, 'medio', 'Monovolume de sete lugares com muito espaço e diesel 2.0 de origem Volkswagen. O Grandis de 2025 é outro carro: um SUV compacto de cinco lugares derivado do Renault Symbioz.'),
+    ('Mitsubishi', 'L200', 5, 3, 3, 6, 5, 'alto', 'Pick-up de trabalho robusta, com tração integral eficaz fora de estrada. Suspensão traseira dura sem carga, diesel ruidoso e dimensões pouco práticas em cidade.'),
+    ('Mitsubishi', 'Outlander', 7, 4, 5, 7, 8, 'baixo', 'SUV familiar espaçoso, com sete lugares nas versões diesel. O PHEV é silencioso e muito económico em percursos curtos com carga diária; em autoestrada com a bateria vazia o consumo sobe bastante.'),
+    ('Mitsubishi', 'Pajero', 6, 3, 3, 6, 7, 'alto', 'Todo-o-terreno verdadeiro, com redutoras e grande capacidade fora de estrada. Diesel ruidoso, consumos altos e condução pesada em estrada.'),
+    ('Mitsubishi', 'Pajero Sport', 5, 3, 4, 5, 6, 'alto', 'Todo-o-terreno de chassis separado derivado da L200, com redutoras. Simples e resistente; diesel 2.5 lento e ruidoso, conforto de pick-up.'),
+    ('Mitsubishi', 'Space Star', 5, 3, 9, 4, 4, 'alto', 'Citadino leve, barato de manter e com consumos muito baixos. Motor de três cilindros ruidoso e pouco à vontade em autoestrada; interior simples.'),
     ('Nissan', 'Almera', 6, 5, 7, 6, 5, 'medio', 'Compacto simples e resistente do início dos anos 2000. Mecânica fiável e barata de manter; segurança e equipamento da época.'),
     ('Nissan', 'Ariya', 8, 5, 6, 8, 7, 'baixo', 'SUV elétrico confortável e silencioso, com interior espaçoso e bem acabado. Autonomia real de 400 km ou mais com a bateria de 87 kWh. Bagageira mediana.'),
     ('Nissan', 'Leaf', 7, 5, 8, 6, 6, 'baixo', 'Compacto elétrico com muitos anos de mercado. Nas duas primeiras gerações a bateria não tem arrefecimento líquido e o carregamento rápido é CHAdeMO, o que pesa em viagens longas.'),
@@ -709,6 +779,9 @@ FROM (VALUES
     ('Peugeot', '408', 8, 6, 6, 8, 7, 'baixo', 'Fastback elevado derivado do 308, com mais espaço traseiro e bagageira. Confortável e distinto; visibilidade traseira limitada e preço acima do 308.'),
     ('Peugeot', 'RCZ', 6, 8, 6, 7, 2, 'medio', 'Coupé 2+2 com base no 308 e comportamento eficaz. Lugares traseiros simbólicos; nos 1.6 THP, atenção à corrente de distribuição e ao consumo de óleo.'),
     ('Peugeot', 'Traveller', 7, 3, 3, 7, 10, 'medio', 'Versão de passageiros da Expert, até nove lugares. Mais confortável do que um furgão adaptado; dimensões grandes para cidade.'),
+    ('Polestar', '2', 7, 7, 7, 8, 5, 'baixo', 'Berlina elétrica de cinco portas com construção sólida e sistema Google integrado. Suspensão firme e lugares traseiros acanhados; tração dianteira até 2023, traseira depois da atualização.'),
+    ('Polestar', '3', 9, 7, 4, 9, 7, 'baixo', 'SUV elétrico grande de cinco lugares, com suspensão pneumática e bateria de 111 kWh. Confortável e rápido em estrada; pesado, largo e caro.'),
+    ('Polestar', '4', 8, 7, 5, 9, 7, 'baixo', 'SUV coupé elétrico grande, com muito espaço atrás e sem vidro traseiro: a visão para trás faz-se por câmara. Rápido e silencioso; quase tudo se comanda no ecrã central.'),
     ('Porsche', '911', 6, 10, 5, 8, 2, 'medio', 'O desportivo de referência, com motor traseiro e utilização diária possível. Rápido e preciso em qualquer versão; preços e custos de manutenção elevados.'),
     ('Porsche', 'Boxster', 6, 9, 5, 7, 1, 'medio', 'Roadster de motor central, muito equilibrado. Utilizável no dia a dia, com duas malas pequenas; manutenção de Porsche.'),
     ('Porsche', 'Cayman', 6, 10, 5, 7, 1, 'medio', 'Coupé de motor central, preciso e comunicativo. Dois lugares e manutenção cara.'),
@@ -763,5 +836,14 @@ FROM (VALUES
 JOIN brands b ON b.name = v.brand
 JOIN vehicle_models vm ON vm.brand_id = b.id AND vm.name = v.model
 WHERE NOT EXISTS (SELECT 1 FROM driving_character dc WHERE dc.model_id = vm.id);
+
+-- A single year between two generations (the M2 of 2022, the Amarok of 2021):
+-- the cars registered in it are the last of the old one, which now covers it.
+-- A longer gap is a model that was off the market and stays a gap.
+UPDATE generations g
+SET year_end = g.year_end + 1
+WHERE g.fuel_type IS NULL AND g.year_end IS NOT NULL
+  AND (SELECT MIN(n.year_start) FROM generations n
+       WHERE n.model_id = g.model_id AND n.fuel_type IS NULL AND n.year_start > g.year_start) = g.year_end + 2;
 
 COMMIT;
