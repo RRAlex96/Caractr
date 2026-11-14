@@ -9,6 +9,7 @@ import { LoadingSteps } from "@/components/analysis/loading-steps"
 import { AnalysisError } from "@/components/analysis/analysis-error"
 import { PasteFallback } from "@/components/analysis/paste-fallback"
 import { BuyerPassCard } from "@/components/analysis/buyer-pass-card"
+import { SellerMessage } from "@/components/analysis/seller-message"
 import { VerdictCard } from "@/components/analysis/verdict-card"
 import { MetricsGrid } from "@/components/analysis/metrics-grid"
 import { MarketBasis } from "@/components/analysis/market-basis"
@@ -265,6 +266,8 @@ function AnalisarContent() {
                 : undefined
             }
           />
+
+          <SellerMessage result={result} />
 
           <BuyerPassCard analysisId={result.analysis_id} />
 

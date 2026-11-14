@@ -133,6 +133,9 @@ export const Analytics = {
   analysisShared: (analysisId: number | null | undefined, listingUrl: string, method: string) =>
     track("analysis_shared", { listing_url: listingUrl, method, analysis_id: analysisId ?? null }),
 
+  sellerMessageCopied: (analysisId: number | null | undefined, method: string) =>
+    track("seller_message_copied", { analysis_id: analysisId ?? null, method }),
+
   passInterest: (analysisId: number | null | undefined, where: string) =>
     track("pass_interest", { analysis_id: analysisId ?? null, where, price_eur: 9.9 }),
 
