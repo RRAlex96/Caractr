@@ -15,7 +15,7 @@
     "check": "what the buyer should ask/verify before buying (PT-PT)",
     "cost_eur": "{preventive: [lo, hi] | null, failure: [lo, hi]}",
     "mitigation": "warranty extensions / revised parts, if any (PT-PT)",
-    "match": "{brands, fuel, displacement_cc: [lo, hi], label_regex, transmission_regex, max_torque_nm, max_power_hp (stand-in when torque is unknown), model_regex, exact_cc_suffices (spec-sheet cc alone identifies the engine)}",
+    "match": "{brands, fuel, displacement_cc: [lo, hi], label_regex, transmission_regex, max_torque_nm, max_power_hp (stand-in when torque is unknown), model_regex, exclude_power_hp: [lo, hi] (a power band that uses a different part; only excludes when the power is known), exact_cc_suffices (spec-sheet cc alone identifies the engine)}",
     "sources": "[{label, url, kind: official | press | trade | forum}]",
     "review_notes": "for the reviewer — what is uncertain"
   },
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "opel-m32-bearings",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "alta",
       "component": "caixa",
@@ -1185,41 +1185,85 @@
         2012
       ],
       "models": [
-        "Opel Astra H/J, Insignia A, Meriva B, Zafira B/Tourer, Mokka",
+        "Opel Astra H/J, Meriva B, Zafira B/Tourer (versões turbo e CDTi com caixa de 6)",
+        "Opel Insignia A (1.4 Turbo, 1.6 e 1.8 a gasolina, 1.6 Turbo e 2.0 CDTi até 130 cv; as versões 2.0 CDTi mais potentes não usam a M32)",
         "Opel Vectra C (1.9 CDTi)",
         "Opel Corsa D 1.6 Turbo (OPC)",
         "Fiat Grande Punto/Bravo (1.4 T-Jet)",
-        "Alfa Romeo 159 (1.9 JTDm)",
-        "Alfa Romeo MiTo/Giulietta (algumas versões)"
+        "Alfa Romeo 159 (1.9 JTDm, 1.9 e 2.2 JTS)",
+        "Alfa Romeo MiTo (1.4 TB 155 cv; 1.6 JTDm até 2010 — entre 2010 e 2012 pode ter a C635)"
       ],
       "problem": "Rolamentos da caixa desgastam-se (assobio em 5.ª/6.ª)",
-      "detail": "Os rolamentos (sobretudo os da 6.ª, na tampa traseira) desgastam-se: começa com um assobio em 5.ª/6.ª sob carga, que piora com o tempo e, sem reparação, pode acabar na caixa partida. Existe uma tampa traseira revista, com rolamentos maiores e melhor lubrificação, também vendida como kit para caixas mais antigas.",
-      "check": "No test-drive, acelera em 5.ª e 6.ª: assobio que desaparece ao levantar o pé é o sinal clássico. Folga na alavanca em 5.ª/6.ª é sinal de desgaste avançado. Pede histórico de reparação da caixa.",
+      "detail": "Os rolamentos da caixa (sobretudo os da 6.ª, na tampa traseira) desgastam-se: começa com um assobio em 5.ª/6.ª sob carga, que aumenta com a rotação e desaparece ao carregar na embraiagem. Sem reparação pode acabar com a caixa partida. A imprensa especializada aponta avarias a partir de cerca de 60.000 km. Durante 2012 a GM passou a montar uma tampa traseira revista, com rolamentos maiores e melhor lubrificação; os carros de 2012 podem ter uma ou outra. A Fiat e a Alfa Romeo trocaram a M32 pela caixa C635 a partir de 2010, por isso a Giulietta e os MiTo mais recentes não são abrangidos. As versões 2.0 CDTi de 160–165 cv usam outra caixa (F40) e não são abrangidas.",
+      "check": "No test-drive, acelera em 5.ª e 6.ª: um assobio que acompanha a rotação e diminui ao levantar o pé ou ao carregar na embraiagem é o sinal clássico. Em 1.ª e em 5.ª, carrega e alivia o acelerador: se a alavanca das mudanças se mexer, há folga nos rolamentos. Mudanças a entrar com dificuldade indicam desgaste avançado. Pede faturas de reparação da caixa (rolamentos ou tampa revista). Com a direção toda virada, a tampa traseira da caixa vê-se pela abertura atrás da roda dianteira esquerda, e um mecânico distingue a tampa revista (com um canal de óleo adicional) da original. Em caso de dúvida, confirma o código da caixa (M32) na fatura ou com um mecânico.",
       "cost_eur": {
         "preventive": [
-          600,
-          1200
+          450,
+          1000
         ],
         "failure": [
           1500,
           2500
         ]
       },
-      "mitigation": "Kits de rolamentos e tampa revistos disponíveis; sem extensão de garantia.",
+      "mitigation": "Sem extensão de garantia. A partir de meados de 2012 a GM passou a montar uma tampa traseira revista, com rolamentos maiores (62 mm em vez de 55 mm) e canais de lubrificação adicionais; essa tampa e os rolamentos maiores também se podem montar em caixas mais antigas. Rolamentos «reforçados» do tamanho original não resolvem o problema. Numa reparação, o mais importante é a pré-carga correta dos rolamentos (calços) e óleo novo de boa qualidade.",
       "match": {
         "brands": [
           "Opel",
           "Fiat",
           "Alfa Romeo"
         ],
-        "transmission_regex": "manual 6",
-        "model_regex": "astra|insignia|meriva|zafira|mokka|corsa|vectra|punto|bravo|mito|giulietta|159",
-        "label_regex": "^(?!.*(puretech|bluehdi|1\\.5 diesel)).*(turbo|cdti|t-jet|multijet|jtdm|1\\.4 t|1\\.6 t|1\\.9|2\\.0)"
+        "transmission_regex": "manual(?! 5)",
+        "model_regex": "astra|insignia|meriva|zafira|corsa|vectra|punto|bravo|mito|159",
+        "label_regex": "^(?!.*(puretech|bluehdi|1\\.5 diesel|1\\.3|multiair|160|165|(?<![a-z])dti|\\bm5\\b|5 ?vel)).*(turbo|cdti|t-jet|multijet|jtd|jts|1\\.4 t|1\\.6 t|1\\.9|2\\.0)",
+        "displacement_cc": [
+          1300,
+          2300
+        ],
+        "exclude_power_hp": [
+          158,
+          170
+        ]
       },
       "sources": [
         {
+          "label": "Auto Świat (2015) — caixas manuais que avariam: a GM M32 entre as mais problemáticas",
+          "url": "https://www.auto-swiat.pl/porady/eksploatacja/usterki-i-naprawy-manualnych-skrzyn-biegow/hblq95k",
+          "kind": "press"
+        },
+        {
+          "label": "Auto Świat (2013) — o que avaria nas caixas manuais: rolamentos ruidosos da M32",
+          "url": "https://www.auto-swiat.pl/porady/eksploatacja/co-sie-psuje-w-manualach-awarie-skrzyn-biegow/5vglpvl",
+          "kind": "press"
+        },
+        {
+          "label": "Auto Świat (2014) — oficinas especializadas nos rolamentos da M32 (Opel, Saab, Fiat, Alfa Romeo)",
+          "url": "https://www.auto-swiat.pl/co-sie-psuje-w-skrzyniach-biegow/2rgvnz4",
+          "kind": "press"
+        },
+        {
           "label": "Service4Service — Vauxhall M32: falha de rolamentos (assobio em 6.ª)",
           "url": "https://www.service4service.co.uk/car-repairs/gearboxes/vauxhall-gearboxes",
+          "kind": "trade"
+        },
+        {
+          "label": "Courtenay Sport (2016) — tampa traseira revista da M32, introduzida em 2012 (arquivo)",
+          "url": "https://web.archive.org/web/20210724110449/http://www.courtenaysport.co.uk/blog/2016/02/revised-m32-endcase-and-larger-bearings/",
+          "kind": "trade"
+        },
+        {
+          "label": "Still Running Strong — Opel Insignia A: versões com caixa M32 (arquivo)",
+          "url": "https://web.archive.org/web/20230909062330/https://stillrunningstrong.com/car-specs-problems/opel-vauxhall/insignia-a/?p=7165",
+          "kind": "trade"
+        },
+        {
+          "label": "Still Running Strong — Alfa Romeo MiTo: caixas M32 e C635 por versão (arquivo)",
+          "url": "https://web.archive.org/web/20230909062304/https://stillrunningstrong.com/car-specs-problems/alfa-romeo/mito/?p=11886",
+          "kind": "trade"
+        },
+        {
+          "label": "Gearboxlist — Fiat C635: Alfa Romeo Giulietta (2010–2020), MiTo (2010–2018)",
+          "url": "https://gearboxlist.com/fiat/c635/",
           "kind": "trade"
         },
         {
@@ -1231,9 +1275,14 @@
           "label": "Fiat Forum — M32 gearbox whine (1.4 T-Jet; reparação de rolamentos ~£400–480)",
           "url": "https://www.fiatforum.com/threads/m32-gearbox-whine.358916",
           "kind": "forum"
+        },
+        {
+          "label": "Still Running Strong — M32 gearbox: 6th-gear bearing, mid-2012 revision (62 mm, 17.5 mm wide, extra oil channels), how to tell the revised end case through the left wheel arch, lever movement in 1st/5th, ~£600 bearings / ~£1000 with revised end case (archive)",
+          "url": "https://web.archive.org/web/20240415145021/https://stillrunningstrong.com/car-maintenance/m32-gearbox-bearings/",
+          "kind": "trade"
         }
       ],
-      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. Matching 0: the entry attaches to Alfa Romeo Giulietta 1.6 JTDm 105/120 (2010-2012 overlap). The Giulietta was launched in 2010 with the Fiat C635 6-speed, which gearboxlist, parts listings and Fiat forum posts all tie to the 1.6 Multijet/JTDm, so this is very likely a false positive. The proposed l"
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 8/10 com alterações aplicadas. Regra de matching apertada depois da auditoria: exclui 1.3, DTi, caixas M5 e 158–170 cv (2.0 CDTi com F40)."
     },
     {
       "id": "fiat-multiair-14",
@@ -1307,7 +1356,7 @@
     },
     {
       "id": "renault-k9k-bearings",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "motor",
@@ -1317,19 +1366,20 @@
       ],
       "years": [
         2001,
-        2008
+        2007
       ],
       "models": [
         "Renault Clio II-III/Mégane II/Scénic II/Kangoo/Modus (1.5 dCi)",
-        "Dacia Logan/Sandero/Duster (1.5 dCi)",
-        "Nissan Micra/Note/Qashqai J10 (1.5 dCi)"
+        "Dacia Logan (1.5 dCi)",
+        "Nissan Micra/Almera/Note/Qashqai J10 (1.5 dCi)",
+        "Suzuki Jimny (1.5 DDiS, desde 2004)"
       ],
-      "problem": "Casquilhos da cambota 'giram' e destroem o motor",
-      "detail": "Os casquilhos das bielas podem desgastar-se e rodar, o que obriga a reparar ou trocar o motor. A causa mais apontada são mudanças de óleo tardias ou óleo inadequado. Os casos concentram-se nos primeiros anos (sobretudo 2003–2006) e nas versões de 65, 80, 100 e 105 cv; não é uma falha generalizada, mas quando acontece é cara.",
-      "check": "Pede histórico de óleo — idealmente a cada 10.000–15.000 km. Sem histórico, desconfia.",
+      "problem": "Casquilhos de biela podem rodar e danificar o motor",
+      "detail": "Os casquilhos de biela desgastam-se de forma anormal e podem rodar, o que obriga a reparar ou trocar o motor. A imprensa francesa estima que cerca de 1% dos 1.5 dCi produzidos até 2007 tiveram esta avaria, sobretudo nas versões de 65, 80, 100 e 105 cv; mudanças de óleo tardias e muita condução a baixa rotação agravam o desgaste. Não é uma falha generalizada, mas quando acontece é cara. Há relatos de casos também em motores posteriores (incluindo o de 110 cv), embora em menor número, e por isso muitos mecânicos recomendam trocar os casquilhos preventivamente por volta dos 120.000–140.000 km.",
+      "check": "Pede o histórico de mudanças de óleo (idealmente a cada 10.000–15.000 km; sem histórico, desconfia). Com o motor ao ralenti e em acelerações leves, ouve se há um bater rítmico que acelera com a rotação — um diesel que 'bate mais do que um diesel' é sinal de casquilhos gastos: nesse caso, não compres sem inspeção. Pergunta se os casquilhos já foram trocados preventivamente e pede a fatura.",
       "cost_eur": {
         "preventive": [
-          400,
+          300,
           700
         ],
         "failure": [
@@ -1337,12 +1387,13 @@
           4000
         ]
       },
-      "mitigation": "Sem extensão de garantia. Muitos mecânicos trocam os casquilhos preventivamente junto com a correia de distribuição.",
+      "mitigation": "Sem extensão de garantia. A troca preventiva dos casquilhos é um trabalho relativamente barato comparado com a avaria, e muitos mecânicos fazem-na junto com a correia de distribuição.",
       "match": {
         "brands": [
           "Renault",
           "Dacia",
-          "Nissan"
+          "Nissan",
+          "Suzuki"
         ],
         "fuel": [
           "diesel"
@@ -1351,16 +1402,31 @@
           1455,
           1465
         ],
-        "label_regex": "dci|1\\.5"
+        "label_regex": "dci|ddis|1\\.5"
       },
       "sources": [
+        {
+          "label": "L'argus (2014) — avarias recorrentes dos motores diesel: 1.5 dCi, casquilhos de biela até 2007",
+          "url": "https://www.largus.fr/actualite-automobile/diesel-la-liste-des-pannes-recurrentes-5287380_p_3.html",
+          "kind": "press"
+        },
         {
           "label": "Auto Świat (2023) — os maiores defeitos do motor 1.5 dCi",
           "url": "https://www.auto-swiat.pl/porady/wszystko-o-silniku/najwieksze-wady-silnika-15-dci-przed-zakupem-zalecamy-czujnosc/rtphr6y",
           "kind": "press"
         },
         {
-          "label": "Fiches-auto.fr — fiabilidade do 1.5 dCi",
+          "label": "Auto Świat (2020) — troca preventiva dos casquilhos no 1.5 dCi (120–140 mil km)",
+          "url": "https://www.auto-swiat.pl/porady/eksploatacja/wymiana-panewek-niewielki-koszt-spokoj-na-100-tys-km/p9x7r7z",
+          "kind": "press"
+        },
+        {
+          "label": "Auto Świat (2018) — casquilho gasto: ouvir o bater do motor (1.5 dCi como exemplo)",
+          "url": "https://www.auto-swiat.pl/porady/eksploatacja/kiedy-panewka-nadaje-sie-do-wymiany/99p4sv2",
+          "kind": "press"
+        },
+        {
+          "label": "Fiches-auto.fr — fiabilidade do 1.5 dCi por versão",
           "url": "https://www.fiches-auto.fr/articles-auto/fiabilite-moteurs-diesel/s-2441-fiabilite-du-15-dci.php",
           "kind": "trade"
         },
@@ -1370,12 +1436,12 @@
           "kind": "trade"
         },
         {
-          "label": "Planète Renault — defeito de fabrico no 1.5 dCi (Mégane II)",
-          "url": "https://www.planeterenault.com/forum/megane-ii-defaut-de-fabrication-dans-le-moteur-1-5-dci-t44296.html?amp=1",
-          "kind": "forum"
+          "label": "Auto Bild (2004) — Suzuki Jimny: motor diesel 1.5 dCi fornecido pela Renault",
+          "url": "https://www.autobild.de/artikel/suzuki-jimny-45359.html",
+          "kind": "press"
         }
       ],
-      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. The title says crankshaft bearings ('casquilhos da cambota'), but the detail and every source say connecting-rod bearings, so the title is wrong. The models list includes Dacia Duster, which launched in 2010, outside the 2001-2008 window. The Suzuki Jimny 1.5 DDiS (K9K 700/266, 2004+) uses the K9K b"
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas."
     },
     {
       "id": "mazda-skyactiv-d22",
@@ -1450,28 +1516,23 @@
     },
     {
       "id": "nissan-xtronic-cvt",
-      "status": "draft",
+      "status": "approved",
       "severity": "alto",
       "confidence": "media",
       "component": "caixa",
       "name": "Caixa automática Xtronic CVT (Nissan)",
-      "codes": [
-        "JF015E",
-        "JF016E",
-        "JF017E"
-      ],
+      "codes": [],
       "years": [
-        2013,
+        2014,
         2018
       ],
       "models": [
-        "Nissan Qashqai J11 (Xtronic)",
-        "Nissan X-Trail T32 (Xtronic)",
-        "Nissan Juke F15 (Xtronic)"
+        "Nissan Qashqai J11 (1.2 DIG-T e 1.6 dCi Xtronic, até 2018)",
+        "Nissan X-Trail T32 (1.6 dCi e 2.0 dCi Xtronic, até 2018)"
       ],
       "problem": "Caixa CVT trepida e pode falhar",
-      "detail": "A correia, as polias e os rolamentos da CVT desgastam-se: trepidação ao arrancar, hesitação, rotação a subir e descer sem razão e, sem reparação, falha da caixa. Nos primeiros Qashqai J11 com Xtronic (fabricados entre 20/07/2013 e 21/07/2014) a centralina da caixa tinha parâmetros de software incorretos que causavam oscilações de rotação; a Nissan fez uma campanha de recolha para a reprogramar. Na Dinamarca, a FDM relatou em 2014 vários problemas graves nos cerca de 400 Qashqai Xtronic vendidos, com caixas trocadas em alguns casos. Nos EUA, a Nissan estendeu a garantia da caixa do Rogue de 2014–2018 (equivalente ao X-Trail T32) na sequência de uma ação coletiva.",
-      "check": "Pede faturas de mudança de óleo da CVT (recomenda-se a cada 50.000–60.000 km; nunca ter sido mudado é mau sinal). Num Qashqai fabricado entre julho de 2013 e julho de 2014, confirma num concessionário Nissan, pelo VIN, que a reprogramação da caixa da campanha de recolha foi feita. No test-drive, arranque suave e acelerações moderadas: trepidação, zumbido ou rotação a subir sem velocidade são sinais de alerta.",
+      "detail": "A caixa CVT pode trepidar ao arrancar, dar esticões, perder força ou ter a rotação a subir e descer sem razão; em alguns casos a caixa teve de ser substituída. Nos primeiros Qashqai J11 a centralina da caixa tinha parâmetros de software incorretos: a Nissan fez uma campanha de recolha para os carros fabricados entre 20/07/2013 e 21/07/2014 e, em 2015, uma campanha de serviço para os fabricados entre 04/11/2013 e 27/11/2014, ambas para reprogramar a caixa. A imprensa francesa e britânica relata que alguns donos continuaram a ter problemas depois disso. No X-Trail T32 os casos são descritos como raros, e o ADAC alemão não inclui a caixa entre as avarias frequentes do Qashqai.",
+      "check": "Num carro fabricado entre julho de 2013 e novembro de 2014, confirma num concessionário Nissan, pelo VIN, que as reprogramações da caixa foram feitas. Pede faturas de manutenção da caixa: a Nissan não prevê troca periódica do óleo da CVT em uso normal, mas os especialistas recomendam trocá-lo a cada 50.000–60.000 km. No test-drive, arranque suave e acelerações moderadas: trepidação, esticões, zumbido ou rotação a subir sem o carro acelerar são sinais de alerta.",
       "cost_eur": {
         "preventive": [
           200,
@@ -1482,37 +1543,63 @@
           6000
         ]
       },
-      "mitigation": "Em 2014 houve na Europa uma campanha de recolha para os Qashqai com Xtronic fabricados entre 20/07/2013 e 21/07/2014: a centralina da caixa é reprogramada (cerca de 20 minutos). Não há extensão de garantia europeia conhecida. Nos EUA, a garantia da caixa do Rogue 2014–2018 foi estendida para 84 meses/84.000 milhas, o que não se aplica a carros europeus.",
+      "mitigation": "Campanha de recolha (2014) e campanha de serviço (2015) para reprogramar a caixa dos Qashqai fabricados entre julho de 2013 e novembro de 2014. Não há extensão de garantia europeia conhecida; a extensão da garantia da caixa do Rogue 2014–2018 nos EUA não se aplica a carros europeus.",
       "match": {
         "brands": [
           "Nissan"
         ],
-        "transmission_regex": "cvt|xtronic",
-        "model_regex": "qashqai|x-trail|juke"
+        "model_regex": "qashqai|x-trail",
+        "transmission_regex": "cvt|x-?tronic|autom|^auto",
+        "label_regex": "^(?!.*(dct|e-power|h.brid|1\\.3 dig|1\\.7 dci|1\\.5 vc))"
       },
       "sources": [
-        {
-          "label": "FDM (Dinamarca) — Qashqai com problemas na caixa automática",
-          "url": "https://fdm.dk/arkiv/2014-12-qashqai-har-knas-med-automatgearet",
-          "kind": "press"
-        },
-        {
-          "label": "Gebrauchtwagenberater — Nissan Qashqai J11: problemas",
-          "url": "https://gebrauchtwagenberater.de/nissan-qashqai-probleme/",
-          "kind": "trade"
-        },
-        {
-          "label": "BBB National Programs — Nissan/Infiniti CVT: extensão de garantia Rogue 2014-2018 (EUA)",
-          "url": "https://bbbprograms.org/programs/dr/class-action/nissan-infiniti-cvt",
-          "kind": "official"
-        },
         {
           "label": "Auto Bild (2014) — Nissan Qashqai: dupla campanha de recolha (CVT: software da caixa, fabrico 20/07/2013–21/07/2014)",
           "url": "https://www.autobild.de/artikel/nissan-qashqai-doppelrueckruf-5507075.html",
           "kind": "press"
+        },
+        {
+          "label": "Caradisiac (2017) — fiabilidade do Nissan Qashqai 2: caixa X-Tronic e campanha de 2015",
+          "url": "https://www.caradisiac.com/fiabilite-du-nissan-qashqai-2-la-maxi-fiche-occasion-de-caradisiac-165021.htm",
+          "kind": "press"
+        },
+        {
+          "label": "Honest John — Nissan Qashqai (2014): problemas com a caixa CVT (arquivo)",
+          "url": "https://web.archive.org/web/20210416172512/https://www.honestjohn.co.uk/carbycar/nissan/qashqai-2014/good/",
+          "kind": "press"
+        },
+        {
+          "label": "FDM (Dinamarca, 2014) — Qashqai com problemas na caixa automática",
+          "url": "https://fdm.dk/arkiv/2014-12-qashqai-har-knas-med-automatgearet",
+          "kind": "press"
+        },
+        {
+          "label": "Caradisiac (2020) — fiabilidade do Nissan X-Trail 3: caixa X-Tronic (casos raros)",
+          "url": "https://www.caradisiac.com/fiabilite-nissan-x-trail-3-la-maxi-fiche-occasion-de-caradisiac-180986.htm",
+          "kind": "press"
+        },
+        {
+          "label": "ADAC — catálogo Nissan Qashqai J11 (facelift): versões Xtronic até 08/2018, DCT desde 01/2019",
+          "url": "https://www.adac.de/rund-ums-fahrzeug/autokatalog/marken-modelle/nissan/qashqai/j11-facelift/",
+          "kind": "official"
+        },
+        {
+          "label": "ADAC — relatório de usados Nissan Qashqai 2014–2021 (gasolina): avarias frequentes",
+          "url": "https://assets.adac.de/Autodatenbank/GWInfo/gw0383-nissan-qashqai-2014-2021-benziner-bericht.pdf",
+          "kind": "official"
+        },
+        {
+          "label": "Gebrauchtwagenberater — Nissan Qashqai J11: problemas e intervalo do óleo da CVT",
+          "url": "https://gebrauchtwagenberater.de/nissan-qashqai-probleme/",
+          "kind": "trade"
+        },
+        {
+          "label": "Nissan Nova Zelândia — plano de manutenção do Qashqai J11 (óleo da CVT)",
+          "url": "https://www.nissan.co.nz/content/dam/Nissan/new-zealand/files/Owners/Servicing/capped-price-service/J11%20-%20Qashqai%20Capped%20Price%20Service.pdf",
+          "kind": "official"
         }
       ],
-      "review_notes": "Auditoria final 2026-11-14: 7/10 — não publicado. No source mentions the Juke F15 CVT (JF015E), so flagging it is unsupported; remove it from models and model_regex (or find a source). Matching 0: the only catalogue match is the Qashqai J12 1.3 DIG-T Xtronic (2019+), which is filtered out by year, so today the entry attaches to no car. The catalogu"
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas."
     },
     {
       "id": "ford-powershift-dps6",

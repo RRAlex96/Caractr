@@ -138,7 +138,7 @@ def test_engine_unknown_means_no_flag():
 
 
 def test_description_numbers_that_are_not_engines_are_ignored():
-    l = _listing(brand_name="Renault", model_name="Clio", year=2008, fuel_type="Diesel",
+    l = _listing(brand_name="Renault", model_name="Clio", year=2006, fuel_type="Diesel",
                  version="", description="Oferta de 1.5 anos de garantia. Motor dCi muito económico.")
     assert l and listing_engine_profile(l)["displacement_cc"] is None
     assert _ids(l) == []
@@ -226,3 +226,45 @@ def test_ad_analysis_attaches_matches_and_briefs_the_llm():
         assert same is base["dealbreakers"] and none == []
     finally:
         svc.match_listing = orig
+
+
+def test_m32_flags_six_speed_opels_but_not_other_gearboxes():
+    astra = {"brand_name": "Opel", "model_name": "Astra", "year": 2008, "fuel_type": "Diesel",
+             "version": "1.7 CDTi Cosmo", "engine_displacement_cc": 1686, "engine_power_hp": 125,
+             "transmission": "Manual", "description": ""}
+    assert "opel-m32-bearings" in _ids(astra)
+    # An ad that says it is the 5-speed is not the M32
+    assert "opel-m32-bearings" not in _ids({**astra, "version": "1.7 CDTI Cosmo M5"})
+    # The 160 cv 2.0 CDTi has the F40 gearbox: excluded by power even when the text doesn't say it
+    insignia = {**astra, "model_name": "Insignia", "version": "2.0 CDTi Cosmo",
+                "engine_displacement_cc": 1956, "engine_power_hp": 160}
+    assert "opel-m32-bearings" not in _ids(insignia)
+    assert "opel-m32-bearings" in _ids({**insignia, "engine_power_hp": 130})
+    # Fiat 1.3 Multijet ("70 JTD") is a 5-speed small diesel
+    punto = {**astra, "brand_name": "Fiat", "model_name": "Punto", "version": "70 JTD Multijet",
+             "engine_displacement_cc": 1248, "engine_power_hp": 70}
+    assert "opel-m32-bearings" not in _ids(punto)
+    # Old 2.0 DTi (Zafira A) has another gearbox
+    assert "opel-m32-bearings" not in _ids({**astra, "model_name": "Zafira", "year": 2004,
+                                             "version": "2.0 DTi Elegance", "engine_displacement_cc": 1995})
+
+
+def test_xtronic_only_for_j11_t32_automatics():
+    q = {"brand_name": "Nissan", "model_name": "Qashqai", "year": 2016, "fuel_type": "Gasolina",
+         "version": "1.2 DIG-T N-Connecta", "engine_displacement_cc": 1197, "engine_power_hp": 115,
+         "transmission": "Automática", "description": ""}
+    # (the 1.2 DIG-T engine itself also carries the TCe 1.2 entry)
+    assert "nissan-xtronic-cvt" in _ids(q)
+    assert "nissan-xtronic-cvt" not in _ids({**q, "transmission": "Manual"})
+    # The 2019+ automatics are DCT, and 2013 is still the J10
+    assert "nissan-xtronic-cvt" not in _ids({**q, "year": 2019, "version": "1.3 DIG-T N-Connecta DCT"})
+    assert "nissan-xtronic-cvt" not in _ids({**q, "year": 2013})
+
+
+def test_exclude_power_band_needs_known_power():
+    from app.services.known_issues import matches_engine
+    i = ALL["opel-m32-bearings"]
+    kw = dict(brand="Opel", model="Insignia", label="2.0 CDTi", fuel="diesel", displacement_cc=1956,
+              transmission="manual 6")
+    assert not matches_engine(i, power_hp=160, **kw)
+    assert matches_engine(i, power_hp=None, **kw)
