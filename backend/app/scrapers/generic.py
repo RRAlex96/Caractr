@@ -22,6 +22,7 @@ AutoSapo, SeBe, Flexicar, Soauto, and any site using schema.org markup.
 
 import os
 import re
+import unicodedata
 import json
 import random
 import asyncio
@@ -74,9 +75,9 @@ def _detect_fuel(text: str) -> Optional[str]:
     like "Vidros Elétricos" matching "elétrico".
     """
     t = text.lower()
-    if "híbrido plug" in t or "phev" in t:
+    if "híbrido plug" in t or "hibrido plug" in t or re.search(r"\bphev\b|plug-in", t):
         return "híbrido plug-in"
-    if "híbrido" in t or "hybrid" in t or "hev" in t:
+    if "híbrido" in t or "hibrido" in t or "hybrid" in t or re.search(r"\b(?:mild-|full-)?hev\b", t):
         return "híbrido"
     # "elétrico" must appear as a standalone fuel reference, not as adjective
     # "Vidros Elétricos", "Espelhos Elétricos" → false positive
@@ -632,7 +633,7 @@ KNOWN_BRANDS = [
     "Citroen", "Citroën", "Nissan", "MINI", "Mini",
     "Alfa Romeo", "Land Rover", "Porsche", "Tesla", "Subaru", "Suzuki",
     "Cupra", "DS", "Lexus", "Mitsubishi", "Jeep", "Jaguar", "Maserati", "MG",
-    "Smart", "SsangYong", "BYD", "Polestar",
+    "Smart", "SsangYong", "BYD", "Polestar", "Abarth",
 ]
 
 def _infer_brand_model(title: str) -> tuple[str, str]:
@@ -890,6 +891,60 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
+_POWER_RE = re.compile(r"\b(\d{2,3})\s?(?:cv|hp|ch|ps)\b", re.I)
+
+
+def _enrich_from_title_and_url(result: dict, soup: BeautifulSoup, url: str) -> None:
+    """Dealer sites often keep fuel, power and version only in the page title,
+    the heading or the address (benecar.pt/carros/Peugeot/3008/gt-15-bluehdi-
+    eat8-diesel-2020-156598). Without them the market comparison mixes every
+    engine of the model, so fill the gaps from those places — never overwrite
+    what a structured layer found."""
+    h1 = soup.find("h1")
+    slug = re.sub(r"[-_/+]+", " ", urlparse(url).path)
+    slug = re.sub(r"\b(\d)(\d)\b", r"\1.\2", slug)        # "15" in a slug is "1.5"
+    heading = (result.get("title") or "").strip() or (h1.get_text(" ", strip=True) if h1 else "")
+    hint = f"{heading} {slug}"
+    if not result.get("brand"):
+        brand, model = _infer_brand_model(heading) if heading else ("", "")
+        if not brand:
+            brand, model = _infer_brand_model(slug)
+            # An address runs the version on after the model ("3008 gt 1.5"):
+            # only the first word is safe to take as the model.
+            model = model.split()[0] if model else model
+        if brand:
+            result["brand"] = brand
+            if model and not result.get("model"):
+                result["model"] = model
+    if not result.get("fuel_type"):
+        fuel = _detect_fuel(hint)
+        if fuel:
+            result["fuel_type"] = fuel
+    if not result.get("engine_power_hp"):
+        m = _POWER_RE.search(hint)
+        if m and 40 <= int(m.group(1)) <= 800:
+            result["engine_power_hp"] = int(m.group(1))
+    # A version that is the whole title repeats brand and model ("Peugeot 3008
+    # GT 1.5 BlueHdi"); keep only what identifies the version.
+    v = (result.get("version") or "").strip()
+    for word in (result.get("brand") or "", result.get("model") or ""):
+        if word and re.match(re.escape(word) + r"\b", v, re.I):
+            v = v[len(word):].strip(" -·|")
+    if v != (result.get("version") or "").strip():
+        result["version"] = v
+    if not result.get("version"):
+        src = heading or slug
+        brand, model = result.get("brand") or "", result.get("model") or ""
+        rest = src
+        for word in (brand, model):
+            if word:
+                rest = re.sub(r"\b" + re.escape(word) + r"\b", " ", rest, count=1, flags=re.I)
+        rest = re.sub(r"\b(?:19|20)\d\d\b|\b\d{5,}\b|carros?(?: usados)?\b", " ", rest, flags=re.I)
+        rest = " ".join(rest.split())[:80]
+        if re.search(r"\d[.,]\d|[a-z]{2,}", rest, re.I):
+            result["version"] = rest
+
+
 async def fetch_listing_detail(url: str) -> dict:
     """
     Universal car listing detail extractor.
@@ -1022,19 +1077,22 @@ async def fetch_listing_detail(url: str) -> dict:
         if model and not result.get("model"):
             result["model"] = model
 
+    _enrich_from_title_and_url(result, soup, url)
+
     # Normalise fuel string from schema.org URLs/codes or Portuguese labels
-    fuel = (result.get("fuel_type") or "").lower().strip()
-    if "diesel" in fuel or "gasóleo" in fuel or "gasoleo" in fuel:
+    fuel = unicodedata.normalize("NFKD", (result.get("fuel_type") or "").lower().strip())
+    fuel = "".join(c for c in fuel if not unicodedata.combining(c))   # "Diésel" -> "diesel"
+    if "diesel" in fuel or "gasoleo" in fuel:
         result["fuel_type"] = "diesel"
     elif "gasolina" in fuel or "petrol" in fuel or "gasoline" in fuel:
         result["fuel_type"] = "gasolina"
-    elif "híbrido plug" in fuel or "plug-in" in fuel or "phev" in fuel:
+    elif "hibrido plug" in fuel or "plug-in" in fuel or "phev" in fuel:
         result["fuel_type"] = "híbrido plug-in"
-    elif "híbrido" in fuel or "hibrido" in fuel or "hybrid" in fuel:
+    elif "hibrido" in fuel or "hybrid" in fuel:
         result["fuel_type"] = "híbrido"
-    elif "elétrico" in fuel or "eletrico" in fuel or "electric" in fuel or "bev" in fuel:
+    elif "eletrico" in fuel or "electric" in fuel or "bev" in fuel:
         result["fuel_type"] = "elétrico"
-    elif "gás" in fuel or "gnv" in fuel or "glp" in fuel or "gpl" in fuel:
+    elif "gas" in fuel or "gnv" in fuel or "glp" in fuel or "gpl" in fuel:
         result["fuel_type"] = "GPL"
 
     # Trim photo_count sanity

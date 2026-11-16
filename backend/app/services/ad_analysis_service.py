@@ -36,7 +36,7 @@ def _strip_accents(s: str) -> str:
 
 from app.scrapers.dispatcher import fetch_detail_for_url, detect_source, extract_slugs_from_url, is_supported_url, source_label
 from app.services.dealbreakers import get_dealbreakers, merge_known_issues
-from app.services.known_issues import match_listing
+from app.services.known_issues import match_listing, normalize_fuel
 from app.scrapers.normalizer import (
     _compute_price_delta,
     _compute_km_per_year,
@@ -2669,7 +2669,12 @@ async def _analyse_listing_inner(
     # 116d was flagged "cuidado, 40% above" against just 3 comparables. When the
     # sample is thin we go price-neutral and lean on km/engine/condition instead.
     market_sample = market_stats.get("sample_count") or 0
-    market_reliable = bool(ref_price) and price and market_sample >= _MIN_RELIABLE_MARKET_SAMPLE
+    # Without the fuel the pool mixes every engine of the model: a 2020 3008
+    # GT diesel from a dealer site came out "30% above market, evitar" against
+    # all 3008s. Unknown fuel → no price verdict, like a thin pool.
+    fuel_known = bool(normalize_fuel(normalized.get("fuel_type")))
+    market_reliable = (bool(ref_price) and price and market_sample >= _MIN_RELIABLE_MARKET_SAMPLE
+                       and fuel_known)
 
     if market_reliable:
         price_delta = _compute_price_delta(price, ref_price)
