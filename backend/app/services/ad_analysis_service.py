@@ -171,7 +171,12 @@ Prioridades do comprador: {', '.join(top2)}
 Avalia também se este carro é adequado para ESTE comprador específico."""
 
     km_per_year = listing.get("km_per_year")
-    km_note = f"{km_per_year:.0f} km/ano" if km_per_year else "desconhecido"
+    try:
+        age_years = max(1, datetime.now().year - int(listing.get("year")))
+    except (TypeError, ValueError):
+        age_years = None
+    km_note = (f"{km_per_year:.0f} km/ano em {age_years} anos" if km_per_year and age_years
+               else f"{km_per_year:.0f} km/ano" if km_per_year else "desconhecido")
 
     known_issues = model_info.get("known_issues", "Sem problemas conhecidos registados.")
 
@@ -235,6 +240,7 @@ INSTRUÇÕES IMPORTANTES:
    Não repitas o mesmo item nos dois. Se não souberes a versão, deixa trim_includes vazio e lista tudo em optional_extras.
 4. AVALIA O PREÇO COM BASE NO EQUIPAMENTO: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
 5. NÃO ACUSES O VENDEDOR: nunca classifiques um custo ou uma prática como ilegal, abusivo, fraude ou burla, nem afirmes má-fé — não tens como o provar e o texto é público. Descreve o facto (ex: "há 300 € de despesas administrativas além do preço anunciado") e diz o que o comprador deve perguntar ou negociar.
+6. USA OS NÚMEROS DADOS, NÃO RECALCULES: km/ano, idade, mediana de mercado e a % face ao mercado já estão calculados acima e aparecem ao comprador noutros cartões. Se os referires, usa exatamente esses valores — nunca faças as tuas próprias contas (um texto que contradiz os números destrói a confiança).
 
 Responde APENAS com este JSON (sem texto extra, sem markdown):
 {{

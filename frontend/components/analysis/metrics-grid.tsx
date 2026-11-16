@@ -26,13 +26,17 @@ export function MetricsGrid({ deal, analysis, className }: MetricsGridProps) {
     })
   }
 
-  if (deal.market_avg_price != null) {
+  // The same reference the "vs. Mercado" percentage is measured against (the
+  // median; the average only when no median exists) — showing the average next
+  // to a median-based % made the two cards disagree.
+  const marketRef = deal.market_median_price ?? deal.market_avg_price
+  if (marketRef != null) {
     const sampleNote = deal.market_sample_count
       ? ` (${deal.market_sample_count})`
       : ""
     items.push({
-      label: `Media mercado${sampleNote}`,
-      value: formatPrice(Math.round(deal.market_avg_price)),
+      label: `Preço de mercado${sampleNote}`,
+      value: formatPrice(Math.round(marketRef)),
     })
   }
 
