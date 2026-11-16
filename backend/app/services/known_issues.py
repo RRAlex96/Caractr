@@ -133,6 +133,12 @@ def matches_engine(issue: dict, *, brand: str, model: str = "", label: str = "",
             return False
     if "model_regex" in m and not re.search(m["model_regex"], model or "", re.I):
         return False
+    # A power band known to use a different part (e.g. the 160 cv 2.0 CDTi has
+    # the F40 gearbox, not the M32). Only excludes when the power is known.
+    if "exclude_power_hp" in m and power_hp is not None:
+        lo, hi = m["exclude_power_hp"]
+        if lo <= power_hp <= hi:
+            return False
     return True
 
 
