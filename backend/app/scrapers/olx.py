@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
+from app.scrapers.relay import relay_fetch
+
 # Playwright import is lazy — only loaded when actually needed.
 _PLAYWRIGHT_AVAILABLE: Optional[bool] = None
 
@@ -401,8 +403,12 @@ async def fetch_listing_detail(url: str) -> dict:
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0, headers=headers) as client:
             await asyncio.sleep(random.uniform(1.5, 2.5))
             resp = await client.get(url)
-            resp.raise_for_status()
-            html = resp.text
+            relayed = await relay_fetch(url) if resp.status_code == 403 else None
+            if relayed:
+                html = relayed
+            else:
+                resp.raise_for_status()
+                html = resp.text
 
             # ── Try embedded JSON first (some OLX pages have it) ──
             state = _extract_preloaded_state(html)

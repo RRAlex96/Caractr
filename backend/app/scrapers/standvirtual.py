@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from typing import Optional
 
+from app.scrapers.relay import relay_fetch
 from app.scrapers.sv_models import expand_model, find_make, find_model, needs_trim, trim_label
 from app.scrapers.sv_series import find_series, find_variant
 
@@ -921,6 +922,12 @@ async def fetch_listing_detail(url: str) -> dict:
                     result["_gone"] = True
                     result["_data_quality"] = _compute_data_quality(result)
                     return result
+                if resp.status_code == 403:
+                    # Our server's address is refused outright; retrying from
+                    # it won't help — the relay below fetches from elsewhere.
+                    last_err = "403 Forbidden"
+                    print(f"[SV] 403 for {url}")
+                    break
                 resp.raise_for_status()
                 html = resp.text
             if html:
@@ -928,6 +935,9 @@ async def fetch_listing_detail(url: str) -> dict:
         except Exception as e:
             last_err = e
             print(f"[SV] fetch attempt {attempt + 1}/3 failed for {url}: {e}")
+
+    if not html:
+        html = await relay_fetch(url) or ""
 
     if not html:
         print(f"[SV] FETCH FAILED for {url}: {last_err}")
