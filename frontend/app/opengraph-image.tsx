@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "CARACTR — O motor de recomendação que te conhece a ti";
+export const alt = "Caractr — O preço deste carro usado é justo?";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -42,7 +42,7 @@ export default function OGImage() {
           marginBottom: "20px",
           fontWeight: 400,
         }}>
-          Assistente de compra de carro
+          Carros usados em Portugal
         </p>
 
         {/* Main headline */}
@@ -65,8 +65,8 @@ export default function OGImage() {
           maxWidth: "700px",
           lineHeight: 1.5,
         }}>
-          Diz-nos o teu estilo de vida. Recomendamos os 5 modelos certos
-          — com dados de fiabilidade e preço de mercado.
+          Cola o link do anúncio: preço justo, problemas conhecidos do motor
+          e o que verificar antes de comprar.
         </p>
 
         {/* Bottom URL */}
