@@ -8,9 +8,9 @@ import { PageViewTracker } from "@/components/shared/page-view-tracker"
 
 const SITE_URL = "https://caractr.pt"
 const SITE_NAME = "Caractr"
-const TITLE = "CARACTR — O motor de recomendação que te conhece a ti"
+const TITLE = "Caractr — O preço deste carro usado é justo?"
 const DESCRIPTION =
-  "Diz-nos o teu estilo de vida. Recomendamos os 5 modelos certos — com dados de fiabilidade, preço de mercado e análise de anúncios em tempo real."
+  "Cola o link de um anúncio do Standvirtual ou OLX: dizemos-te se o preço é justo, se aquele motor tem problemas conhecidos e o que verificar antes de comprar. Grátis."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
