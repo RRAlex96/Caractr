@@ -404,6 +404,8 @@ export interface NegotiationPlan {
   messages: {
     first_contact: string
     offer: string
+    offer_no_invoice?: string | null
+    no_invoice_topic?: string | null
     counters: { if: string; reply: string }[]
   }
   seller: "stand" | "particular"

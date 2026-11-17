@@ -59,3 +59,18 @@ def test_a_car_already_below_market_is_not_haggled_hard():
     p = plan(listing={"price": 8000})
     assert p["numbers"]["ceiling"] == 8000 and p["numbers"]["opening"] == 7750
     assert not any(a["kind"] == "mercado" for a in p["arguments"])
+
+
+def test_default_offer_only_states_facts_and_no_invoice_variant_starts_lower():
+    m = plan()["messages"]
+    assert "correia" not in m["offer"]                       # not asserted before the seller answers
+    assert "8.100 €" in m["offer"]
+    assert "a correia de distribuição não tem fatura" in m["offer_no_invoice"]
+    assert "7.600 €" in m["offer_no_invoice"]                 # 97% of the 7 850 ceiling without invoice
+    assert m["no_invoice_topic"] == "a correia de distribuição"
+
+
+def test_portuguese_contractions():
+    p = plan()
+    assert "fatura da correia" in p["walk_away"]["text"] and "de a " not in p["walk_away"]["text"]
+    assert any(c["if"] == "Não há fatura da correia de distribuição" for c in p["messages"]["counters"])

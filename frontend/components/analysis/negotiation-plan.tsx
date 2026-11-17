@@ -7,6 +7,15 @@ import type { NegotiationPlan as Plan } from "@/lib/types"
 
 const eur = (n: number) => `${n.toLocaleString("pt-PT")} €`
 
+// "de" + article, contracted: da correia, do turbo, dos injetores.
+function deDe(topic?: string | null): string {
+  const t = topic || "da reparação"
+  for (const [art, c] of [["a ", "da "], ["o ", "do "], ["as ", "das "], ["os ", "dos "]] as const) {
+    if (t.startsWith(art)) return c + t.slice(art.length)
+  }
+  return t.startsWith("da ") ? t : `de ${t}`
+}
+
 function MessageBox({ label, text, analysisId, kind }: { label: string; text: string; analysisId?: number | null; kind: string }) {
   const [value, setValue] = useState(text)
   const [copied, setCopied] = useState(false)
@@ -114,7 +123,24 @@ export function NegotiationPlan({ plan, analysisId, className }: { plan?: Plan |
         </Step>
 
         <Step n={3} title="Fazer a proposta">
-          <MessageBox label="Depois da visita, se o carro estiver como esperado:" text={plan.messages.offer} analysisId={analysisId} kind="offer" />
+          <MessageBox
+            label={plan.messages.offer_no_invoice
+              ? `Depois da visita, se houver fatura ${deDe(plan.messages.no_invoice_topic)} e o carro estiver como esperado:`
+              : "Depois da visita, se o carro estiver como esperado:"}
+            text={plan.messages.offer}
+            analysisId={analysisId}
+            kind="offer"
+          />
+          {plan.messages.offer_no_invoice && (
+            <div className="mt-4">
+              <MessageBox
+                label={`Se não houver fatura ${deDe(plan.messages.no_invoice_topic)}:`}
+                text={plan.messages.offer_no_invoice}
+                analysisId={analysisId}
+                kind="offer_no_invoice"
+              />
+            </div>
+          )}
           {plan.messages.counters.length > 0 && (
             <div className="mt-5">
               <p className="mb-2 text-[13px] text-muted-foreground">Se o vendedor responder…</p>
