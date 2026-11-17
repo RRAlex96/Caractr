@@ -1,11 +1,15 @@
-"""Recommender evaluation on fixed personas (read-only, production DB).
-Prints the top 5 per persona plus, with -v, the top 12 ranked with scores."""
+"""Recommender check on fixed buyer personas (read-only).
+
+    python -m scripts.recommender_personas [-v] [persona-letter]
+
+Prints the top 5 per persona; with -v, the top 15 ranked with their scores.
+Run it before and after any change to recommend_service scoring and compare."""
 import copy
 import json
 import os
 import sys
 
-BACK = r"C:\Users\wrc_2\Documents\SideProjects\carrojusto\backend"
+BACK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BACK)
 os.chdir(BACK)
 from dotenv import load_dotenv  # noqa: E402
