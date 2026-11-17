@@ -11,7 +11,7 @@ const DATA_QUALITY_LABELS: Record<string, { label: string; colorClass: string; h
   strong_data: { label: "Dados fortes",    colorClass: "text-success border-success/40", hint: "Dados extensos de múltiplas fontes" },
   robust:      { label: "Dados robustos",  colorClass: "text-success border-success/40", hint: "Múltiplas fontes independentes" },
   limited:     { label: "Dados limitados", colorClass: "text-warning border-warning/40", hint: "Poucas fontes disponíveis" },
-  prior_only:  { label: "Estimativa",      colorClass: "text-muted-foreground border-border", hint: "Baseado em padrões do segmento" },
+  prior_only:  { label: "Estimativa",      colorClass: "text-muted-foreground border-border", hint: "Pela marca e pelo motor; ainda sem dados do modelo" },
 }
 
 function toBarPct(v: number): number {
@@ -71,7 +71,7 @@ function ReliabilityBlock({ reliability }: { reliability: ReliabilityData }) {
       </div>
 
       <div className="flex justify-between font-mono text-[10px] text-muted-foreground/55">
-        <span>IC 90%: {reliability.ci_low.toFixed(1)} — {reliability.ci_high.toFixed(1)}</span>
+        <span>provavelmente entre {reliability.ci_low.toFixed(1)} e {reliability.ci_high.toFixed(1)}</span>
         <span>{qMeta.hint}</span>
       </div>
     </div>
@@ -194,16 +194,31 @@ interface TrustPanelProps {
   market?: MarketData | null
   modelName?: string
   reliabilityLimited?: boolean
+  /** Results cards: folded behind one link, without the verification checklist. */
+  compact?: boolean
   className?: string
 }
 
-export function TrustPanel({ reliability, market, modelName, reliabilityLimited, className }: TrustPanelProps) {
+export function TrustPanel({ reliability, market, modelName, reliabilityLimited, compact, className }: TrustPanelProps) {
+  const [open, setOpen] = useState(!compact)
   if (!reliability && !market && !reliabilityLimited) return null
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn("mt-4 text-[13px] text-muted-foreground underline-offset-4 hover:text-gold hover:underline", className)}
+      >
+        Ver fiabilidade e preço{reliability ? ` · ${reliability.score.toFixed(1)}/10` : ""}
+      </button>
+    )
+  }
 
   return (
     <div className={cn("mt-5 border-t border-border pt-5", className)}>
       <span className="mb-4 block font-mono text-[10px] uppercase tracking-[0.15em] text-gold/80">
-        Dados de confiança
+        Fiabilidade e preço
       </span>
 
       {reliability && (
@@ -236,12 +251,14 @@ export function TrustPanel({ reliability, market, modelName, reliabilityLimited,
         </div>
       )}
 
-      <div className="mt-4 border-t border-border pt-4">
-        <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
-          Verificação antes de comprar
-        </span>
-        <VerificationBlock />
-      </div>
+      {!compact && (
+        <div className="mt-4 border-t border-border pt-4">
+          <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
+            Verificação antes de comprar
+          </span>
+          <VerificationBlock />
+        </div>
+      )}
     </div>
   )
 }

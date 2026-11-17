@@ -39,8 +39,8 @@ export function FeaturedModel({
           </h2>
           {rec.price_range && (
             <span className="font-mono text-xs text-gold">
-              {rec.price_range.year ? `De ${rec.price_range.year}: ` : ""}
-              {rec.price_range.min?.toLocaleString("pt-PT")} — {rec.price_range.max?.toLocaleString("pt-PT")} EUR
+              {rec.price_range.year ? `${rec.price_range.year} · ` : ""}
+              {rec.price_range.min === rec.price_range.max ? `${rec.price_range.min?.toLocaleString("pt-PT")} €` : `${rec.price_range.min?.toLocaleString("pt-PT")}–${rec.price_range.max?.toLocaleString("pt-PT")} €`}
             </span>
           )}
         </div>
@@ -53,7 +53,7 @@ export function FeaturedModel({
 
       {/* Full reasons list */}
       <div className="mb-8 flex flex-col gap-3">
-        {rec.reasons?.map((r, i) => (
+        {rec.reasons?.slice(0, 2).map((r, i) => (
           <div key={i} className="flex items-start gap-3">
             <div className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gold" />
             <p className="text-sm font-light leading-relaxed text-muted-foreground">
@@ -70,7 +70,7 @@ export function FeaturedModel({
         <div className="mb-5 border-l-2 border-border pl-5">
           <p className="text-[13px] font-light leading-relaxed text-muted-foreground">
             <span className="mr-2 font-mono text-[10px] uppercase tracking-[1px] text-muted-foreground/50">
-              Tradeoff
+              A ter em conta
             </span>
             {rec.tradeoff}
           </p>
@@ -84,12 +84,12 @@ export function FeaturedModel({
       <div className="mb-1 flex flex-wrap gap-2">
         {rec.is_stretch && (
           <span className="rounded-full bg-gold/10 px-3.5 py-1 font-mono text-[10px] tracking-[1px] text-gold">
-            STRETCH
+            Um pouco acima do orçamento
           </span>
         )}
         {rec.is_wildcard && (
           <span className="rounded-full bg-gold/10 px-3.5 py-1 font-mono text-[10px] tracking-[1px] text-gold">
-            WILDCARD
+            Uma sugestão diferente
           </span>
         )}
       </div>

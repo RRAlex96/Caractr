@@ -891,6 +891,7 @@ async def _fetch_with_playwright(url: str) -> tuple[Optional[str], Optional[str]
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
+_LITRES_RE = re.compile(r"(?<![\d.,])[0-6][.,]\d(?![\d.,])")
 _POWER_RE = re.compile(r"\b(\d{2,3})\s?(?:cv|hp|ch|ps)\b", re.I)
 
 
@@ -901,7 +902,10 @@ def _enrich_from_title_and_url(result: dict, soup: BeautifulSoup, url: str) -> N
     engine of the model, so fill the gaps from those places — never overwrite
     what a structured layer found."""
     h1 = soup.find("h1")
-    slug = re.sub(r"[-_/+]+", " ", urlparse(url).path)
+    path = urlparse(url).path
+    # "1-2-puretech" (Standvirtual) and "15-bluehdi" (Benecar) both mean litres
+    path = re.sub(r"(?<![\d])(\d)-(\d)(?![\d])", r"\1.\2", path)
+    slug = re.sub(r"[-_/+]+", " ", path)
     slug = re.sub(r"\b(\d)(\d)\b", r"\1.\2", slug)        # "15" in a slug is "1.5"
     heading = (result.get("title") or "").strip() or (h1.get_text(" ", strip=True) if h1 else "")
     hint = f"{heading} {slug}"
@@ -933,13 +937,16 @@ def _enrich_from_title_and_url(result: dict, soup: BeautifulSoup, url: str) -> N
     if v != (result.get("version") or "").strip():
         result["version"] = v
     if not result.get("version"):
-        src = heading or slug
+        # The address often names the engine when the heading does not.
+        src = heading if (heading and _LITRES_RE.search(heading)) or not _LITRES_RE.search(slug) else slug
         brand, model = result.get("brand") or "", result.get("model") or ""
         rest = src
         for word in (brand, model):
             if word:
                 rest = re.sub(r"\b" + re.escape(word) + r"\b", " ", rest, count=1, flags=re.I)
         rest = re.sub(r"\b(?:19|20)\d\d\b|\b\d{5,}\b|carros?(?: usados)?\b", " ", rest, flags=re.I)
+        # address clutter: "anuncio", "ver", the site's listing id and ".html"
+        rest = re.sub(r"\b(?:anuncio|anúncio|ver|d)\b|\bID[0-9A-Za-z]{5,}\b|\.html?\b", " ", rest, flags=re.I)
         rest = " ".join(rest.split())[:80]
         if re.search(r"\d[.,]\d|[a-z]{2,}", rest, re.I):
             result["version"] = rest
@@ -1150,16 +1157,30 @@ async def extract_from_pasted_text(text: str, url: str) -> dict:
     }
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     flat = " ".join(lines)
-    # The title is the first line naming a known brand.
-    for line in lines[:40]:
+    # The title is a short line naming a known brand — preferably one that also
+    # names the engine ("Peugeot 208 1.2 PureTech Style"), not the browser's
+    # page title ("Peugeot 208 Usado - 8 990 €, 110 000 km - Standvirtual.com").
+    candidates = []
+    for line in lines[:60]:
         brand, model = _infer_brand_model(line)
-        if brand:
-            result.update(title=line[:200], brand=brand, model=model)
-            break
+        if brand and len(line) <= 120 and "€" not in line and "standvirtual" not in line.lower():
+            candidates.append((bool(_LITRES_RE.search(line)), line, brand, model))
+    if candidates:
+        best = next((c for c in candidates if c[0]), candidates[0])
+        result.update(title=best[1][:200], brand=best[2], model=best[3])
     _extract_pt_labels(flat, result)
     fuel = _detect_fuel(flat)
     if fuel:
         result["fuel_type"] = fuel
+    # Version, power and fuel from the title and the ad's address ("Peugeot 208
+    # 1.2 PureTech Style") — without a version the engine-fault check had
+    # nothing to match on, and a shared analysis lost its warning.
+    _enrich_from_title_and_url(result, BeautifulSoup("", "lxml"), url or "")
+    # A label pattern can pick up a category ("Utilitário Segmento 1") as the
+    # gearbox: keep only what names one.
+    if result.get("transmission") and not re.search(r"manual|autom|cvt|dsg|dct|sequencial",
+                                                      str(result["transmission"]), re.I):
+        result.pop("transmission")
     result["seller_type"] = _detect_seller_type(flat)
     if not (result.get("price") and result.get("year") and result.get("km")):
         llm = await _extract_via_llm(flat, url or "")

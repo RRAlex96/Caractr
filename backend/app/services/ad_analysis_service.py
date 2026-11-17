@@ -260,11 +260,9 @@ Responde APENAS com este JSON (sem texto extra, sem markdown):
   "engine_code": "Código do motor se identificável (ex: 'EA888', 'N47D20', 'K9K 636', 'OM651') ou null",
   "engine_analysis": "1-2 frases sobre ESTE motor específico: fiabilidade conhecida, pontos fracos, o que verificar. Ex: 'O EA888 Gen3 é sólido mas consome óleo — verificar nível entre revisões. Correia aos 210k km.'",
   "extras_analysis": "2-3 frases: que extras tem, o que valem no mercado, e o que FALTA em relação ao esperado para esta versão.",
-  "negotiation_script": "Uma mensagem curta e natural, em português de Portugal, pronta a enviar ao vendedor por WhatsApp/email — como uma pessoa real escreveria, não um guião de vendas. Educada e à vontade, demonstra interesse genuíno, menciona 1-2 factos concretos (ex: está há X dias à venda, km acima da média, falta o livro de revisões) e faz uma proposta de valor com naturalidade. Nada de linguagem corporativa ou robótica. Máximo 4 frases.",
   "verdict_narrative": "3-4 frases: síntese final como amigo especialista. Honesto e direto. Contextualiza preço, km, motor, extras — vale ou não? Para quem é ideal?",
   "seller_read": "2-3 frases: psicologia do vendedor baseada na descrição. Descrição detalhada = transparência, vaga = possível ocultação. Palavras como 'urgente', 'impecável' — o que significam.",
-  "inspection_checklist": ["5-7 pontos de inspeção ESPECÍFICOS para ESTE motor e modelo. Ex: 'Verificar corrente de distribuição — problema conhecido acima de 120k km'. Não ponhas coisas genéricas como 'verificar pneus'."],
-  "negotiation_tips": ["3-4 dicas curtas e naturais, em português de Portugal, como um amigo que percebe de carros te diria ao ouvido. Concretas a esta situação (preço, km, tempo no mercado, vendedor). Tom humano, nada de jargão."]
+  "inspection_checklist": ["5-7 pontos de inspeção ESPECÍFICOS para ESTE motor e modelo. Ex: 'Verificar corrente de distribuição — problema conhecido acima de 120k km'. Não ponhas coisas genéricas como 'verificar pneus'."]
 }}"""
 
 
@@ -526,7 +524,15 @@ def known_issue_dealbreakers_for_cached(model_info: Optional[dict], row: dict, l
     """Cache hits and permalinks: re-match against the engine facts saved with
     the analysis, so approvals made since then take effect."""
     listing = {**row, **{k: v for k, v in (llm.get("_listing_engine") or {}).items() if v is not None}}
-    return _known_issue_dealbreakers(model_info, listing)[0]
+    payload, matched = _known_issue_dealbreakers(model_info, listing)
+    saved = set(llm.get("_known_issue_ids") or []) - {i["id"] for i in matched}
+    if saved:
+        # Matched when analysed but not now: keep them while still approved.
+        from app.services.known_issues import load_issues
+        extra = [i for i in load_issues() if i["id"] in saved]
+        if extra:
+            payload = merge_known_issues(payload, matched + extra)
+    return payload
 
 
 def _known_issue_dealbreakers(model_info: Optional[dict], listing: dict) -> tuple[Optional[dict], list]:
@@ -2731,6 +2737,10 @@ async def _analyse_listing_inner(
             llm_result_to_cache = {
                 **llm_result, **enrichment,
                 "_listing_engine": {k: normalized.get(k) for k in _LISTING_ENGINE_KEYS},
+                # The curated faults this analysis matched: a permalink rebuilt
+                # later (with less to match on, e.g. an ad read from pasted
+                # text) must still show them.
+                "_known_issue_ids": [i["id"] for i in known_matched],
                 "_market_ref": _market_ref_for_cache(market_stats),
             }
             _store_analysis(db, norm_id, llm_result_to_cache, deal_tier, deal_score)
@@ -3176,6 +3186,16 @@ def _price_position(listing: dict, market_stats: Optional[dict]) -> dict:
             "price_delta_pct": round(abs((ref - price) / ref * 100), 1)}
 
 
+def _safe_plan(listing: dict, numbers, dealbreakers, price_history):
+    """The negotiation plan; a failure here never breaks an analysis."""
+    try:
+        from app.services.negotiation import build_plan
+        return build_plan(listing, numbers, dealbreakers, price_history)
+    except Exception as e:
+        print(f"[NEGOTIATION] plan failed: {e}")
+        return None
+
+
 def _build_response(
     listing: dict,
     llm: dict,
@@ -3269,7 +3289,8 @@ def _build_response(
         },
         "inspection_checklist": (enrichment or {}).get("inspection_checklist", []),
         "negotiation_tips":     (enrichment or {}).get("negotiation_tips", []),
-        "negotiation":          _build_negotiation_numbers(listing, market_stats or {}),
+        "negotiation":          (_numbers := _build_negotiation_numbers(listing, market_stats or {})),
+        "negotiation_plan":     _safe_plan(listing, _numbers, dealbreakers, price_history),
         "anomaly":              _build_anomaly(listing, market_stats or {}, listing.get("_data_warnings")),
         "price_history":        price_history,
         "cost_of_ownership":    _build_cost_of_ownership(

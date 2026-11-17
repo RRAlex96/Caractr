@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import type { UserProfile, ProfileNarrative } from "@/lib/types"
@@ -24,6 +27,7 @@ export function ProfileHeader({
   profileSummary,
   className,
 }: ProfileHeaderProps) {
+  const [open, setOpen] = useState(false)
   const summaryText = narrative?.summary || profileSummary
   const lines = narrative
     ? [narrative.priorities, narrative.tension, narrative.aversion, narrative.identity, narrative.context].filter(Boolean) as string[]
@@ -39,7 +43,7 @@ export function ProfileHeader({
 
       {/* Profile narrative */}
       {summaryText && (
-        <div className="mb-[clamp(32px,4vw,48px)]">
+        <div className="mb-3">
           {/* Summary pill */}
           <div className="mb-5 inline-flex items-center gap-4 rounded-full border border-gold/20 bg-gold/[0.06] px-4.5 py-2">
             <p className="text-[13px] font-light text-foreground/60">
@@ -53,23 +57,29 @@ export function ProfileHeader({
             </Link>
           </div>
 
-          {/* Profile story lines */}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[13px] text-muted-foreground underline-offset-4 hover:text-gold hover:underline"
+      >
+        {open ? "Esconder" : "Porque escolhemos estes"}
+      </button>
+
+      {open && (
+        <div className="mt-5 max-w-[640px]">
           {lines.length > 0 && (
-            <div className="flex max-w-[600px] flex-col gap-3 rounded-xl border border-gold/12 bg-white/[0.03] p-5 md:px-6">
+            <div className="mb-6 flex flex-col gap-3">
               {lines.map((line, i) => (
                 <div key={i} className="flex items-start gap-3.5">
                   <div className="mt-[9px] h-[3px] w-[3px] shrink-0 rounded-full bg-gold" />
-                  <p className="text-[13px] font-light leading-relaxed text-foreground/50">
-                    {line}
-                  </p>
+                  <p className="text-[14px] font-light leading-relaxed text-foreground/60">{line}</p>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Profile attribute bars */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-5">
         {Object.entries(profile).map(([key, val]) => (
           <div key={key}>
@@ -90,6 +100,8 @@ export function ProfileHeader({
           </div>
         ))}
       </div>
+        </div>
+      )}
     </section>
   )
 }

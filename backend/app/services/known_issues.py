@@ -264,6 +264,8 @@ def to_payload(issue: dict) -> dict:
         "mitigation": issue.get("mitigation"),
         "affected_years": f"{lo}–{hi}",
         "fix_cost_estimate": cost_txt or None,
+        "cost_eur": {"preventive": cost.get("preventive"), "failure": cost.get("failure")},
+        "seller_question": issue.get("seller_question"),
         "source": f"{len(issue['sources'])} fontes verificadas",
         "sources": [{"label": s["label"], "url": s["url"]} for s in issue["sources"]],
     }

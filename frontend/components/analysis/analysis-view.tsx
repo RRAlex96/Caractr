@@ -5,24 +5,7 @@ import Link from "next/link"
 import type { AnalysisResult } from "@/lib/types"
 import { Analytics } from "@/lib/analytics"
 
-import { VerdictCard } from "@/components/analysis/verdict-card"
-import { MetricsGrid } from "@/components/analysis/metrics-grid"
-import { MarketBasis } from "@/components/analysis/market-basis"
-import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
-import { EngineWatchList, KnownFailureAlert, RecallChecklist } from "@/components/analysis/dealbreaker-warning"
-import { PriceHistory } from "@/components/analysis/price-history"
-import { FlagsList } from "@/components/analysis/flags-list"
-import { EngineCard } from "@/components/analysis/engine-card"
-import { SellerRead } from "@/components/analysis/seller-read"
-import { TextPanel } from "@/components/analysis/text-panel"
-import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
-import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
-import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
-import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
-import { EquipmentCard } from "@/components/analysis/equipment-card"
-import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
-import { DepreciationChart } from "@/components/analysis/depreciation-chart"
-import { TrustPanel } from "@/components/shared/trust-panel"
+import { AnalysisBody } from "@/components/analysis/analysis-body"
 import { ShareButton } from "@/components/shared/share-button"
 import { WizardBridge } from "@/components/shared/wizard-bridge"
 
@@ -68,86 +51,7 @@ export function AnalysisView({ data, analysisId, shared = false }: AnalysisViewP
 
         {/* Analysis components — same as /analisar */}
         <div className="space-y-5">
-          <KnownFailureAlert data={data.dealbreakers} />
-
-          <AnomalyBadge anomaly={data.anomaly} />
-
-          <VerdictCard
-            listing={data.listing}
-            deal={data.deal}
-            analysis={data.analysis}
-            fit={data.fit}
-            sourceLabel={data.source_label}
-          />
-
-          <MetricsGrid deal={data.deal} analysis={data.analysis} />
-
-          <MarketBasis deal={data.deal} listing={data.listing} />
-
-          <PriceHistory data={data.price_history} />
-
-          <EquipmentCard analysis={data.analysis} />
-
-          <FlagsList
-            greenFlags={data.analysis.green_flags || []}
-            redFlags={data.analysis.red_flags || []}
-          />
-
-          {data.analysis.engine_analysis && (
-            <EngineCard
-              engineCode={data.analysis.engine_code}
-              engineAnalysis={data.analysis.engine_analysis}
-            />
-          )}
-
-          <SellerRead
-            sellerAnalysis={data.analysis.seller_analysis}
-            sellerRead={data.analysis.seller_read}
-          />
-
-          {data.analysis.verdict_narrative && (
-            <TextPanel label="Veredicto" accent filled>
-              {data.analysis.verdict_narrative}
-            </TextPanel>
-          )}
-
-          {data.analysis.extras_analysis && (
-            <TextPanel label="Equipamento & valor">
-              {data.analysis.extras_analysis}
-            </TextPanel>
-          )}
-
-          <EngineWatchList data={data.dealbreakers} />
-
-          <RecallChecklist data={data.dealbreakers} year={year} />
-
-          <InspectionChecklist items={data.inspection_checklist || []} />
-
-          <NegotiationNumbers data={data.negotiation} />
-
-          <NegotiationPanel
-            script={data.analysis.negotiation_script}
-            tips={data.negotiation ? [] : data.negotiation_tips || []}
-          />
-
-          <CostOfOwnership data={data.cost_of_ownership} />
-
-          {data.maintenance_estimate && (
-            <MaintenanceEstimate estimate={data.maintenance_estimate} />
-          )}
-
-          {data.depreciation && (
-            <DepreciationChart
-              depreciation={data.depreciation}
-              currentPrice={data.listing.price}
-            />
-          )}
-
-          <TrustPanel
-            reliability={data.reliability}
-            reliabilityLimited={!data.reliability}
-            modelName={`${brand} ${model}`.trim() || undefined}
-          />
+          <AnalysisBody result={data} />
 
           {/* Share */}
           <div className="flex items-center justify-end pt-2">
