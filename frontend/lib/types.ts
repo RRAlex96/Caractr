@@ -211,6 +211,8 @@ export interface MarketData {
   as_of?: string | null
   /** Registration year the price is for (recommendation cards). */
   year?: number | null
+  basis?: "market" | "list"
+  source?: string | null
 }
 
 export interface NegotiationNumbers {

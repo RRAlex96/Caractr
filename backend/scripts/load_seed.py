@@ -52,6 +52,7 @@ SEED_FILES = [
     "seeds/migration_v69_retire_unsourced_ai_issues.sql",  # no-op on a fresh database
     "seeds/migration_v70_deferrable_generation_rule.sql",  # no-op on a fresh database (v64 already deferrable)
     "seeds/migration_v71_engines_for_curated_faults.sql",  # engine years and older generations, so curated faults match
+    "seeds/migration_v72_chinese_ev_brands.sql",  # Jaecoo, Leapmotor, Xpeng, Zeekr, KGM, Ebro, Dongfeng, Voyah + new BYD/MG/Omoda
     # migration_v62_remove_seeded_prices.sql is NOT loaded here: it removes the
     # placeholder prices and refuses to run until a market snapshot has been
     # loaded and aggregated (scripts/market_snapshot.py, then monthly_refresh).

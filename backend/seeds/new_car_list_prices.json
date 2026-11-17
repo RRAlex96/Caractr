@@ -1,0 +1,647 @@
+{
+ "_about": "New-car list prices (PVP desde) by catalogue model, for buyers who want a new car when there is no stock in the market snapshot. One entry per version, each with its source and date. Update from the official importer or the price guide.",
+ "models": {
+  "Jaecoo|5": [
+   {
+    "version": "1.5 SHS-H PURE (HEV)",
+    "fuel": "hibrido",
+    "plug_in": false,
+    "pvp_eur": 30900,
+    "source": "https://www.guiadoautomovel.pt/marcas/jaecoo/5/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Pure",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 34490,
+    "source": "https://www.guiadoautomovel.pt/marcas/jaecoo/5/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Jaecoo|7": [
+   {
+    "version": "1.5 SHS-P Select (PHEV)",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 38900,
+    "source": "https://www.guiadoautomovel.pt/marcas/jaecoo/7/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Jaecoo|8": [
+   {
+    "version": "1.5 Exclusive (PHEV)",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 55900,
+    "source": "https://www.guiadoautomovel.pt/marcas/jaecoo/8/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Omoda|7": [
+   {
+    "version": "1.5 SHS-P Premium",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 44900,
+    "source": "https://www.guiadoautomovel.pt/marcas/omoda/7/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Omoda|9": [
+   {
+    "version": "1.5 SHS-P",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 52900,
+    "source": "https://www.guiadoautomovel.pt/marcas/omoda/9/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Leapmotor|T03": [
+   {
+    "version": "37.3 kWh Design",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 19287,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/t03/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Leapmotor|B03X": [
+   {
+    "version": "Life Pro",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 24787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b03x/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Design Pro Max",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 28787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b03x/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Leapmotor|B05": [
+   {
+    "version": "BEV 60.8kWh LIFE PRO",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 26787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b05/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "BEV 56.2kWh LIFE PRO",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 26787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b05/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "BEV 67.1kWh DESIGN PRO MAX",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 30787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b05/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Leapmotor|B10": [
+   {
+    "version": "Life Pro",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 30299,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b10/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Design Pro Max",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 34287,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/b10/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Leapmotor|C10": [
+   {
+    "version": "Life 69.9 kWh Pro",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 37787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/c10/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Design 81.9 kWh Pro Max",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 41287,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/c10/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Design 81.9 kWh Pro Max AWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 43787,
+    "source": "https://www.guiadoautomovel.pt/marcas/leapmotor/c10/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Xpeng|G6": [
+   {
+    "version": "RWD STANDARD RANGE 68.5kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 47097,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g6/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "RWD LONG RANGE 80.8kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 51197,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g6/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "AWD PERFORMANCE 80.8kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 54399,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g6/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Xpeng|G9": [
+   {
+    "version": "RWD STANDARD RANGE 79kWh Jante 21",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 62897,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g9/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "RWD LONG RANGE 93.1kWh Jante 20",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 67097,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g9/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "AWD PERFORMANCE 93.1kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 77599,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/g9/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Xpeng|P7+": [
+   {
+    "version": "RWD STANDARD RANGE 61.7kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 46997,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/p7/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "RWD LONG RANGE 74.9kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 50997,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/p7/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "AWD PERFORMANCE 74.9kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 56999,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/p7/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Xpeng|L03": [
+   {
+    "version": "Standard Range",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 37707,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/l03/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Long Range",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 40997,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/l03/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Long Range",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 45997,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/l03/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Performance",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 50999,
+    "source": "https://www.guiadoautomovel.pt/marcas/xpeng/l03/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Xpeng|P7": [
+   {
+    "version": "P7 Long Range 86.2 kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 54990,
+    "source": "https://pplware.sapo.pt/motores/carros-eletricos-da-xpeng-chegam-a-portugal/",
+    "date": "2024-09-26"
+   }
+  ],
+  "BYD|Han": [
+   {
+    "version": "Han 85.4 kWh AWD Executive",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 72500,
+    "source": "https://www.guiadoautomovel.pt/noticia/1644/a-byd-chegou-a-portugal-com-o-atto-3-o-han-e-o-tang-todos-os-precos-no-guia",
+    "date": "2023-05-15"
+   }
+  ],
+  "BYD|Tang": [
+   {
+    "version": "Tang 86.4 kWh AWD Flagship",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 72500,
+    "source": "https://www.guiadoautomovel.pt/noticia/1644/a-byd-chegou-a-portugal-com-o-atto-3-o-han-e-o-tang-todos-os-precos-no-guia",
+    "date": "2023-05-15"
+   }
+  ],
+  "MG|MG4 Urban": [
+   {
+    "version": "Comfort 43KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 24969,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/mg4-urban/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Comfort 54KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 27469,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/mg4-urban/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Premium 54KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 30469,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/mg4-urban/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "MG|S5": [
+   {
+    "version": "Comfort 49KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 33319,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/s5/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Comfort 64KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 36819,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/s5/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Premium 64KWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 39319,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/s5/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "MG|S6": [
+   {
+    "version": "Premium 77kwh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 45969,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/s6/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Xpower 77kwh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 48969,
+    "source": "https://www.guiadoautomovel.pt/marcas/mg/s6/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Zeekr|X": [
+   {
+    "version": "Core RWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 37007,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/x/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Long Range RWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 43957,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/x/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Privilege AWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 48959,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/x/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Zeekr|7X": [
+   {
+    "version": "Long Range RWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 59957,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/7x/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Privilege AWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 68459,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/7x/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Zeekr|7GT": [
+   {
+    "version": "Long Range RWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 55457,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/7gt/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "Privilege AWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 61959,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/7gt/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Zeekr|001": [
+   {
+    "version": "Privilege AWD",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 72959,
+    "source": "https://www.guiadoautomovel.pt/marcas/zeekr/001/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "KGM|Torres": [
+   {
+    "version": "1.5 G15T-DHT",
+    "fuel": "hibrido",
+    "plug_in": false,
+    "pvp_eur": 35011,
+    "source": "https://www.guiadoautomovel.pt/marcas/kgm/torres-hev/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "KGM|Torres EVX": [
+   {
+    "version": "E80 K3",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 45919,
+    "source": "https://www.guiadoautomovel.pt/marcas/kgm/torres-evx/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "KGM|Musso": [
+   {
+    "version": "Musso Grand 2.2 D 3 lugares",
+    "fuel": "diesel",
+    "plug_in": false,
+    "pvp_eur": 39500,
+    "source": "https://guiadoautomovel.pt/noticia/2089/kgm-ressignifica-a-heranca-ssangyong-e-chega-a-portugal-com-5-modelos",
+    "date": "2024-09-23"
+   },
+   {
+    "version": "Musso Raider 2.2 D 3 lugares",
+    "fuel": "diesel",
+    "plug_in": false,
+    "pvp_eur": 43500,
+    "source": "https://guiadoautomovel.pt/noticia/2089/kgm-ressignifica-a-heranca-ssangyong-e-chega-a-portugal-com-5-modelos",
+    "date": "2024-09-23"
+   },
+   {
+    "version": "Musso Grand 2.2 D 5 lugares",
+    "fuel": "diesel",
+    "plug_in": false,
+    "pvp_eur": 46300,
+    "source": "https://guiadoautomovel.pt/noticia/2089/kgm-ressignifica-a-heranca-ssangyong-e-chega-a-portugal-com-5-modelos",
+    "date": "2024-09-23"
+   },
+   {
+    "version": "Musso Raider Sports 2.2 DTR Auto 5 lugares",
+    "fuel": "diesel",
+    "plug_in": false,
+    "pvp_eur": 50300,
+    "source": "https://www.revistacarros.pt/?p=203201",
+    "date": "2026-10-28"
+   }
+  ],
+  "KGM|Musso EV": [
+   {
+    "version": "Musso EV K3 4x2",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 45900,
+    "source": "https://4gnews.pt/chegou-a-portugal-a-pick-up-100-eletrica-da-kgm-e-ja-sabemos-os-precos/",
+    "date": "2025-09-11"
+   },
+   {
+    "version": "Musso EV K3 4x4",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 47900,
+    "source": "https://4gnews.pt/chegou-a-portugal-a-pick-up-100-eletrica-da-kgm-e-ja-sabemos-os-precos/",
+    "date": "2025-09-11"
+   },
+   {
+    "version": "Musso EV K5 4x4",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 49900,
+    "source": "https://4gnews.pt/chegou-a-portugal-a-pick-up-100-eletrica-da-kgm-e-ja-sabemos-os-precos/",
+    "date": "2025-09-11"
+   }
+  ],
+  "Ebro|S400": [
+   {
+    "version": "1.5 HEV Premium",
+    "fuel": "hibrido",
+    "plug_in": false,
+    "pvp_eur": 28133,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s400/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Ebro|S700": [
+   {
+    "version": "1.6 TGDI 7 DCT Comfort",
+    "fuel": "gasolina",
+    "plug_in": false,
+    "pvp_eur": 32510,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s700/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "1.5 HEV Comfort",
+    "fuel": "hibrido",
+    "plug_in": false,
+    "pvp_eur": 35010,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s700/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "1.5 TGDI PHEV Comfort",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 41010,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s700/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Ebro|S800": [
+   {
+    "version": "1.6 TGDI 7 DCT Premium",
+    "fuel": "gasolina",
+    "plug_in": false,
+    "pvp_eur": 40887,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s800/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "1.5 TGDI PHEV Premium",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 45887,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s800/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Ebro|S900": [
+   {
+    "version": "1.5 TGDI PHEV Luxury",
+    "fuel": "hibrido",
+    "plug_in": true,
+    "pvp_eur": 55387,
+    "source": "https://www.guiadoautomovel.pt/marcas/ebro/s900/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Dongfeng|Box": [
+   {
+    "version": "PRO 42kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 26757,
+    "source": "https://www.guiadoautomovel.pt/marcas/dongfeng/box/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Dongfeng|Vigo": [
+   {
+    "version": "One Edition 52kWh + Teto Panorâmico",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 33307,
+    "source": "https://www.guiadoautomovel.pt/marcas/dongfeng/vigo/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Voyah|Free": [
+   {
+    "version": "107kWh LUXURY",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 85007,
+    "source": "https://www.guiadoautomovel.pt/marcas/voyah/free/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Voyah|Courage": [
+   {
+    "version": "RWD EXCLUSIVE 80kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 51507,
+    "source": "https://www.guiadoautomovel.pt/marcas/voyah/courage/precos",
+    "date": "2026-11-16"
+   },
+   {
+    "version": "AWD LUXURY 80kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 57507,
+    "source": "https://www.guiadoautomovel.pt/marcas/voyah/courage/precos",
+    "date": "2026-11-16"
+   }
+  ],
+  "Voyah|Dream": [
+   {
+    "version": "LUXURY 109kWh",
+    "fuel": "eletrico",
+    "plug_in": false,
+    "pvp_eur": 107007,
+    "source": "https://www.guiadoautomovel.pt/marcas/voyah/dream/precos",
+    "date": "2026-11-16"
+   }
+  ]
+ }
+}

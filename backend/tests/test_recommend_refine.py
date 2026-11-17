@@ -95,3 +95,37 @@ def test_electric_running_cost_shows_home_and_public():
 def test_no_running_cost_for_plug_in_hybrids_or_unknown_consumption():
     assert ec.monthly_energy_cost("hibrido", 1.5, 1000, plug_in=True) is None
     assert ec.monthly_energy_cost("gasolina", None, 1000) is None
+
+
+# ── New-car list prices (seeds/new_car_list_prices.json) ──────────────────
+
+from app.services.recommend_service import _list_price_rows, load_list_prices  # noqa: E402
+
+
+def test_list_price_rows_take_the_cheapest_version_as_desde():
+    rows = _list_price_rows([
+        {"fuel": "eletrico", "pvp_eur": 34490, "source": "a", "date": "2026-11-16"},
+        {"fuel": "eletrico", "pvp_eur": 29990, "source": "b", "date": "2026-11-16"},
+        {"fuel": "hibrido", "pvp_eur": 30900, "source": "c", "date": "2026-11-16"},
+    ], 2026)
+    assert rows["eletrico"]["p50"] == 29990 and rows["eletrico"]["p90"] == 34490
+    assert rows["eletrico"]["list_price"] and rows["eletrico"]["source"] == "b"
+    assert rows["hibrido"]["n"] == 0
+
+
+def test_a_list_price_alone_never_passes_as_a_used_car():
+    listed = {"year": 2026, "p50": 30000, "p10": 30000, "p90": 30000, "n": 0, "as_of": None, "list_price": True}
+    m = _model(prices_by_year=[listed], prices_by_fuel={}, new_prices={"eletrico": listed})
+    passed, stretch = apply_hard_constraints([m], {**BASE, "p8_budget_max": 35000, "condition": "usado"})
+    assert not passed and not stretch
+    passed, _ = apply_hard_constraints([m], {**BASE, "p8_budget_max": 35000, "condition": "novo"})
+    assert passed and passed[0]["price_basis"] == "list"
+
+
+def test_list_price_seed_file_is_sourced():
+    prices = load_list_prices()
+    assert prices, "seeds/new_car_list_prices.json is empty"
+    for key, versions in prices.items():
+        assert "|" in key
+        for v in versions:
+            assert v["pvp_eur"] > 5000 and str(v.get("source", "")).startswith("https://"), (key, v)
