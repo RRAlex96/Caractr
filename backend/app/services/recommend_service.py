@@ -584,9 +584,47 @@ def price_for_budget(prices_by_year: list, budget_max: int, stretch_limit: float
 ENGINES_SQL = text("""
     SELECT model_id, fuel_type, plug_in, consumption_mixed::float AS consumption, power_hp,
            reliability_score::float AS reliability, maintenance_cost_year AS maintenance,
-           year_from, year_to
+           year_from, year_to, code, displacement_cc, transmission, listings_seen
     FROM engines
 """)
+
+
+def _mark_curated_faults(models: list) -> None:
+    """Attach to each engine the year ranges of the human/audit-approved
+    critical faults it matches (seeds/known_engine_issues.json: PureTech wet
+    belt, N47 chain, DQ200...). Scoring then demotes a model by the share of
+    its sales in that year that carry such an engine — a 2018 Peugeot 308 is
+    mostly 1.2 PureTech, a 2018 BMW 320d is not an N47 any more."""
+    try:
+        from app.services.known_issues import load_issues, matches_engine
+        issues = [i for i in load_issues() if i.get("severity") == "critico"]
+    except Exception:
+        return
+    for m in models:
+        for e in m.get("engines") or []:
+            e["critical_years"] = [
+                tuple(i["years"]) for i in issues
+                if matches_engine(i, brand=m["brand_name"], model=m["model_name"], label=e.get("code") or "",
+                                  fuel=e.get("fuel_type") or "", displacement_cc=e.get("displacement_cc"),
+                                  transmission=e.get("transmission") or "", power_hp=e.get("power_hp"))
+            ]
+
+
+def curated_fault_share(model: dict, year: Optional[int]) -> float:
+    """Share (0-1) of the model's engines on sale in `year`, weighted by how
+    often each is seen in listings, that carry an approved critical fault
+    affecting that year. 0 when the year or the engines are unknown."""
+    if not year:
+        return 0.0
+    then = [e for e in model.get("engines") or []
+            if e.get("year_from") is None or e["year_from"] <= year <= (e.get("year_to") or e["year_from"])]
+    if not then:
+        return 0.0
+    weight = lambda e: max(1, e.get("listings_seen") or 0)  # noqa: E731
+    total = sum(weight(e) for e in then)
+    hit = sum(weight(e) for e in then
+              if any(lo <= year <= hi for lo, hi in e.get("critical_years") or []))
+    return hit / total if total else 0.0
 
 
 def load_engines(db: Session) -> dict:
@@ -736,6 +774,7 @@ def load_models(db: Session) -> list:
             m.update(engine_figures(m["engines"], typical["year"]))
         m["vector"] = _build_model_vector(m)
         models.append(m)
+    _mark_curated_faults(models)
     return models
 
 
@@ -792,6 +831,10 @@ def apply_hard_constraints(models: list, answers: dict) -> tuple:
         # Budget floor: when the user has real budget (>=25k), exclude deeply-under-budget models
         # avg_price < 58% of budget_min means the user is a full tier above what this model offers
         if budget_min >= 25000 and m["avg_price"] < budget_min * 0.58:
+            continue
+        # Same idea for mid budgets: a "15-20k" buyer was offered a 7 740 EUR
+        # 2016 Meriva — half the money and not what they came to look at.
+        if 10000 <= budget_min < 25000 and m["avg_price"] < budget_min * 0.55:
             continue
         # Family context: no city cars; compactos/berlinas need solid family score
         if is_family:
@@ -904,8 +947,64 @@ def score_model(model: dict, profile: dict, answers: dict) -> float:
     critical = 1.0
     if model.get("has_critical_issue"):
         critical = CRITICAL_ISSUE_FACTOR_AVERSE if aversion == "fiabilidade" else CRITICAL_ISSUE_FACTOR
+    # Approved curated faults (PureTech, N47, DQ200...), weighted by how much of
+    # the model's sales in the year the budget buys carry the affected engine.
+    share = curated_fault_share(model, model.get("price_year"))
+    if share:
+        worst = CRITICAL_ISSUE_FACTOR_AVERSE if aversion == "fiabilidade" else CRITICAL_ISSUE_FACTOR
+        critical = min(critical, 1.0 - (1.0 - worst) * share)
 
-    return round(base_score * aversion_multiplier * critical, 4)
+    return round(base_score * aversion_multiplier * critical * ownership_factor(model, profile, answers), 4)
+
+
+# What a used car costs to live with, beyond the model's character. The brand
+# reliability surveys measure cars of up to ~5 years; the recommender prices a
+# model at the newest year the budget buys, which can be 10+ years old.
+AGE_FREE_YEARS = 5          # no age cost up to this age
+AGE_COST_PER_YEAR = 0.012   # every buyer: wear, rubber, electronics
+AGE_COST_HASSLE = 0.040     # extra per year, scaled by how much the buyer weighs reliability + economy
+AGE_FLOOR = 0.60
+MAINTENANCE_CALM = 450      # EUR/year: above this, a no-headaches buyer pays a price
+UNDERSTATED_STATUS_PIVOT = 0.35
+
+
+def ownership_factor(model: dict, profile: dict, answers: dict) -> float:
+    """Multiplier (<= 1) for age, running cost and image fit.
+
+    - Age: a 2014 Classe B beat a 2019 Yaris for a 12 000 EUR "just transport"
+      buyer because only the model was scored, not the car the money buys.
+    - Running cost: buyers who said they fear breakdowns, or who see the car as
+      transport, pay for premium maintenance (BMW/Mercedes ~630 EUR/year vs
+      Toyota ~315 in our engine data).
+    - Image: a discreet, just-transport buyer gets mainstream before premium —
+      a Série 2 Active Tourer is a good family car, but not for them.
+    """
+    factor = 1.0
+    hassle = profile.get("reliability", 0) + profile.get("economy", 0)   # 0..1
+    year = model.get("price_year")
+    if year:
+        age = datetime.now().year - int(year)
+        over = max(0, age - AGE_FREE_YEARS)
+        factor *= max(AGE_FLOOR, 1.0 - over * (AGE_COST_PER_YEAR + AGE_COST_HASSLE * hassle))
+
+    rel = _resolve_float(answers.get("p2_relationship", 0.5), _P2_MAP, 0.5)
+    presence = _resolve_float(answers.get("p5_presence", 0.5), _P5_MAP, 0.5)
+    aversion = answers.get("p6_aversion", "nenhuma")
+    maint = model.get("avg_maintenance") or 0
+    if maint > MAINTENANCE_CALM and (aversion == "fiabilidade" or rel < 0.3):
+        factor *= 1.0 - min(0.15, (maint - MAINTENANCE_CALM) / 1500)
+
+    if presence < 0.3:
+        status = BRAND_STATUS.get(model.get("brand_name"), 0.25)
+        weight = 0.35 if rel < 0.3 else 0.15   # discreet AND just transport: strongest
+        if status > UNDERSTATED_STATUS_PIVOT:
+            factor *= 1.0 - weight * (status - UNDERSTATED_STATUS_PIVOT)
+    return factor
+
+
+RELIABILITY_CALM = 8.0    # "fear of breakdowns": no penalty from here up
+RELIABILITY_WORST = 6.0   # ...and the full penalty from here down
+RELIABILITY_FLOOR = 0.40
 
 
 def _apply_aversion_penalty(model: dict, aversion: str, ctx: str) -> float:
@@ -923,8 +1022,15 @@ def _apply_aversion_penalty(model: dict, aversion: str, ctx: str) -> float:
         return max(floor, floor + (1.0 - floor) * (score / threshold))
 
     if aversion == "fiabilidade":
-        # Below 7.5 → smooth decay to 0.30 at score=0
-        return _smooth_penalty(model["avg_reliability"], 7.5, 0.30)
+        # Real reliability scores live between 6.0 and 9.2 (brand surveys mapped
+        # onto that scale, see migration v68). Decaying from 0 to 7.5 barely
+        # touched a 7.2 (a Kangoo kept 97% for someone who fears breakdowns), so
+        # decay over the real range: none from 8.0, the floor at 6.0.
+        rel = model["avg_reliability"]
+        if rel >= RELIABILITY_CALM:
+            return 1.0
+        span = RELIABILITY_CALM - RELIABILITY_WORST
+        return max(RELIABILITY_FLOOR, 1.0 - (RELIABILITY_CALM - rel) / span * (1.0 - RELIABILITY_FLOOR))
 
     elif aversion == "conforto":
         return _smooth_penalty(model["comfort_score"], 7.0, 0.35)
@@ -1029,13 +1135,25 @@ def select_diverse_top5(scored: list, stretch_scored: list, answers: dict) -> li
             selected.append(best_stretch)
             _record(best_stretch)
 
-    # Pass 4: wildcard (unexpected body type, score > 65% of best; seg cap applies)
-    if len(selected) < 5:
+    # Pass 4: wildcard (unexpected body type, score > 65% of best; seg cap applies).
+    # It must also be at least as good as the weakest regular pick on the two
+    # things this buyer cares most about: a Ford S-Max is an unexpected body
+    # type, but not a surprise a head-turning driving enthusiast wants.
+    profile, _ = build_profile(dict(answers))
+    top_dims = sorted(profile, key=profile.get, reverse=True)[:2]
+    fit = lambda m: sum(m.get("vector", {}).get(d, 0) for d in top_dims)  # noqa: E731
+    fit_floor = min((fit(s) for s in selected), default=0.0)
+    # A discreet, just-transport buyer asked for no surprises: the fifth slot
+    # goes to the next best regular pick (pass 5), not an unexpected body type.
+    no_surprises = (_resolve_float(answers.get("p5_presence", 0.5), _P5_MAP, 0.5) < 0.3
+                    and _resolve_float(answers.get("p2_relationship", 0.5), _P2_MAP, 0.5) < 0.3)
+    if len(selected) < 5 and not no_surprises:
         wildcard_threshold = top_score * 0.65
         for m in all_ranked:
             if _can_add(m):
                 is_unexpected = m["body_type"] not in [primary_body] + adjacent
-                if is_unexpected and m["_score"] >= wildcard_threshold:
+                city_ok = ctx != "cidade" or m.get("city_score", 5) >= 6   # no 7-seat MPV for town
+                if is_unexpected and m["_score"] >= wildcard_threshold and fit(m) >= fit_floor and city_ok:
                     m["is_wildcard"] = True
                     selected.append(m)
                     _record(m)

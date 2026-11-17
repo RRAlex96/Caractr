@@ -194,7 +194,16 @@ def test_aversion_penalty_is_monotonic_no_cliff_inversions():
 
 def test_aversion_penalty_respects_floor():
     worst = _apply_aversion_penalty(_model(avg_reliability=0.0), "fiabilidade", "misto")
-    assert worst == pytest.approx(0.30)
+    assert worst == pytest.approx(0.40)
+
+
+def test_reliability_aversion_bites_inside_the_real_score_range():
+    # Real scores sit between 6.0 and 9.2: a 7.2 must lose clearly against an
+    # 8.4 for someone who fears breakdowns (it kept 97% under the old curve).
+    p = lambda r: _apply_aversion_penalty(_model(avg_reliability=r), "fiabilidade", "misto")  # noqa: E731
+    assert p(8.4) == 1.0
+    assert p(7.2) < 0.80
+    assert p(6.0) == pytest.approx(0.40)
 
 
 # ── select_diverse_top5 ─────────────────────────────────────────────────
@@ -514,3 +523,54 @@ def test_pricing_a_model_at_a_year_takes_that_years_engines():
     assert priced["max_power"] == 190 and priced["best_consumption"] == 5.0
     assert priced["price_year"] == 2015 and priced["avg_price"] == 21000
     assert m["max_power"] == 510                                      # the model itself is untouched
+
+
+# ── Ownership: age, running cost, image fit (2026-11-17) ──────────────────
+
+from app.services.recommend_service import curated_fault_share, ownership_factor  # noqa: E402
+
+
+def _transport_answers(**kw):
+    a = {"p1_context": "cidade", "p2_relationship": "apenas_transporte", "p3_driving_style": "suave_previsivel",
+         "p5_presence": "discreto", "p6_aversion": "fiabilidade", "p8_budget_min": 8000, "p8_budget_max": 12000}
+    a.update(kw)
+    return a
+
+
+def test_an_older_car_costs_more_for_a_no_hassle_buyer():
+    answers = _transport_answers()
+    profile, _ = build_profile(dict(answers))
+    new = _model(id=1, price_year=2022)
+    old = _model(id=2, price_year=2014)
+    assert ownership_factor(new, profile, answers) > ownership_factor(old, profile, answers)
+
+
+def test_discreet_transport_buyer_prefers_mainstream_to_premium():
+    answers = _transport_answers(p6_aversion="nenhuma")
+    profile, _ = build_profile(dict(answers))
+    bmw = _model(id=1, brand_name="BMW", price_year=2020)
+    kia = _model(id=2, brand_name="Kia", price_year=2020)
+    assert ownership_factor(kia, profile, answers) > ownership_factor(bmw, profile, answers)
+    # ...but a buyer who wants presence is not pushed away from BMW
+    show = _transport_answers(p5_presence="vire_cabecas", p2_relationship="adoro_conduzir", p6_aversion="nenhuma")
+    p2, _ = build_profile(dict(show))
+    assert ownership_factor(bmw, p2, show) == ownership_factor(kia, p2, show)
+
+
+def test_high_maintenance_costs_a_breakdown_averse_buyer():
+    answers = _transport_answers(p5_presence="bom_aspeto")
+    profile, _ = build_profile(dict(answers))
+    cheap = _model(id=1, avg_maintenance=320, price_year=2021)
+    dear = _model(id=2, avg_maintenance=650, price_year=2021)
+    assert ownership_factor(cheap, profile, answers) > ownership_factor(dear, profile, answers)
+
+
+def test_curated_fault_share_weights_engines_on_sale_that_year():
+    m = _model(engines=[
+        {"year_from": 2014, "year_to": 2022, "listings_seen": 300, "critical_years": [(2012, 2022)]},
+        {"year_from": 2014, "year_to": 2022, "listings_seen": 100, "critical_years": []},
+        {"year_from": 2023, "year_to": 2026, "listings_seen": 200, "critical_years": []},
+    ])
+    assert curated_fault_share(m, 2018) == 0.75
+    assert curated_fault_share(m, 2024) == 0.0
+    assert curated_fault_share(m, None) == 0.0
