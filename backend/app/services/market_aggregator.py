@@ -488,10 +488,15 @@ _ENGINE_FUEL_OF_POWERTRAIN = """
 def fill_engine_years(db: Session) -> dict:
     """
     Give each engine that has none the years it is on sale with, from the
-    snapshot listings of its model with the same fuel and power (within 3 cv):
-    the 2nd and 98th percentile of their registration years, so one mistyped
-    listing does not stretch the range. Needs 3 listings. Rows that already
-    have years (measured when the engine was added) are not touched.
+    snapshot listings of its model with the same fuel, power (within 3 cv)
+    and engine size (within 10 cc; any size for an electric car): the 2nd and
+    98th percentile of their registration years, so one mistyped listing does
+    not stretch the range. Needs 3 listings. Rows that already have years
+    (measured when the engine was added) are not touched.
+
+    The size matters: power alone dated the 2019 BMW 116d (1.5, 116 cv) from
+    2012, when the 116d of that power was a 2.0 with another engine, and a
+    Golf 1.0 TSI 110 from 1996 (migration v71 corrected those rows).
 
     With years, a model recommended at a 2016 price is described by the
     engines of 2016, not by the plug-in that arrived in 2021.
@@ -508,6 +513,8 @@ def fill_engine_years(db: Session) -> dict:
              AND po.extraction_method = 'search_snapshot'
              AND po.vehicle_year IS NOT NULL
              AND po.engine_power_hp BETWEEN e.power_hp - 3 AND e.power_hp + 3
+             AND (e.fuel_type = 'eletrico'
+                  OR po.engine_cc BETWEEN e.displacement_cc - 10 AND e.displacement_cc + 10)
              AND ({_ENGINE_FUEL_OF_POWERTRAIN}) = e.fuel_type
              AND (po.powertrain = 'plugin-hybrid') = e.plug_in
             WHERE e.year_from IS NULL

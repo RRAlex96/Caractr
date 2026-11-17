@@ -51,6 +51,7 @@ SEED_FILES = [
     "seeds/migration_v68_brand_reliability.sql",  # reliability anchored on published studies
     "seeds/migration_v69_retire_unsourced_ai_issues.sql",  # no-op on a fresh database
     "seeds/migration_v70_deferrable_generation_rule.sql",  # no-op on a fresh database (v64 already deferrable)
+    "seeds/migration_v71_engines_for_curated_faults.sql",  # engine years and older generations, so curated faults match
     # migration_v62_remove_seeded_prices.sql is NOT loaded here: it removes the
     # placeholder prices and refuses to run until a market snapshot has been
     # loaded and aggregated (scripts/market_snapshot.py, then monthly_refresh).
@@ -68,7 +69,8 @@ def main() -> None:
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     conn = psycopg2.connect(url)
     try:
-        runs = SEED_FILES + ([f for f in SEED_FILES if f.startswith("seeds/migration_v6")] if "--twice" in sys.argv else [])
+        rerun = ("seeds/migration_v6", "seeds/migration_v7")
+        runs = SEED_FILES + ([f for f in SEED_FILES if f.startswith(rerun)] if "--twice" in sys.argv else [])
         for rel in runs:
             if rel == STARTUP:
                 print("→ app startup migrations …")
