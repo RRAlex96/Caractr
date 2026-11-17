@@ -344,3 +344,8 @@ def test_combined_make_model_filter_of_november_2026_is_scoped():
                  "applied_values": {"make_model_engine_code": "volkswagen"}}
     assert applied_make_model(make_only) == ("volkswagen", None)
     assert not _search_is_scoped(make_only)
+    # A sub-model searched with its series (live 2026-11-17, 463 results)
+    sub_model = {"applied": {"category_id", "make_model_engine_code"},
+                 "applied_values": {"make_model_engine_code": "bmw|serie-3|320"}}
+    assert applied_make_model(sub_model) == ("bmw", "serie-3")
+    assert _search_is_scoped(sub_model)

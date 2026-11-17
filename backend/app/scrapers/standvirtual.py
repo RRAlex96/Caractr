@@ -23,7 +23,7 @@ from typing import Optional
 
 from app.scrapers.relay import relay_fetch
 from app.scrapers.sv_models import expand_model, find_make, find_model, needs_trim, trim_label
-from app.scrapers.sv_series import find_series, find_variant
+from app.scrapers.sv_series import find_series, find_variant, is_series_id, series_of_variant
 
 # Playwright import is lazy — only loaded when fetch_listings actually needs it.
 # Importing playwright at module level wastes ~50MB RAM even when unused.
@@ -184,27 +184,41 @@ def _build_search_url(
     power_range: Optional[tuple] = None,
 ) -> str:
     brand_slug = _make_slug(brand)
-    # Prefer SV's own model slug (from the listing) when provided — it's exact
-    # for any model, including ones the site's list does not have yet.
-    series_id = None
+    # Series and sub-models (BMW, Mercedes-Benz, Lexus, Porsche 911) are
+    # searched by filter, never in the path: "/carros/bmw/320" is applied as
+    # "bmw|320" and finds nothing, "/carros/bmw/serie-3" is every BMW. A
+    # sub-model needs its series: make_model_engine_code = "bmw|serie-3|320".
+    series_id = variant_id = model_slug = None
     if model_slug_override:
-        # ... widened when the site files the car under a second id as well.
-        model_slug = expand_model(brand_slug, model_slug_override.strip())
+        # SV's own model slug (from the listing) is exact for any model,
+        # including ones the site's list does not have yet. On a listing of a
+        # series make it is the sub-model ("320"), at times the series.
+        slug = model_slug_override.strip()
+        series_id = series_of_variant(brand_slug, slug)
+        if series_id:
+            variant_id = slug
+        elif is_series_id(brand_slug, slug):
+            series_id = slug
+        else:
+            # ... widened when the site files the car under a second id as well.
+            model_slug = expand_model(brand_slug, slug)
     else:
         model_clean = model.strip()
-        # A model the site files as a sub-model ("530", "A 180") goes in the
-        # path; a series ("Serie 5", "Classe A") only works as a filter.
-        model_slug = find_variant(brand_slug, model_clean)
-        if not model_slug:
-            series_id = find_series(brand_slug, model_clean)
+        # A sub-model by name ("530", "A 180"), else a series ("Serie 5",
+        # "Classe A").
+        variant_id = find_variant(brand_slug, model_clean)
+        series_id = (series_of_variant(brand_slug, variant_id) if variant_id
+                     else find_series(brand_slug, model_clean))
         # Any other model: its id in the site's own list ("XC40" -> "xc-40"),
         # else a plain slug, which the site may not know (the search is then
         # discarded as unscoped, see _search_is_scoped).
-        if not model_slug and not series_id:
+        if not series_id:
             model_slug = find_model(brand_slug, model_clean) or _plain_slug(model_clean)
-    url = f"{SEARCH_URL}/{brand_slug}" + (f"/{model_slug}" if not series_id else "")
+    url = f"{SEARCH_URL}/{brand_slug}" + (f"/{model_slug}" if model_slug else "")
     params = []
-    if series_id:
+    if variant_id:
+        params.append(f"search[make_model_engine_code]={brand_slug}|{series_id}|{variant_id}")
+    elif series_id:
         params.append(f"search[filter_enum_model]={series_id}")
     if budget_max:
         params.append(f"search[filter_float_price:to]={budget_max}")
