@@ -53,6 +53,18 @@ def _issue_topic(i: dict) -> str:
     return "o motor"
 
 
+def _de(topic: str) -> str:
+    """'de' + article, contracted as Portuguese does: da correia, do turbo, dos injetores."""
+    for art, contracted in (("a ", "da "), ("o ", "do "), ("as ", "das "), ("os ", "dos ")):
+        if topic.startswith(art):
+            return contracted + topic[len(art):]
+    return "de " + topic
+
+
+def _short_engine(name: Optional[str]) -> str:
+    return (name or "").split(" (")[0].strip()
+
+
 def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[dict],
                price_history: Optional[dict] = None) -> dict:
     """{numbers, arguments, messages:{first_contact, offer, counters}, walk_away}."""
@@ -89,9 +101,9 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
     if top and prev:
         topic = _issue_topic(top)
         args.append({"kind": "manutencao", "eur": prev[0], "conditional": True,
-                     "text": f"Se não houver fatura de {topic}: são {_eur(prev[0])}–{_eur(prev[1])} que vais ter de gastar "
-                             f"({top.get('engine')}).",
-                     "say": f"não há fatura de {topic}, e isso são {_eur(prev[0])}–{_eur(prev[1])} que vou ter de gastar"})
+                     "text": f"Se não houver fatura {_de(topic)}: são {_eur(prev[0])}–{_eur(prev[1])} que vais ter de gastar "
+                             f"({_short_engine(top.get('engine'))}).",
+                     "say": f"{topic} não tem fatura de troca, e isso são {_eur(prev[0])}–{_eur(prev[1])} que vou ter de gastar"})
     if days >= 30:
         args.append({"kind": "tempo", "eur": None, "text": f"Está anunciado há {days} dias — quem espera tanto costuma ceder.",
                      "say": None})
@@ -119,7 +131,7 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
                         + (f": há {plan_numbers['comparables']} carros comparáveis por esse preço." if plan_numbers.get("comparables") else ".")}
         if top and prev and plan_numbers["ceiling"] - prev[0] > plan_numbers["opening"] * 0.85:
             walk["ceiling_unproven"] = _round50(plan_numbers["ceiling"] - prev[0])
-            walk["text"] += (f" Sem fatura de {_issue_topic(top)}, o teu teto desce para "
+            walk["text"] += (f" Sem fatura {_de(_issue_topic(top))}, o teu teto desce para "
                              f"{_eur(walk['ceiling_unproven'])}.")
 
     # ── Messages ────────────────────────────────────────────────────────────
@@ -140,14 +152,22 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
         + [f"– {q}" for q in questions[:4]]
         + ["", "Obrigado!"])
 
-    says = [a["say"] for a in args if a.get("say")][:2]
-    reason = (" e ".join(says) + ". ") if says else ""
+    # The default offer states only facts already true (market, time, km); the
+    # no-invoice variant adds the job's cost and starts lower.
+    says = [a["say"] for a in args if a.get("say") and not a.get("conditional")][:2]
     known_private = "particular" in (listing.get("seller_type") or "").lower()
+    offer_no_invoice = None
     if plan_numbers:
         sweetener = ("Fecho rapidamente, com a revisão feita antes da entrega." if stand
                      else "Pago a pronto e fecho rapidamente." if known_private else "Consigo fechar rapidamente.")
-        offer = (f"Olá! Obrigado pelas respostas. Gostei do carro, mas {reason[0].lower() + reason[1:] if reason else ''}"
-                 f"Posso oferecer {_eur(plan_numbers['opening'])}. {sweetener}").replace("  ", " ")
+        liked = f"Gostei do carro, mas {' e '.join(says)}." if says else "Gostei do carro."
+        offer = f"Olá! Obrigado pelas respostas. {liked} Posso oferecer {_eur(plan_numbers['opening'])}. {sweetener}"
+        if top and prev and walk and walk.get("ceiling_unproven"):
+            cond = next(a["say"] for a in args if a.get("conditional"))
+            low_open = _round50(min(plan_numbers["opening"], walk["ceiling_unproven"] * 0.97))
+            sweet = "Fecho rapidamente, se a troca for feita antes da entrega." if stand else "Fecho rapidamente."
+            offer_no_invoice = (f"Olá! Obrigado pelas respostas. Gostei do carro, mas {cond}. "
+                                f"Posso oferecer {_eur(low_open)}. {sweet}")
     else:
         offer = (f"Olá! Obrigado pelas respostas. Gostei do carro{', mas ' + says[0] if says else ''}. "
                  f"Qual é o melhor preço que consegue fazer{' a pronto' if not stand else ''}?")
@@ -169,7 +189,7 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
     counters.append({"if": "«Tenho mais interessados»",
                      "reply": "«Sem problema. A minha proposta fica de pé; se não se concretizar, diga-me.» Não subas por pressão."})
     if top and prev:
-        counters.append({"if": f"Não há fatura de {_issue_topic(top)}",
+        counters.append({"if": f"Não há fatura {_de(_issue_topic(top))}",
                          "reply": f"«Então peço que seja feito antes da entrega, ou que desconte {_eur(prev[0])}.» "
                                   f"É o custo mínimo da reparação preventiva."})
 
@@ -180,6 +200,7 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
             "negoceia com os argumentos e pede ao vendedor o melhor preço."),
         "arguments": args[:4],
         "walk_away": walk,
-        "messages": {"first_contact": first_contact, "offer": offer, "counters": counters},
+        "messages": {"first_contact": first_contact, "offer": offer, "offer_no_invoice": offer_no_invoice,
+                     "no_invoice_topic": _issue_topic(top) if offer_no_invoice else None, "counters": counters},
         "seller": "stand" if stand else "particular",
     }
