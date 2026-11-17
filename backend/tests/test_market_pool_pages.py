@@ -330,3 +330,17 @@ def test_engine_hint_matching_fewer_than_three_keeps_the_pool(monkeypatch):
     others = [_listing(n, "Renault Clio 1.0 TCe", price=13000) for n in range(20)]
     same = [_listing(100 + n, "Renault Clio 1.3 TCe RS Line", price=19000) for n in range(2)]
     assert _market(monkeypatch, others + same, engine_hint="1.3 TCe")["sample_count"] == 22
+
+
+def test_combined_make_model_filter_of_november_2026_is_scoped():
+    # The site now applies make and model as one filter: "byd|atto-3".
+    from app.scrapers.standvirtual import applied_make_model
+    meta = {"applied": {"category_id", "make_model_engine_code"},
+            "applied_values": {"category_id": "29", "make_model_engine_code": "byd|atto-3"}}
+    assert applied_make_model(meta) == ("byd", "atto-3")
+    assert _search_is_scoped(meta)
+    # A slug the site did not know keeps only the make: never comparables
+    make_only = {"applied": {"category_id", "make_model_engine_code"},
+                 "applied_values": {"make_model_engine_code": "volkswagen"}}
+    assert applied_make_model(make_only) == ("volkswagen", None)
+    assert not _search_is_scoped(make_only)

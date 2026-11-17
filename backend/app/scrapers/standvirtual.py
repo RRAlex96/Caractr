@@ -440,7 +440,25 @@ def _search_meta(search: dict) -> dict:
         "page_size": int((search.get("pageInfo") or {}).get("pageSize") or _PAGE_SIZE),
         "applied": {f.get("name") for f in (search.get("appliedFilters") or [])
                     if isinstance(f, dict)},
+        # name -> value: since mid-November 2026 the site applies make and model
+        # as one filter, make_model_engine_code = "byd|atto-3" (or "byd").
+        "applied_values": {f.get("name"): f.get("value") for f in (search.get("appliedFilters") or [])
+                           if isinstance(f, dict)},
     }
+
+
+def applied_make_model(meta: dict) -> tuple:
+    """(make, model) the site actually applied to a search; either may be None.
+    Reads both the old filters (filter_enum_make / filter_enum_model) and the
+    combined make_model_engine_code ("make|model") the site uses now."""
+    values = meta.get("applied_values") or {}
+    combined = values.get("make_model_engine_code")
+    if combined:
+        make, _, model = str(combined).partition("|")
+        return (make or None), (model.split("|")[0] or None)
+    applied = meta.get("applied") or set()
+    return (values.get("filter_enum_make") or ("?" if "filter_enum_make" in applied else None),
+            values.get("filter_enum_model") or ("?" if "filter_enum_model" in applied else None))
 
 
 def _search_is_scoped(meta: dict) -> bool:
@@ -451,8 +469,8 @@ def _search_is_scoped(meta: dict) -> bool:
     every diesel Mercedes. Such a page is full of priced listings of other cars
     and must never be used as comparables.
     """
-    applied = meta.get("applied") or set()
-    return "filter_enum_make" in applied and "filter_enum_model" in applied
+    make, model = applied_make_model(meta)
+    return bool(make and model)
 
 
 def _card_power_hp(value: str, display: str) -> Optional[int]:

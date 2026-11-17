@@ -236,7 +236,7 @@ async def collect_make(client, make: str, log: Callable[[str], None] = print,
     if first is None:
         return {"listings": [], "total": None, "complete": False}
     meta = sv._search_meta(first)
-    if "filter_enum_make" not in meta["applied"]:
+    if not sv.applied_make_model(meta)[0]:
         log(f"  {make}: make not recognised by the site — skipped")
         return {"listings": [], "total": None, "complete": False}
     total, size = meta["total"], meta["page_size"] or 32
