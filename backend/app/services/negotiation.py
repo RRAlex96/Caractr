@@ -165,9 +165,14 @@ def build_plan(listing: dict, numbers: Optional[dict], dealbreakers: Optional[di
         if top and prev and walk and walk.get("ceiling_unproven"):
             cond = next(a["say"] for a in args if a.get("conditional"))
             low_open = _round50(min(plan_numbers["opening"], walk["ceiling_unproven"] * 0.97))
-            sweet = "Fecho rapidamente, se a troca for feita antes da entrega." if stand else "Fecho rapidamente."
-            offer_no_invoice = (f"Olá! Obrigado pelas respostas. Gostei do carro, mas {cond}. "
-                                f"Posso oferecer {_eur(low_open)}. {sweet}")
+            if stand:
+                # One or the other, never both: the job done, or the price down.
+                offer_no_invoice = (f"Olá! Obrigado pelas respostas. Gostei do carro, mas {cond}. "
+                                    f"Posso fechar por {_eur(plan_numbers['opening'])} com a troca feita antes da entrega, "
+                                    f"ou por {_eur(low_open)} sem ela.")
+            else:
+                offer_no_invoice = (f"Olá! Obrigado pelas respostas. Gostei do carro, mas {cond}. "
+                                    f"Posso oferecer {_eur(low_open)}. Fecho rapidamente.")
     else:
         offer = (f"Olá! Obrigado pelas respostas. Gostei do carro{', mas ' + says[0] if says else ''}. "
                  f"Qual é o melhor preço que consegue fazer{' a pronto' if not stand else ''}?")

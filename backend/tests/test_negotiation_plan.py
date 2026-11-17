@@ -74,3 +74,8 @@ def test_portuguese_contractions():
     p = plan()
     assert "fatura da correia" in p["walk_away"]["text"] and "de a " not in p["walk_away"]["text"]
     assert any(c["if"] == "Não há fatura da correia de distribuição" for c in p["messages"]["counters"])
+
+
+def test_stand_no_invoice_offer_asks_for_the_job_or_the_discount_not_both():
+    m = plan(listing={"seller_type": "stand"})["messages"]["offer_no_invoice"]
+    assert "com a troca feita antes da entrega" in m and "ou por 7.600 € sem ela" in m and "8.100 €" in m
