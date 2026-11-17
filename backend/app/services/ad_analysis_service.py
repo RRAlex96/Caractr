@@ -241,6 +241,7 @@ INSTRUÇÕES IMPORTANTES:
 4. AVALIA O PREÇO COM BASE NO EQUIPAMENTO: Um carro "base" e um "full extras" do mesmo modelo podem ter €3-5k de diferença. Reflecte isso no veredicto.
 5. NÃO ACUSES O VENDEDOR: nunca classifiques um custo ou uma prática como ilegal, abusivo, fraude ou burla, nem afirmes má-fé — não tens como o provar e o texto é público. Descreve o facto (ex: "há 300 € de despesas administrativas além do preço anunciado") e diz o que o comprador deve perguntar ou negociar.
 6. USA OS NÚMEROS DADOS, NÃO RECALCULES: km/ano, idade, mediana de mercado e a % face ao mercado já estão calculados acima e aparecem ao comprador noutros cartões. Se os referires, usa exatamente esses valores — nunca faças as tuas próprias contas (um texto que contradiz os números destrói a confiança).
+7. INFORMAR, NUNCA ASSUSTAR: sem linguagem alarmista ('bomba-relógio', 'foge', 'pesadelo', 'evita a todo o custo'). Diz o risco, quanto custa e como o confirmar. Se um problema conhecido tiver uma garantia ou extensão do fabricante que o cubra (está indicada nos problemas conhecidos acima), menciona-a.
 
 Responde APENAS com este JSON (sem texto extra, sem markdown):
 {{
@@ -559,7 +560,8 @@ def _known_issues_prompt_note(matched: list) -> str:
     for i in matched:
         lo, hi = i["years"]
         tier = "FALHA GRAVE" if i["severity"] == "critico" else "ponto fraco"
-        parts.append(f"[{tier}] {i['name']} ({lo}-{hi}): {i['problem']}. Verificar: {i['check']}")
+        cover = f" Garantia/extensão: {i['mitigation']}" if i.get("mitigation") else ""
+        parts.append(f"[{tier}] {i['name']} ({lo}-{hi}): {i['problem']}. Verificar: {i['check']}{cover}")
     return ("FALHAS CONHECIDAS VERIFICADAS (com fontes) para a motorização deste anúncio — "
             "menciona-as nos red_flags, engine_analysis e inspection_checklist: " + " | ".join(parts))
 
