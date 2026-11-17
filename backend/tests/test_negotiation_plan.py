@@ -1,7 +1,9 @@
-"""The negotiation plan: numbers and messages agree, arguments carry euros,
-the first message never accuses, and nothing is invented without data."""
+"""The negotiation guide: polite maintenance-first opening, precise offers,
+a narrowing ladder, facts with euros, and nothing invented without data."""
+import re
+
 from app.services.known_issues import load_issues, to_payload
-from app.services.negotiation import build_plan
+from app.services.negotiation import _precise, build_plan
 
 PURETECH = next(to_payload(i) for i in load_issues() if i["id"] == "psa-puretech-12-belt")
 LISTING = {"brand_name": "Peugeot", "model_name": "208", "year": 2018, "km": 110000, "price": 8990,
@@ -16,66 +18,73 @@ def plan(**kw):
                       kw.get("dealbreakers", DEALBREAKERS), kw.get("history"))
 
 
-def test_offer_message_uses_the_opening_number_not_another():
+def stage(p, key):
+    return next(s for s in p["stages"] if s["key"] == key)
+
+
+def test_five_moments_in_order():
+    assert [s["key"] for s in plan()["stages"]] == ["primeira", "visita", "proposta", "contrapropostas", "fecho"]
+    assert all(s["why"] for s in plan()["stages"])
+
+
+def test_first_message_asks_about_maintenance_never_about_the_engine_fault():
+    m = stage(plan(), "primeira")["message"]
+    assert "histórico de manutenção" in m and "mecânico de confiança à visita" in m
+    for bad in ("correia", "PureTech", "problema", "€"):
+        assert bad not in m
+    assert m.count("– ") == 4
+
+
+def test_newer_or_dearer_car_at_a_stand_gets_a_brand_diagnostic():
+    m = stage(plan(listing={"seller_type": "stand", "year": 2022, "price": 24000}), "primeira")["message"]
+    assert "diagnóstico na marca" in m and "garantia" in m
+
+
+def test_offers_are_precise_never_round():
+    assert _precise(10000) == 9850 and _precise(10500) == 10450 and _precise(10550) == 10550
+    n = plan()["numbers"]
+    assert n["opening"] % 500 != 0
+
+
+def test_offer_cites_facts_with_the_same_number():
+    m = stage(plan(), "proposta")["message"]
+    assert "8.550 €" in m and f"{plan()['numbers']['opening']:,}".replace(",", ".") in m
+    assert "correia" not in m                       # not asserted before the visit
+
+
+def test_no_invoice_offer_is_lower_and_names_the_cost():
+    m = stage(plan(), "proposta")["message_no_invoice"]
+    assert "não tem fatura de troca" in m and "700 € a 1.200 €" in m and "7.600 €" in m
+
+
+def test_ladder_concessions_shrink_and_stop_at_target():
     p = plan()
-    assert p["numbers"] == {"asking": 8990, "opening": 8100, "target": 8300, "ceiling": 8550,
-                            "comparables": 107, "confidence": "alta"}
-    assert "8.100 €" in p["messages"]["offer"] and "8.500" not in p["messages"]["offer"]
+    prices = [p["numbers"]["opening"]] + [l["price"] for l in stage(p, "contrapropostas")["ladder"]]
+    steps = [b - a for a, b in zip(prices, prices[1:])]
+    assert steps == sorted(steps, reverse=True) and prices[-1] == p["numbers"]["target"]
 
 
-def test_arguments_carry_euros_market_and_maintenance():
-    kinds = {a["kind"]: a for a in plan()["arguments"]}
-    assert "8.550 €" in kinds["mercado"]["text"] and kinds["mercado"]["eur"] == 440
-    assert kinds["manutencao"]["eur"] == 700 and "700 €–1.200 €" in kinds["manutencao"]["text"]
-    assert "tempo" in kinds            # 40 days on the market
+def test_stand_price_is_fixed_asks_for_the_legal_three_year_warranty():
+    c = {x["if"]: x["reply"] for x in stage(plan(listing={"seller_type": "stand"}), "contrapropostas")["counters"]}
+    assert "garantia de 3 anos" in c["«O preço é fixo»"] and "18 meses" in c["«O preço é fixo»"]
 
 
-def test_ceiling_drops_without_the_invoice():
-    w = plan()["walk_away"]
-    assert w["ceiling"] == 8550 and w["ceiling_unproven"] == 7850
+def test_private_sale_visit_checks_ownership_and_liens():
+    tips = " ".join(stage(plan(), "visita")["tips"])
+    assert "penhoras" in tips and "inspeção periódica" in tips
 
 
-def test_first_message_asks_politely_and_never_says_known_problem():
-    m = plan()["messages"]["first_contact"]
-    assert "correia de distribuição já foi substituída" in m
-    assert "problema conhecido" not in m and "€" not in m          # no accusation, no price
-    assert m.count("– ") <= 4
-
-
-def test_stand_gets_extras_not_cash():
-    p = plan(listing={"seller_type": "stand"})
-    assert "revisão feita" in p["messages"]["offer"] and "pronto" not in p["messages"]["offer"]
-    assert any("incluir" in c["reply"] for c in p["messages"]["counters"])
-    assert "despesas administrativas" in p["messages"]["first_contact"]
+def test_exit_names_the_target_not_the_asking_price():
+    p = plan(listing={"price": 8000})
+    assert f"{p['numbers']['target']:,}".replace(",", ".") in stage(p, "fecho")["message"]
 
 
 def test_no_market_data_means_no_numbers_and_an_honest_note():
     p = plan(numbers=None, dealbreakers={})
     assert p["numbers"] is None and p["walk_away"] is None and p["note"]
-    assert "melhor preço" in p["messages"]["offer"] and "€" not in p["messages"]["offer"]
-
-
-def test_a_car_already_below_market_is_not_haggled_hard():
-    p = plan(listing={"price": 8000})
-    assert p["numbers"]["ceiling"] == 8000 and p["numbers"]["opening"] == 7750
-    assert not any(a["kind"] == "mercado" for a in p["arguments"])
-
-
-def test_default_offer_only_states_facts_and_no_invoice_variant_starts_lower():
-    m = plan()["messages"]
-    assert "correia" not in m["offer"]                       # not asserted before the seller answers
-    assert "8.100 €" in m["offer"]
-    assert "a correia de distribuição não tem fatura" in m["offer_no_invoice"]
-    assert "7.600 €" in m["offer_no_invoice"]                 # 97% of the 7 850 ceiling without invoice
-    assert m["no_invoice_topic"] == "a correia de distribuição"
+    assert "melhor preço" in stage(p, "proposta")["message"] and not re.search(r"\d €", stage(p, "proposta")["message"])
 
 
 def test_portuguese_contractions():
     p = plan()
     assert "fatura da correia" in p["walk_away"]["text"] and "de a " not in p["walk_away"]["text"]
-    assert any(c["if"] == "Não há fatura da correia de distribuição" for c in p["messages"]["counters"])
-
-
-def test_stand_no_invoice_offer_asks_for_the_job_or_the_discount_not_both():
-    m = plan(listing={"seller_type": "stand"})["messages"]["offer_no_invoice"]
-    assert "com a troca feita antes da entrega" in m and "ou por 7.600 € sem ela" in m and "8.100 €" in m

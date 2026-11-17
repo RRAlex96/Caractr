@@ -409,4 +409,17 @@ export interface NegotiationPlan {
     counters: { if: string; reply: string }[]
   }
   seller: "stand" | "particular"
+  stages?: NegotiationStage[]
+}
+
+export interface NegotiationStage {
+  key: string
+  title: string
+  why: string
+  message?: string | null
+  message_no_invoice?: string | null
+  no_invoice_topic?: string | null
+  tips?: string[]
+  ladder?: { price: number; say: string }[]
+  counters?: { if: string; reply: string }[]
 }
