@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import type { DealbreakerIssue, DealbreakerRecall, Dealbreakers } from "@/lib/types"
 
@@ -57,28 +58,42 @@ function IssueItem({ c, tone }: { c: DealbreakerIssue; tone: "danger" | "warning
       </div>
     )
   }
-  // Curated entry: matched to this listing's engine and year, with sources.
+  // Curated entry: the essentials first, the rest one tap away.
+  return <CuratedIssue c={c} border={border} />
+}
+
+function firstSentence(t?: string | null): string {
+  if (!t) return ""
+  const m = t.match(/^(.+?[.!?])(\s|$)/)
+  return m ? m[1] : t
+}
+
+function CuratedIssue({ c, border }: { c: DealbreakerIssue; border: string }) {
+  const [open, setOpen] = useState(false)
+  const engine = (c.engine || "").split(" (")[0]
   return (
     <div className={cn("border-l-2 pl-3.5", border)}>
       <p className="font-mono text-[10px] uppercase tracking-[1px] text-muted-foreground">
-        {c.engine}
+        {engine}
         {c.affected_years ? ` · ${c.affected_years}` : ""}
       </p>
-      <p className="mt-1 text-[13px] font-medium leading-snug text-foreground">{c.problem}</p>
-      <p className="mt-1 text-[13px] font-light leading-relaxed text-foreground/85">{c.description}</p>
+      <p className="mt-1 text-[14px] font-medium leading-snug text-foreground">{c.problem}</p>
       {c.check && (
-        <p className="mt-2.5 text-[13px] font-light leading-relaxed text-foreground/90">
+        <p className="mt-2 text-[13px] font-light leading-relaxed text-foreground/90">
           <span className="font-medium text-foreground">Antes de comprar: </span>
-          {c.check}
+          {open ? c.check : firstSentence(c.check)}
         </p>
       )}
-      {c.mitigation && (
+      {c.fix_cost_estimate && (
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground">Custo: {c.fix_cost_estimate}</p>
+      )}
+      {open && (
+        <p className="mt-3 text-[13px] font-light leading-relaxed text-foreground/85">{c.description}</p>
+      )}
+      {open && c.mitigation && (
         <p className="mt-2 text-xs font-light leading-relaxed text-muted-foreground">{c.mitigation}</p>
       )}
-      {c.fix_cost_estimate && (
-        <p className="mt-2 font-mono text-[10px] text-muted-foreground/80">Custo estimado: {c.fix_cost_estimate}</p>
-      )}
-      {!!c.sources?.length && (
+      {open && !!c.sources?.length && (
         <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-muted-foreground/60">
           Fontes:{" "}
           {c.sources.map((s, i) => (
@@ -97,6 +112,13 @@ function IssueItem({ c, tone }: { c: DealbreakerIssue; tone: "danger" | "warning
           ))}
         </p>
       )}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-2 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        {open ? "Menos detalhes" : "Ver detalhes, garantias e fontes"}
+      </button>
     </div>
   )
 }
@@ -159,7 +181,7 @@ function RecallItem({ r }: { r: DealbreakerRecall }) {
             Prioritário · airbag
           </p>
         )}
-        <p className="text-[13px] font-light leading-relaxed text-foreground/90">{body}</p>
+        <p className="line-clamp-2 text-[13px] font-light leading-relaxed text-foreground/90" title={body || undefined}>{body}</p>
         <SourceLine
           parts={[r.affected_years ? `Produção ${r.affected_years}` : null, r.risk, r.source, r.date]}
           url={r.source_url}
@@ -205,6 +227,7 @@ export function KnownFailureAlert({ data, className }: PanelProps) {
  * buyer's job is to confirm they were done, not to walk away.
  */
 export function RecallChecklist({ data, year, className }: PanelProps & { year?: number | null }) {
+  const [all, setAll] = useState(false)
   const recalls = data?.recalls ?? []
   if (!recalls.length) return null
   const hasPriority = recalls.some((r) => r.priority)
@@ -228,10 +251,19 @@ export function RecallChecklist({ data, year, className }: PanelProps & { year?:
           " Dá prioridade às de airbag: num carro mais antigo que falhou a campanha, o insuflador degradado pode ferir ao disparar."}
       </p>
       <ul className="space-y-4">
-        {recalls.map((r, i) => (
+        {(all ? recalls : recalls.slice(0, 2)).map((r, i) => (
           <RecallItem key={i} r={r} />
         ))}
       </ul>
+      {recalls.length > 2 && (
+        <button
+          type="button"
+          onClick={() => setAll((v) => !v)}
+          className="mt-3 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {all ? "Mostrar menos" : `Ver as ${recalls.length}`}
+        </button>
+      )}
     </section>
   )
 }
