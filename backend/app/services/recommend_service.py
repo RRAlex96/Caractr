@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.services.dealbreakers import get_dealbreakers
+from app.services.energy_costs import KM_PER_MONTH, fuel_key, kwh_to_petrol_litres, monthly_energy_cost
 
 
 def _attach_dealbreakers(db: Session, results: list) -> None:
@@ -535,6 +536,88 @@ def load_prices_by_year(db: Session) -> dict:
     return prices
 
 
+# Prices by fuel and for new cars, from the latest monthly snapshot. The
+# aggregated price per model-year mixes every fuel: a 208 and an e-208 share
+# one figure, though the electric version costs more. A buyer who asks for an
+# electric car, or for a new one, is priced on those listings only.
+SNAPSHOT_WINDOW_DAYS = 75
+FUEL_PRICES_SQL = text(f"""
+    SELECT model_id, vehicle_year AS year, fuel_type,
+           percentile_cont(0.1) WITHIN GROUP (ORDER BY price) AS p10,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY price) AS p50,
+           percentile_cont(0.9) WITHIN GROUP (ORDER BY price) AS p90,
+           COUNT(*) AS n, MAX(observed_at)::date AS as_of
+    FROM price_observations
+    WHERE extraction_method = 'search_snapshot' AND model_id IS NOT NULL
+      AND observed_at > NOW() - INTERVAL '{SNAPSHOT_WINDOW_DAYS} days'
+      AND price > 500 AND vehicle_year IS NOT NULL AND fuel_type IS NOT NULL
+    GROUP BY model_id, vehicle_year, fuel_type
+    HAVING COUNT(*) >= 3
+""")
+NEW_CAR_MAX_KM = 3000
+NEW_PRICES_SQL = text(f"""
+    SELECT model_id, fuel_type,
+           percentile_cont(0.1) WITHIN GROUP (ORDER BY price) AS p10,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY price) AS p50,
+           percentile_cont(0.9) WITHIN GROUP (ORDER BY price) AS p90,
+           COUNT(*) AS n, MAX(observed_at)::date AS as_of
+    FROM price_observations
+    WHERE extraction_method = 'search_snapshot' AND model_id IS NOT NULL
+      AND observed_at > NOW() - INTERVAL '{SNAPSHOT_WINDOW_DAYS} days'
+      AND price > 500 AND fuel_type IS NOT NULL
+      AND km IS NOT NULL AND km <= {NEW_CAR_MAX_KM}
+      AND vehicle_year >= EXTRACT(YEAR FROM NOW()) - 1
+    GROUP BY model_id, fuel_type
+    HAVING COUNT(*) >= 2
+""")
+
+
+def _price_row(r, year) -> dict:
+    p50 = int(r.p50)
+    return {"year": int(year), "p50": p50, "p10": int(r.p10 or p50), "p90": int(r.p90 or p50),
+            "n": int(r.n), "as_of": str(r.as_of) if r.as_of else None}
+
+
+def load_fuel_prices(db: Session) -> tuple:
+    """({model_id: {fuel: [rows oldest first]}}, {model_id: {fuel: new-car row}}).
+    ({}, {}) on a database without the observation columns."""
+    by_fuel: dict = {}
+    new: dict = {}
+    try:
+        for r in db.execute(FUEL_PRICES_SQL).fetchall():
+            by_fuel.setdefault(r.model_id, {}).setdefault(r.fuel_type, []).append(_price_row(r, r.year))
+        this_year = datetime.now().year
+        for r in db.execute(NEW_PRICES_SQL).fetchall():
+            new.setdefault(r.model_id, {})[r.fuel_type] = _price_row(r, this_year)
+    except Exception:
+        db.rollback()
+        return {}, {}
+    for fuels in by_fuel.values():
+        for rows in fuels.values():
+            rows.sort(key=lambda x: x["year"])
+    return by_fuel, new
+
+
+# The buyer's powertrain choice → the fuel labels of engines and listings.
+POWERTRAIN_FUELS = {
+    "eletrico": ("eletrico",),
+    "hibrido": ("hibrido",),
+    "combustao": ("gasolina", "diesel", "gpl"),
+}
+CONDITIONS = ("usado", "novo", "indiferente")
+
+
+def _rows_for_fuels(by_fuel: dict, fuels: tuple) -> list:
+    """One price row per year for the allowed fuels: the fuel with the most
+    listings that year (a 2019 Golf diesel and petrol are not averaged)."""
+    best: dict = {}
+    for f in fuels:
+        for row in by_fuel.get(f, []):
+            if row["year"] not in best or row["n"] > best[row["year"]]["n"]:
+                best[row["year"]] = row
+    return [best[y] for y in sorted(best)]
+
+
 # Below this many models with a measured price, the snapshot has not been
 # loaded into this database yet and the catalogue's old single price per model
 # is used instead (see load_models). A loaded snapshot prices ~190 models.
@@ -641,7 +724,7 @@ def load_engines(db: Session) -> dict:
     return out
 
 
-def engine_figures(engines: Optional[list], year: Optional[int]) -> dict:
+def engine_figures(engines: Optional[list], year: Optional[int], force: bool = False) -> dict:
     """
     The model's engine figures as they were in one registration year: the
     engines on sale that year (an engine with no known years counts for every
@@ -653,11 +736,14 @@ def engine_figures(engines: Optional[list], year: Optional[int]) -> dict:
     The rules are those of LOAD_MODELS_SQL: litres and kWh apart, a plug-in's
     homologated litres left out.
     """
-    if not year or not engines:
+    if not engines or (not year and not force):
         return {}
     then = [e for e in engines
-            if e.get("year_from") is None or e["year_from"] <= year <= (e.get("year_to") or e["year_from"])]
-    if not then or len(then) == len(engines):
+            if not year or e.get("year_from") is None
+            or e["year_from"] <= year <= (e.get("year_to") or e["year_from"])]
+    # force: the engine list was already narrowed (to one powertrain), so its
+    # figures replace the model-wide ones even when every engine covers the year
+    if not then or (len(then) == len(engines) and not force):
         return {}
     litres = [e["consumption"] for e in then if e.get("consumption") and e["fuel_type"] != "eletrico"
               and not (e["fuel_type"].startswith("h") and e["consumption"] < 3.5)]
@@ -695,11 +781,43 @@ def _with_price(m: dict, row: dict) -> dict:
     return out
 
 
+def _restrict_offer(m: dict, powertrain: Optional[str], condition: str, this_year: int) -> Optional[dict]:
+    """The model as this buyer can buy it: only the engines of the powertrain
+    asked for (priced on those listings), only new stock or only used cars.
+    None when our market data has no such car."""
+    out = dict(m)
+    fuels = POWERTRAIN_FUELS.get(powertrain) if powertrain else None
+    if fuels:
+        engines = [e for e in m.get("engines") or [] if (e.get("fuel_type") or "") in fuels]
+        if not engines:
+            return None
+        out["engines"] = engines
+        rows = _rows_for_fuels(m.get("prices_by_fuel") or {}, fuels)
+        if not rows and condition != "novo":
+            return None
+        out["prices_by_year"] = rows
+        figs = engine_figures(engines, None, force=True)
+        if figs:
+            out.update(figs)
+    if condition == "novo":
+        options = [r for f, r in (m.get("new_prices") or {}).items() if not fuels or f in fuels]
+        if not options:
+            return None
+        out["_new_row"] = max(options, key=lambda r: r["n"])
+    elif condition == "usado":
+        out["prices_by_year"] = [r for r in out.get("prices_by_year") or [] if r["year"] < this_year]
+        if m.get("prices_by_year") and not out["prices_by_year"]:
+            return None
+    out["vector"] = _build_model_vector(out)
+    return out
+
+
 def load_models(db: Session) -> list:
     """Load all models with aggregated data, grouped by model."""
     rows = db.execute(LOAD_MODELS_SQL).fetchall()
     prices = load_prices_by_year(db)
     engines = load_engines(db)
+    prices_by_fuel, new_prices = load_fuel_prices(db)
     legacy: dict = {}
     if len(prices) < _MIN_MODELS_WITH_MEASURED_PRICE:
         # No snapshot in this database yet: one price per model, as before.
@@ -769,6 +887,8 @@ def load_models(db: Session) -> list:
             "market_as_of":             str(row.market_as_of) if row.market_as_of else None,
             "has_critical_issue":       row.id in critical_ids,
             "engines":                  engines.get(row.id, []),
+            "prices_by_fuel":           prices_by_fuel.get(row.id, {}),
+            "new_prices":               new_prices.get(row.id, {}),
         }
         if typical.get("year"):
             m.update(engine_figures(m["engines"], typical["year"]))
@@ -786,7 +906,7 @@ def _build_model_vector(m: dict) -> dict:
     # ~0.20 €/kWh vs ~1.70 €/L: effective_L = kWh * 0.20 / 1.70
     avg_c = m["avg_consumption"]
     if avg_c > 10.0:
-        avg_c = avg_c * 0.20 / 1.70  # kWh → petrol-cost-equivalent L/100km
+        avg_c = kwh_to_petrol_litres(avg_c)  # kWh → petrol-cost-equivalent L/100km at today's prices
     eco_c = max(0, min(1, (12.0 - avg_c) / 9.0))
     eco_m = max(0, min(1, (1200 - m["avg_maintenance"]) / 1000.0))
     economy = eco_c * 0.6 + eco_m * 0.4
@@ -818,10 +938,24 @@ def apply_hard_constraints(models: list, answers: dict) -> tuple:
     ctx           = answers.get("p1_context", "misto")
     is_family     = ctx == "familia"
 
+    powertrain = answers.get("powertrain") if answers.get("powertrain") in POWERTRAIN_FUELS else None
+    condition = answers.get("condition") if answers.get("condition") in CONDITIONS else "indiferente"
+    this_year = datetime.now().year
+
     passed, stretch = [], []
     for m in models:
+        if powertrain or condition != "indiferente":
+            m = _restrict_offer(m, powertrain, condition, this_year)
+            if m is None:
+                continue
+        if condition == "novo":
+            # New (or nearly new, under 3 000 km) stock, priced on those ads.
+            row = m["_new_row"]
+            if row["p50"] > stretch_limit:
+                continue
+            m = _with_price(m, row)
         # Price the model at the newest registration year the budget buys.
-        if m.get("prices_by_year"):
+        elif m.get("prices_by_year"):
             fit = price_for_budget(m["prices_by_year"], budget_max, stretch_limit)
             if fit is None:
                 continue
@@ -1747,18 +1881,101 @@ def log_feedback(db: Session, session_id: str, satisfaction: str,
 # MAIN ENTRY POINT
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def get_recommendations(db: Session, answers: dict) -> dict:
-    """V4 pipeline: answers -> profile + signals -> filter -> score -> select -> explain -> log."""
+def running_cost(m: dict, answers: dict) -> Optional[dict]:
+    """Monthly fuel or electricity cost of the car recommended: the engine most
+    seen in listings for the year the budget buys (or the powertrain asked
+    for), over the distance typical of the buyer's use."""
+    km = KM_PER_MONTH.get(answers.get("p1_context", "misto"), 1200)
+    year = m.get("price_year")
+    engines = [e for e in m.get("engines") or []
+               if not year or e.get("year_from") is None
+               or e["year_from"] <= year <= (e.get("year_to") or e["year_from"])]
+    engines = [e for e in engines if e.get("consumption")]
+    if not engines:
+        return None
+    main = max(engines, key=lambda e: (e.get("listings_seen") or 0, -(e.get("power_hp") or 0)))
+    same = [e for e in engines if e.get("fuel_type") == main.get("fuel_type")
+            and bool(e.get("plug_in")) == bool(main.get("plug_in"))]
+    consumption = sum(e["consumption"] for e in same) / len(same)
+    return monthly_energy_cost(main.get("fuel_type"), consumption, km, plug_in=bool(main.get("plug_in")))
+
+
+def _attach_running_costs(results: list, models: list, answers: dict) -> None:
+    by_id = {m["id"]: m for m in models}
+    for r in results:
+        m = by_id.get(r.get("model_id"))
+        if m is not None:
+            r["running_cost"] = running_cost(m, answers)
+
+
+# "None of these" → what was missing. Each want nudges the profile, some also
+# change an answer (budget, the deal-breaker, the image the buyer wants).
+REFINE_WANTS = {
+    "mais_barato":     {"nudge": {"economy": +0.08}, "budget_scale": 0.80},
+    "mais_espaco":     {"nudge": {"practical": +0.15}, "answers": {"p6_aversion": "espaco"}},
+    "mais_economico":  {"nudge": {"economy": +0.15}},
+    "mais_desportivo": {"nudge": {"driving": +0.15, "economy": -0.05}},
+    "mais_conforto":   {"nudge": {"comfort": +0.12}},
+    "mais_fiavel":     {"nudge": {"reliability": +0.15}, "answers": {"p6_aversion": "fiabilidade"}},
+    "mais_premium":    {"nudge": {"status": +0.15}, "answers": {"p5_presence": "bom_aspeto"}},
+    "mais_discreto":   {"nudge": {"status": -0.12}, "answers": {"p5_presence": "discreto"}},
+}
+
+
+def apply_refinement(answers: dict, wants: list, powertrain: Optional[str], condition: Optional[str]) -> tuple:
+    """(new answers, profile nudges) for a refined shortlist."""
+    a = dict(answers)
+    nudges: dict = {}
+    for w in wants[:2]:
+        spec = REFINE_WANTS.get(w)
+        if not spec:
+            continue
+        for k, v in spec.get("answers", {}).items():
+            # "more premium" lifts a discreet buyer to "bom aspeto", never lowers a show-off
+            if k == "p5_presence" and v == "bom_aspeto" and a.get("p5_presence") == "vire_cabecas":
+                continue
+            a[k] = v
+        if spec.get("budget_scale"):
+            scale = spec["budget_scale"]
+            a["p8_budget_max"] = int(round(int(a.get("p8_budget_max", 25000)) * scale, -2))
+            a["p8_budget_min"] = int(round(int(a.get("p8_budget_min", 0)) * scale, -2))
+            a.pop("p8_budget_range", None)
+        for d, delta in spec["nudge"].items():
+            nudges[d] = nudges.get(d, 0.0) + delta
+    if powertrain in POWERTRAIN_FUELS or powertrain == "indiferente":
+        a["powertrain"] = powertrain
+    if condition in CONDITIONS:
+        a["condition"] = condition
+    return a, nudges
+
+
+def _nudge_profile(profile: dict, nudges: dict) -> dict:
+    out = {d: max(0.0, profile.get(d, 0.0) + nudges.get(d, 0.0)) for d in DIMENSIONS}
+    total = sum(out.values()) or 1.0
+    return {d: round(v / total, 4) for d, v in out.items()}
+
+
+def get_recommendations(db: Session, answers: dict, exclude_ids: Optional[list] = None,
+                        nudges: Optional[dict] = None, refined_from: Optional[str] = None) -> dict:
+    """V4 pipeline: answers -> profile + signals -> filter -> score -> select -> explain -> log.
+    A refined shortlist passes the models already shown (exclude_ids) and the
+    profile nudges from what the buyer said was missing."""
     session_id = str(uuid.uuid4())
 
     # Phase 1: Build profile + structured signals
     profile, signals = build_profile(answers)
+    if nudges:
+        profile = _nudge_profile(profile, nudges)
 
     # Phase 2: Load models
     all_models = load_models(db)
 
     # Phase 3: Hard constraints
     passed, stretch = apply_hard_constraints(all_models, answers)
+    if exclude_ids:
+        excluded = set(exclude_ids)
+        passed = [m for m in passed if m["id"] not in excluded]
+        stretch = [m for m in stretch if m["id"] not in excluded]
     pool_size = len(passed)
 
     # Phase 4 + Stage E: Score (includes aversion penalty)
@@ -1784,6 +2001,7 @@ def get_recommendations(db: Session, answers: dict) -> dict:
     llm_result = _generate_explanations_llm(top5, profile, answers)
     results = generate_all_explanations(top5, profile, answers, llm_result=llm_result)
     _attach_dealbreakers(db, results)
+    _attach_running_costs(results, top5, answers)
 
     # Phase 7: Log session
     log_session(db, session_id, answers, profile, top5, pool_size)
@@ -1811,6 +2029,7 @@ def get_recommendations(db: Session, answers: dict) -> dict:
         "answers": answers,
         "recommendations": results,
         "suggestions": suggestions,
+        "refined_from": refined_from,
     }
 
 
@@ -1941,6 +2160,7 @@ def get_alternative_recommendations(
 
         results = generate_all_explanations(alternatives, profile, answers, llm_result=llm_result)
         _attach_dealbreakers(db, results)
+        _attach_running_costs(results, alternatives, answers)
 
         return {
             "alternatives": results,

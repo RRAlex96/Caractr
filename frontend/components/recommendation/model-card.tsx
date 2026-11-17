@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
 import { DealbreakerCardAlert } from "@/components/shared/dealbreaker-badge"
+import { RunningCostLine } from "@/components/recommendation/running-cost"
 
 // The catalogue's body types as a buyer reads them.
 const BODY_LABEL: Record<string, string> = {
@@ -90,6 +91,8 @@ export function ModelCard({
           </div>
         ))}
       </div>
+
+      <RunningCostLine cost={rec.running_cost} />
 
       {/* Tradeoff */}
       {rec.tradeoff && (

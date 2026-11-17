@@ -66,6 +66,17 @@ const QUESTIONS = [
       { value: "potencia",    label: "Falta de resposta",   desc: "Motor fraco, aceleração lenta, sem dinamismo" },
     ],
   },
+  {
+    id: "powertrain",
+    label: "06 — Motorização",
+    question: "Que motorização preferes?",
+    options: [
+      { value: "indiferente", label: "Tanto faz",           desc: "Mostramos o que fizer mais sentido para ti" },
+      { value: "eletrico",    label: "Elétrico",            desc: "Custa muito menos por km — precisas de onde carregar" },
+      { value: "hibrido",     label: "Híbrido",             desc: "Gasta pouco sem depender de uma tomada" },
+      { value: "combustao",   label: "Gasolina ou gasóleo", desc: "O mais simples de encontrar e de abastecer" },
+    ],
+  },
 ]
 
 const DREAM_BRANDS_FALLBACK = [
@@ -198,6 +209,8 @@ export default function EscolherPage() {
         p8_budget_range: answers.p8_budget_range || null,
         p8_budget_min: answers.p8_budget_min || 8000,
         p8_budget_max: answers.p8_budget_max || 25000,
+        powertrain: answers.powertrain || "indiferente",
+        condition: answers.condition || "indiferente",
       })
       localStorage.setItem("caractr_results", JSON.stringify(data))
       localStorage.setItem("caractr_profile_timestamp", new Date().toISOString())
@@ -356,6 +369,8 @@ export default function EscolherPage() {
           {isBudgetStep && (
             <BudgetPicker
               selected={answers.p8_budget_range}
+              condition={answers.condition || "indiferente"}
+              onCondition={(value) => setAnswers((p) => ({ ...p, condition: value }))}
               onSelect={(value, min, max) =>
                 setAnswers((p) => ({ ...p, p8_budget_range: value, p8_budget_min: min, p8_budget_max: max }))
               }

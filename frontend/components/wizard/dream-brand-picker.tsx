@@ -29,7 +29,7 @@ export function DreamBrandPicker({
     <div className={className}>
       <div className="mb-5 h-0.5 w-12 rounded-full bg-gold" />
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        06 — Opcional
+        07 — Opcional
       </p>
       <h2 className="mb-3 font-display text-[clamp(28px,4vw,44px)] font-extrabold leading-[0.95] tracking-tight">
         Se dinheiro não fosse problema?

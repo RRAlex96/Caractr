@@ -215,7 +215,7 @@ export function Landing({ stats, engines }: { stats: LandingStats; engines: Feat
             <span className="text-gold-dark">Sugerimos o carro.</span>
           </h2>
           <p className="mt-6 max-w-[360px] text-[15px] font-light leading-relaxed text-muted-foreground">
-            Cinco perguntas sobre o teu dia a dia, sem especificações técnicas. Recebes cinco modelos com os prós, os
+            Seis perguntas rápidas, sem especificações técnicas — novo ou usado, elétrico ou a combustão. Recebes cinco modelos com os prós, os
             contras e o preço de mercado.
           </p>
           <div className="mt-7">

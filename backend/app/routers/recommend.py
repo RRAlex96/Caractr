@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, model_validator
 from typing import Optional, Union
 from app.db.database import get_db
-from app.services.recommend_service import get_recommendations, get_dream_cars, log_feedback, get_alternative_recommendations
+from app.services.recommend_service import (
+    apply_refinement, get_alternative_recommendations, get_dream_cars, get_recommendations, log_feedback,
+)
+from sqlalchemy import text
+import json
 
 router = APIRouter(prefix="/api", tags=["recommend"])
 
@@ -28,6 +32,8 @@ class WizardAnswers(BaseModel):
     p8_budget_range:  Optional[str] = None   # V5: "8_15" | "15_25" | "25_40" | "40_plus"
     p8_budget_min:    int   = 8000
     p8_budget_max:    int   = 25000
+    powertrain:       Optional[str] = None   # "indiferente" | "eletrico" | "hibrido" | "combustao"
+    condition:        Optional[str] = None   # "usado" | "novo" | "indiferente"
 
     @model_validator(mode="after")
     def _compat(self):
@@ -48,6 +54,16 @@ class DreamCarRequest(BaseModel):
     p8_budget_range:  Optional[str] = None
     p8_budget_min:    int   = 8000
     p8_budget_max:    int   = 25000
+
+
+class RefineRequest(BaseModel):
+    """ "None of these convinces me": what was missing, then a new shortlist."""
+    session_id:      Optional[str] = None
+    answers:         Optional[dict] = None   # fallback when the session is not stored
+    shown_model_ids: list[int] = []
+    wants:           list[str] = []          # up to 2 of REFINE_WANTS
+    powertrain:      Optional[str] = None
+    condition:       Optional[str] = None
 
 
 class FeedbackRequest(BaseModel):
@@ -92,6 +108,24 @@ def refresh_recommendations(req: RefreshRequest, db: Session = Depends(get_db)):
         dismiss_reasons=req.dismiss_reasons,
         count=count,
     )
+
+
+@router.post("/recommend/refine")
+def refine_recommendations(req: RefineRequest, db: Session = Depends(get_db)):
+    """A new shortlist of 5 after the buyer said none convinced them: answers
+    adjusted by what was missing, the models already shown left out."""
+    answers = None
+    if req.session_id:
+        row = db.execute(text("SELECT answers_raw FROM recommendation_sessions WHERE id = :sid LIMIT 1"),
+                         {"sid": req.session_id}).mappings().fetchone()
+        if row and row["answers_raw"]:
+            raw = row["answers_raw"]
+            answers = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    if answers is None:
+        answers = WizardAnswers(**(req.answers or {})).model_dump()
+    answers, nudges = apply_refinement(answers, req.wants[:2], req.powertrain, req.condition)
+    return get_recommendations(db, answers, exclude_ids=req.shown_model_ids[:30], nudges=nudges,
+                               refined_from=req.session_id)
 
 
 @router.post("/feedback")

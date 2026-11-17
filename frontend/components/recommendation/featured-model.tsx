@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import type { Recommendation } from "@/lib/types"
 import { DealbreakerCardAlert } from "@/components/shared/dealbreaker-badge"
+import { RunningCostLine } from "@/components/recommendation/running-cost"
 
 interface FeaturedModelProps {
   rec: Recommendation
@@ -61,6 +62,8 @@ export function FeaturedModel({
           </div>
         ))}
       </div>
+
+      <RunningCostLine cost={rec.running_cost} />
 
       {/* Tradeoff */}
       {rec.tradeoff && (

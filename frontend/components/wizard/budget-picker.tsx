@@ -16,8 +16,16 @@ const BUDGET_PRESETS: BudgetPreset[] = [
   { value: "40_plus", label: "€40.000+",           min: 40000, max: 80000 },
 ]
 
+const CONDITIONS = [
+  { value: "usado", label: "Usado" },
+  { value: "novo", label: "Novo" },
+  { value: "indiferente", label: "Tanto faz" },
+]
+
 interface BudgetPickerProps {
   selected?: string
+  condition?: string
+  onCondition?: (value: string) => void
   onSelect: (value: string, min: number, max: number) => void
   onSubmit: () => void
   submitting?: boolean
@@ -27,6 +35,8 @@ interface BudgetPickerProps {
 
 export function BudgetPicker({
   selected,
+  condition = "indiferente",
+  onCondition,
   onSelect,
   onSubmit,
   submitting,
@@ -37,7 +47,7 @@ export function BudgetPicker({
     <div className={className}>
       <div className="mb-5 h-0.5 w-12 rounded-full bg-gold" />
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[2px] text-gold">
-        07 — Orçamento
+        08 — Orçamento
       </p>
       <h2 className="mb-3 font-display text-[clamp(28px,4vw,44px)] font-extrabold leading-[0.95] tracking-tight">
         Quanto queres investir?
@@ -45,6 +55,30 @@ export function BudgetPicker({
       <p className="mb-10 text-sm font-light leading-relaxed text-muted-foreground">
         O orçamento é o último filtro — não o ponto de partida.
       </p>
+
+      {onCondition && (
+        <div className="mb-8">
+          <p className="mb-3 text-[13px] text-muted-foreground">Novo ou usado?</p>
+          <div className="flex flex-wrap gap-2">
+            {CONDITIONS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={condition === c.value}
+                onClick={() => onCondition(c.value)}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-[13px] transition-colors",
+                  condition === c.value
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-border text-muted-foreground hover:border-gold/40"
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-10 border-t border-border">
         {BUDGET_PRESETS.map((preset) => {
