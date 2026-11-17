@@ -18,6 +18,7 @@ import uuid
 import json
 import math
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from app.services.dealbreakers import get_dealbreakers
@@ -64,7 +65,8 @@ BRAND_STATUS = {
     "Kia": 0.30, "Ford": 0.30, "Opel": 0.25, "SEAT": 0.25,
     "Citroen": 0.25, "Nissan": 0.30, "Fiat": 0.20, "Dacia": 0.10,
     "Suzuki": 0.20, "Subaru": 0.35, "MG": 0.15, "BYD": 0.15,
-    "Smart": 0.30, "Omoda": 0.10,
+    "Smart": 0.30, "Omoda": 0.10, "Jaecoo": 0.15, "Leapmotor": 0.10, "Xpeng": 0.20,
+    "Zeekr": 0.45, "KGM": 0.15, "Ebro": 0.10, "Dongfeng": 0.10, "Voyah": 0.35,
 }
 
 DREAM_BRAND_TRAITS = {
@@ -598,6 +600,36 @@ def load_fuel_prices(db: Session) -> tuple:
     return by_fuel, new
 
 
+LIST_PRICES_PATH = Path(__file__).resolve().parents[2] / "seeds" / "new_car_list_prices.json"
+
+
+def load_list_prices() -> dict:
+    """{"Brand|Model": [{version, fuel, plug_in, pvp_eur, source, date}]} — new-car
+    list prices for models with no stock in the snapshot (seeds/new_car_list_prices.json)."""
+    try:
+        return json.loads(LIST_PRICES_PATH.read_text(encoding="utf-8")).get("models", {})
+    except (OSError, ValueError):
+        return {}
+
+
+def _list_price_rows(versions: list, this_year: int) -> dict:
+    """{fuel: price row} from list prices: the cheapest version is the "desde"."""
+    out: dict = {}
+    for v in versions:
+        f = v.get("fuel")
+        if not f or not v.get("pvp_eur"):
+            continue
+        row = out.get(f)
+        if row is None:
+            out[f] = {"year": this_year, "p50": v["pvp_eur"], "p10": v["pvp_eur"], "p90": v["pvp_eur"],
+                      "n": 0, "as_of": v.get("date"), "list_price": True, "source": v.get("source")}
+        else:
+            if v["pvp_eur"] < row["p50"]:
+                row.update(p50=v["pvp_eur"], p10=v["pvp_eur"], source=v.get("source"), as_of=v.get("date"))
+            row["p90"] = max(row["p90"], v["pvp_eur"])
+    return out
+
+
 # The buyer's powertrain choice → the fuel labels of engines and listings.
 POWERTRAIN_FUELS = {
     "eletrico": ("eletrico",),
@@ -773,7 +805,9 @@ def _with_price(m: dict, row: dict) -> dict:
            "price_year": row["year"],
            "market_p50": row["p50"],
            "market_band": {"p10": row["p10"], "p90": row["p90"], "sample_count": row["n"]},
-           "market_as_of": row["as_of"]}
+           "market_as_of": row["as_of"],
+           "price_basis": "list" if row.get("list_price") else "market",
+           "price_source": row.get("source")}
     figures = engine_figures(m.get("engines"), row["year"])
     if figures:
         out.update(figures)
@@ -805,9 +839,10 @@ def _restrict_offer(m: dict, powertrain: Optional[str], condition: str, this_yea
             return None
         out["_new_row"] = max(options, key=lambda r: r["n"])
     elif condition == "usado":
-        out["prices_by_year"] = [r for r in out.get("prices_by_year") or [] if r["year"] < this_year]
-        if m.get("prices_by_year") and not out["prices_by_year"]:
-            return None
+        out["prices_by_year"] = [r for r in out.get("prices_by_year") or []
+                                 if r["year"] < this_year and not r.get("list_price")]
+        if not out["prices_by_year"]:
+            return None   # no used listings: we cannot price it as a used car
     out["vector"] = _build_model_vector(out)
     return out
 
@@ -818,6 +853,8 @@ def load_models(db: Session) -> list:
     prices = load_prices_by_year(db)
     engines = load_engines(db)
     prices_by_fuel, new_prices = load_fuel_prices(db)
+    list_prices = load_list_prices()
+    this_year = datetime.now().year
     legacy: dict = {}
     if len(prices) < _MIN_MODELS_WITH_MEASURED_PRICE:
         # No snapshot in this database yet: one price per model, as before.
@@ -837,6 +874,17 @@ def load_models(db: Session) -> list:
     models = []
     for row in rows:
         years = prices.get(row.id)
+        listed = _list_price_rows(list_prices.get(f"{row.brand_name}|{row.model_name}", []), this_year)
+        if listed:
+            # New stock in the snapshot beats the list price; the list price fills the gaps.
+            new_prices.setdefault(row.id, {})
+            for f, r in listed.items():
+                new_prices[row.id].setdefault(f, r)
+        if not years and prices_by_fuel.get(row.id):
+            # Too few listings for the aggregated price (6 a year), enough per fuel (3).
+            years = _rows_for_fuels(prices_by_fuel[row.id], tuple(prices_by_fuel[row.id]))
+        if not years and listed:
+            years = [min(listed.values(), key=lambda r: r["p50"])]
         if years:
             # Until a budget picks the year (apply_hard_constraints), the model
             # is priced at the registration year most on sale.
@@ -1530,11 +1578,14 @@ def generate_all_explanations(top5: list, profile: dict, answers: dict, llm_resu
 
         market_trust = None
         if m.get("market_p50"):
+            listed = m.get("price_basis") == "list"
             market_trust = {
                 "p50":          m["market_p50"],
-                "band":         m["market_band"],
+                "band":         None if listed else m["market_band"],
                 "as_of":        m["market_as_of"],
                 "year":         m.get("price_year"),
+                "basis":        "list" if listed else "market",
+                "source":       m.get("price_source") if listed else None,
             }
 
         results.append({

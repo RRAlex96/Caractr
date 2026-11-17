@@ -91,9 +91,9 @@ function MarketBlock({ market }: { market: MarketData }) {
           {formatPrice(market.p50)}
         </span>
         <span className="font-mono text-[10px] text-muted-foreground/60">
-          {market.year ? `mediana de ${market.year}` : "mediana"}
+          {market.basis === "list" ? "preço de tabela, novo (desde)" : market.year ? `mediana de ${market.year}` : "mediana"}
         </span>
-        {sampleCount && (
+        {market.basis !== "list" && sampleCount && (
           <span className="ml-auto font-mono text-[10px] text-gold">
             {sampleCount} anúncios
           </span>
@@ -110,7 +110,14 @@ function MarketBlock({ market }: { market: MarketData }) {
         </div>
       )}
 
-      {freshness && (
+      {market.basis === "list" ? (
+        <p className="font-mono text-[10px] text-muted-foreground/60">
+          Ainda há poucos anúncios deste modelo: mostramos o preço de tabela.{" "}
+          {market.source && (
+            <a href={market.source} target="_blank" rel="nofollow noopener" className="underline hover:text-gold">fonte</a>
+          )}
+        </p>
+      ) : freshness && (
         <span className="font-mono text-[10px] text-muted-foreground/50">{freshness}</span>
       )}
     </div>
