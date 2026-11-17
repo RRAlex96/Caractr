@@ -519,7 +519,8 @@ def _get_model_info(db: Session, brand_name: str, model_name: str,
 
 # Engine facts kept in the cached analysis blob, so a cache hit can re-match
 # curated known issues against whatever is approved *now*.
-_LISTING_ENGINE_KEYS = ("version", "engine_displacement_cc", "engine_power_hp", "transmission", "fuel_type")
+_LISTING_ENGINE_KEYS = ("version", "engine_displacement_cc", "engine_power_hp", "transmission", "fuel_type",
+                        "sv_model_slug")
 
 
 def known_issue_dealbreakers_for_cached(model_info: Optional[dict], row: dict, llm: dict) -> Optional[dict]:

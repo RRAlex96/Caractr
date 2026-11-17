@@ -268,3 +268,81 @@ def test_exclude_power_band_needs_known_power():
               transmission="manual 6")
     assert not matches_engine(i, power_hp=160, **kw)
     assert matches_engine(i, power_hp=None, **kw)
+
+
+# ── BMW codes written apart (Standvirtual: "20 d xDrive", "d Pack M" + slug "320") ──
+
+def _bmw(**kw):
+    base = {"brand_name": "BMW", "model_name": "X3", "year": 2012, "fuel_type": "Diesel",
+            "version": "20 d xDrive Pack M Auto", "engine_displacement_cc": 1995,
+            "engine_power_hp": 184, "transmission": "Automática", "description": "",
+            "sv_model_slug": "x3"}
+    return {**base, **kw}
+
+
+def test_split_20_d_xdrive_matches_n47():
+    assert "bmw-n47-chain" in _ids(_bmw())
+    assert "bmw-n47-chain" in _ids(_bmw(model_name="X1", version="18 d sDrive Line Sport",
+                                        engine_power_hp=143, sv_model_slug="x1"))
+
+
+def test_split_code_keeps_the_power_exclusion():
+    # The 190 cv 20d is the B47 — excluded by the entry through the power,
+    # which a listing states only in its spec sheet.
+    assert "bmw-n47-chain" not in _ids(_bmw(version="20 d xDrive", engine_power_hp=190, year=2014))
+    assert "bmw-n47-chain" not in _ids(_bmw(model_name="X5", version="25 d sDrive",
+                                            engine_power_hp=231, year=2014, sv_model_slug="x5"))
+
+
+def test_series_number_from_the_model_slug():
+    s3 = _bmw(model_name="Série 3", year=2010, version="d Pack M", engine_power_hp=184,
+              transmission="Manual", sv_model_slug="320")
+    assert "bmw-n47-chain" in _ids(s3)
+    assert "bmw-n47-chain" in _ids({**s3, "version": "320 d"})
+    assert "bmw-n47-chain" in _ids({**s3, "sv_model_slug": "420-gran-coupe", "year": 2014})
+    assert "bmw-n47-chain" in _ids({**s3, "version": "dA Pack M", "sv_model_slug": "520", "year": 2012})
+    # No number to read: no flag (precision over recall)
+    assert "bmw-n47-chain" not in _ids({**s3, "sv_model_slug": None})
+    assert "bmw-n47-chain" not in _ids({**s3, "sv_model_slug": "serie-3"})
+
+
+def test_split_petrol_code_matches_n20():
+    x1 = _bmw(model_name="X1", fuel_type="Gasolina", year=2013, version="20 i xDrive",
+              engine_displacement_cc=1997, engine_power_hp=184, sv_model_slug="x1")
+    assert "bmw-n20-chain-guide" in _ids(x1)
+    assert "bmw-n20-chain-guide" in _ids({**x1, "model_name": "Série 3", "version": "i Line Sport",
+                                          "sv_model_slug": "320"})
+
+
+def test_litre_figures_and_years_never_become_codes():
+    p = listing_engine_profile
+    for text in ("1.5 d", "2.0 i Sport", "2,0 d", "2018 d", "20 dias de garantia", "130 dCi",
+                 "revisão aos 20 da marca"):
+        assert p({"version": text})["label"] == text
+    # A bare "d" version with a 4-digit or non-numeric slug gets nothing joined
+    assert p({"version": "d Pack M", "sv_model_slug": "3008"})["label"] == "d Pack M"
+    assert p({"version": "d Pack M", "sv_model_slug": "320--318"})["label"] == "d Pack M"
+    # The slug joins only a version that starts with the letter, never free text
+    assert p({"version": "Pack M", "description": "d", "sv_model_slug": "320"})["label"] == "Pack M d"
+    assert p({"version": "dA", "sv_model_slug": "520"})["label"] == "dA | 520dA"
+
+
+def test_non_bmw_text_unchanged_and_power_kept_apart():
+    p = listing_engine_profile
+    assert p({"version": "1.2 PureTech Allure"})["label"] == "1.2 PureTech Allure"
+    assert p({"version": "1.6 THP"})["label"] == "1.6 THP"
+    # Power goes at the end, apart from the text: "1.6" + "150cv" can't read as "1.6 150"
+    assert p({"version": "1.6", "engine_power_hp": 150})["label"] == "1.6 | 150cv"
+    # A Mercedes "220 d" joins too, but no Mercedes entry reads "220d"
+    assert _ids({"brand_name": "Mercedes-Benz", "model_name": "Classe C", "year": 2010,
+                 "fuel_type": "Diesel", "version": "220 d", "engine_displacement_cc": 2143,
+                 "engine_power_hp": 170, "transmission": "Manual", "description": ""}) == []
+
+
+def test_power_never_reads_as_part_of_the_gearbox():
+    # The matcher reads "transmission + label": a power in front of the label
+    # turned "1.0 Groove Auto" + "75cv" into "auto 7" (the DQ200's "auto 7").
+    up = {"brand_name": "Volkswagen", "model_name": "up!", "year": 2013, "fuel_type": "Gasolina",
+          "version": "1.0 Groove Auto", "engine_displacement_cc": 999, "engine_power_hp": 75,
+          "transmission": "Automática", "description": ""}
+    assert "vag-dq200-dsg7" not in _ids(up)

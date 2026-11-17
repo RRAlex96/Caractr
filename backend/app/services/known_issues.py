@@ -174,9 +174,29 @@ def _litres_interval(version: str, description: str):
     return (cc - 50, cc + 49)
 
 
+# BMW/MINI engine codes as Standvirtual writes them: "20 d xDrive", "18 i",
+# and for the numbered series the number sits in the model slug ("320") while
+# the version is only "d Pack M" or "dA Pack M". The entries are written for
+# "20d"/"320d", so the label also carries a copy with the code joined up. In
+# the text: two or three digits not preceded by a digit, '.' or ',' — "1.5 d",
+# "2.0 i" and "2018 d" stay as they are — then d/e/i standing alone ("20 dias",
+# "20 da", "130 dCi" stay too). The slug number is only joined to a version
+# that starts with the letter ("dA" = d automatic), never to free text.
+_SPLIT_CODE = re.compile(r"(?<![\d.,])(\d{2,3}) ?([dei])\b", re.I)
+_SLUG_NUMBER = re.compile(r"^(\d{3})(?:-[a-z]|$)", re.I)
+_LONE_CODE_LETTER = re.compile(r"^[dei]a?\b", re.I)
+
+
+def _joined_code_text(version: str, description: str, model_slug: str) -> str:
+    slug = _SLUG_NUMBER.match(model_slug or "")
+    if slug and _LONE_CODE_LETTER.match(version):
+        version = slug.group(1) + version
+    return _SPLIT_CODE.sub(r"\1\2", " ".join(f"{version} {description}".split()))
+
+
 def listing_engine_profile(listing: dict) -> dict:
     """The engine facts a scraped listing gives us, in matcher terms."""
-    version = listing.get("version") or ""
+    version = (listing.get("version") or "").strip()
     description = (listing.get("description") or "")[:800]
     cc = listing.get("engine_displacement_cc")
     try:
@@ -189,14 +209,26 @@ def listing_engine_profile(listing: dict) -> dict:
         power = int(listing.get("engine_power_hp")) if listing.get("engine_power_hp") else None
     except (TypeError, ValueError):
         power = None
+    # One line: the match regexes anchor at ^ and use '.', which stops at newlines.
+    label = " ".join(f"{version} {description}".split())
+    joined = _joined_code_text(version, description, str(listing.get("sv_model_slug") or ""))
+    if joined != label:
+        label = f"{label} | {joined}"
+    # Catalogue labels carry the power ("118d 143cv") and some entries exclude
+    # a power band through it (the 190 cv 20d is the B47, not the N47); a
+    # listing states it only in its spec sheet, so it is added. Written "190cv",
+    # at the end and kept apart by " | ", so it can't join a word or number of
+    # the text ("1.6" + "150" → "1.6 150"), nor of the transmission the
+    # matcher puts in front of the label ("Auto" + "75cv" → "auto 7").
+    if power:
+        label = f"{label} | {power}cv"
     return {
         "brand": listing.get("brand_name") or "",
         "model": listing.get("model_name") or "",
         "year": listing.get("year"),
         "fuel": normalize_fuel(listing.get("fuel_type")),
         "displacement_cc": cc or _litres_interval(version, description),
-        # One line: the match regexes anchor at ^ and use '.', which stops at newlines.
-        "label": " ".join(f"{version} {description}".split()),
+        "label": label,
         "transmission": " ".join(f"{listing.get('transmission') or ''} {version}".split()),
         "power_hp": power,
     }
