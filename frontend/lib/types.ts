@@ -308,6 +308,19 @@ export interface Recommendation {
   reliability: ReliabilityData | null
   market: MarketData | null
   dealbreakers?: Dealbreakers | null
+  running_cost?: RunningCost | null
+}
+
+export interface RunningCost {
+  fuel: string
+  consumption: number
+  unit: string
+  km_month: number
+  eur_month: number
+  eur_month_home?: number
+  eur_month_public?: number
+  price_note: string
+  as_of: string
 }
 
 export interface ProfileNarrative {
@@ -347,6 +360,7 @@ export interface RecommendationResult {
     stretch_budget: number
     models_available: number
   } | null
+  refined_from?: string | null
 }
 
 export interface DreamCar {

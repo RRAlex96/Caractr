@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Analytics } from "@/lib/analytics"
-import { refreshRecommendations } from "@/lib/api"
-import type { RecommendationResult, Recommendation } from "@/lib/types"
+import { refineRecommendations } from "@/lib/api"
+import type { RecommendationResult } from "@/lib/types"
 
 import { ProfileHeader } from "@/components/recommendation/profile-header"
 import { FeaturedModel } from "@/components/recommendation/featured-model"
 import { ModelCard } from "@/components/recommendation/model-card"
 import { InterestActions } from "@/components/recommendation/interest-actions"
 import { AdAnalysisPanel } from "@/components/recommendation/ad-analysis-panel"
-import { AlternativesList } from "@/components/recommendation/alternatives-list"
+import { RefinePanel } from "@/components/recommendation/refine-panel"
 import { ConciergeCTA } from "@/components/recommendation/concierge-cta"
 import { SellSideQuestion } from "@/components/recommendation/sell-side-question"
 import { TrustPanel } from "@/components/shared/trust-panel"
@@ -25,10 +25,11 @@ export default function ResultadosPage() {
   const [data, setData] = useState<RecommendationResult | null>(null)
   const [interests, setInterests] = useState<number[]>([])
   const [dismissed, setDismissed] = useState<Record<number, string>>({})
-  const [alternatives, setAlternatives] = useState<Recommendation[]>([])
-  const [alternativesLoading, setAlternativesLoading] = useState(false)
-  const [alternativesFetched, setAlternativesFetched] = useState(false)
-  const [alternativesError, setAlternativesError] = useState(false)
+  // Earlier shortlists (newest last) — "voltar à lista anterior" and the
+  // models to leave out of the next one.
+  const [history, setHistory] = useState<RecommendationResult[]>([])
+  const [refineLoading, setRefineLoading] = useState(false)
+  const [refineError, setRefineError] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem("caractr_results")
@@ -61,7 +62,7 @@ export default function ResultadosPage() {
   const recs = data.recommendations || []
   const first = recs[0]
   const rest = recs.slice(1)
-  const allModels = [...recs, ...alternatives]
+  const allModels = recs
   const interestedRecs = allModels.filter((r) => interests.includes(r.model_id))
   const allDismissed = recs.length > 0 && recs.every((r) => dismissed[r.model_id])
   const sessionId = data.session_id || ""
@@ -93,29 +94,49 @@ export default function ResultadosPage() {
     setInterests((prev) => prev.filter((id) => id !== modelId))
   }
 
-  const fetchAlternatives = async () => {
-    const dismissedIds = Object.keys(dismissed).map(Number)
-    const dismissReasons = Object.values(dismissed)
-    setAlternativesLoading(true)
-    setAlternativesError(false)
+  const resetCardState = () => {
+    setDismissed({})
+    setInterests([])
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const refine = async (wants: string[], powertrain: string, condition: string) => {
+    const shown = [...history.flatMap((h) => h.recommendations || []), ...recs].map((r) => r.model_id)
+    setRefineLoading(true)
+    setRefineError(false)
     try {
-      const json = await refreshRecommendations(
-        sessionId,
-        dismissedIds,
-        dismissReasons,
-        3
-      )
-      if (json.recommendations?.length > 0) {
-        setAlternatives(json.recommendations)
-      } else {
-        setAlternativesError(true)
+      const next = await refineRecommendations({
+        session_id: sessionId,
+        answers: data.answers,
+        shown_model_ids: Array.from(new Set(shown)),
+        wants,
+        powertrain,
+        condition,
+      })
+      if (!next.recommendations?.length) {
+        setRefineError(true)
+        return
       }
+      setHistory((h) => [...h, data])
+      setData(next)
+      localStorage.setItem("caractr_results", JSON.stringify(next))
+      Analytics.resultsViewed(next.session_id || "", next.recommendations.length,
+        next.recommendations.some((r) => r.is_wildcard), next.recommendations.some((r) => r.is_stretch))
+      resetCardState()
     } catch {
-      setAlternativesError(true)
+      setRefineError(true)
     } finally {
-      setAlternativesLoading(false)
-      setAlternativesFetched(true)
+      setRefineLoading(false)
     }
+  }
+
+  const goBack = () => {
+    const prev = history[history.length - 1]
+    if (!prev) return
+    setHistory((h) => h.slice(0, -1))
+    setData(prev)
+    localStorage.setItem("caractr_results", JSON.stringify(prev))
+    resetCardState()
   }
 
   return (
@@ -196,21 +217,16 @@ export default function ResultadosPage() {
         </div>
       </section>
 
-      {/* ── Alternatives (after dismissals) ── */}
-      <AlternativesList
-        alternatives={alternatives}
-        sessionId={sessionId}
-        userProfile={userProfile}
-        dismissedCount={Object.keys(dismissed).length}
-        interests={interests}
-        dismissed={dismissed}
-        onInterest={handleInterest}
-        onDismiss={handleDismiss}
-        onUndo={handleUndo}
-        onFetchAlternatives={fetchAlternatives}
-        alternativesLoading={alternativesLoading}
-        alternativesFetched={alternativesFetched}
-        alternativesError={alternativesError}
+      {/* ── None of these? Two questions, a new shortlist ── */}
+      <RefinePanel
+        key={sessionId}
+        initialPowertrain={(data.answers?.powertrain as string) || undefined}
+        initialCondition={(data.answers?.condition as string) || undefined}
+        loading={refineLoading}
+        error={refineError}
+        canGoBack={history.length > 0}
+        onSubmit={refine}
+        onBack={goBack}
       />
 
       {/* ── Suggestions ── */}

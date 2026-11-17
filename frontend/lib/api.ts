@@ -74,6 +74,8 @@ export interface RecommendPayload {
   p8_budget_range?: string | null
   p8_budget_min: number
   p8_budget_max: number
+  powertrain?: string | null
+  condition?: string | null
 }
 
 export async function recommend(payload: RecommendPayload): Promise<RecommendationResult> {
@@ -119,6 +121,26 @@ export async function refreshRecommendations(
       count,
     }),
   })
+  return res.json()
+}
+
+export interface RefinePayload {
+  session_id: string
+  answers?: Record<string, unknown>
+  shown_model_ids: number[]
+  wants: string[]
+  powertrain?: string | null
+  condition?: string | null
+}
+
+/** "None of these convinces me": a new shortlist of 5 from what was missing. */
+export async function refineRecommendations(payload: RefinePayload): Promise<RecommendationResult> {
+  const res = await fetch(`${API}/api/recommend/refine`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`refine failed: ${res.status}`)
   return res.json()
 }
 
