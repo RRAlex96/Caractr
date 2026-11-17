@@ -17,7 +17,8 @@
     "mitigation": "warranty extensions / revised parts, if any (PT-PT)",
     "match": "{brands, fuel, displacement_cc: [lo, hi], label_regex, transmission_regex, max_torque_nm, max_power_hp (stand-in when torque is unknown), model_regex, exclude_power_hp: [lo, hi] (a power band that uses a different part; only excludes when the power is known), exact_cc_suffices (spec-sheet cc alone identifies the engine)}",
     "sources": "[{label, url, kind: official | press | trade | forum}]",
-    "review_notes": "for the reviewer — what is uncertain"
+    "review_notes": "for the reviewer — what is uncertain",
+    "seller_question": "one polite question for the seller about this fault (no accusation), used in the first message"
   },
   "issues": [
     {
@@ -112,7 +113,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10.",
+      "seller_question": "A correia de distribuição já foi substituída? Tem a fatura, com data e quilómetros?"
     },
     {
       "id": "psa-bluehdi-15-camchain",
@@ -202,7 +204,8 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10.",
+      "seller_question": "O carro já fez a campanha de recolha da corrente de distribuição? Tem o comprovativo?"
     },
     {
       "id": "ford-ecoboost-10-wetbelt",
@@ -294,7 +297,8 @@
           "kind": "official"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria.",
+      "seller_question": "A correia de distribuição já foi trocada? Tem as faturas das mudanças de óleo?"
     },
     {
       "id": "bmw-n47-chain",
@@ -363,7 +367,8 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 10/10.",
+      "seller_question": "A corrente de distribuição e os tensores já foram substituídos? Tem a fatura?"
     },
     {
       "id": "bmw-n20-chain-guide",
@@ -432,7 +437,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "A corrente de distribuição e as guias já foram substituídas? Tem a fatura?"
     },
     {
       "id": "prince-16-chain",
@@ -503,7 +509,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria.",
+      "seller_question": "O kit de distribuição (corrente, tensor e guias) já foi trocado? Tem a fatura?"
     },
     {
       "id": "vag-ea888-gen2-oil",
@@ -582,7 +589,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "Quanto óleo gasta entre revisões? Já foram trocados os pistões ou os segmentos?"
     },
     {
       "id": "renault-tce12-oil",
@@ -659,7 +667,8 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "Foi feita a atualização da centralina do motor? Gasta óleo entre revisões?"
     },
     {
       "id": "vag-dq200-dsg7",
@@ -742,7 +751,8 @@
           "kind": "official"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "A caixa DSG já teve alguma reparação (embraiagem ou mecatrónica)? Tem as faturas?"
     },
     {
       "id": "toyota-ad-d4d",
@@ -804,7 +814,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "A junta da cabeça já foi substituída, ou o motor reparado na Toyota? Tem o comprovativo?"
     },
     {
       "id": "jlr-ingenium-20d-chain",
@@ -942,7 +953,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "Tem o histórico das mudanças de óleo? O carro fazia estrada com regularidade?"
     },
     {
       "id": "vw-ea111-tsi-chain",
@@ -1023,7 +1035,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Sem alterações na reauditoria.",
+      "seller_question": "A corrente de distribuição já foi trocada pela versão revista? Tem a fatura?"
     },
     {
       "id": "audi-multitronic-01j",
@@ -1101,7 +1114,8 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 8/10. Alterações finais aplicadas: match, sources, years."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 8/10. Alterações finais aplicadas: match, sources, years.",
+      "seller_question": "O óleo da caixa já foi mudado? Tem as faturas?"
     },
     {
       "id": "mb-om651-delphi-injectors",
@@ -1168,7 +1182,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10.",
+      "seller_question": "Os injetores já foram substituídos? Tem as faturas?"
     },
     {
       "id": "opel-m32-bearings",
@@ -1282,7 +1297,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 8/10 com alterações aplicadas. Regra de matching apertada depois da auditoria: exclui 1.3, DTi, caixas M5 e 158–170 cv (2.0 CDTi com F40)."
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 8/10 com alterações aplicadas. Regra de matching apertada depois da auditoria: exclui 1.3, DTi, caixas M5 e 158–170 cv (2.0 CDTi com F40).",
+      "seller_question": "A caixa de velocidades já teve alguma reparação (rolamentos)? Tem a fatura?"
     },
     {
       "id": "fiat-multiair-14",
@@ -1352,7 +1368,8 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Alterações finais aplicadas: match."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Alterações finais aplicadas: match.",
+      "seller_question": "Tem o histórico das mudanças de óleo? O módulo MultiAir já teve alguma intervenção?"
     },
     {
       "id": "renault-k9k-bearings",
@@ -1441,7 +1458,8 @@
           "kind": "press"
         }
       ],
-      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas."
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas.",
+      "seller_question": "Tem o histórico das mudanças de óleo? Os casquilhos de biela já foram trocados?"
     },
     {
       "id": "mazda-skyactiv-d22",
@@ -1512,7 +1530,8 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Alterações finais aplicadas: detail."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 9/10. Alterações finais aplicadas: detail.",
+      "seller_question": "O motor já teve alguma intervenção na Mazda (árvores de cames, turbo ou injetores)? Tem as faturas?"
     },
     {
       "id": "nissan-xtronic-cvt",
@@ -1599,7 +1618,8 @@
           "kind": "official"
         }
       ],
-      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas."
+      "review_notes": "Auditado quatro vezes por agentes independentes (2026-11-14 e 2026-11-16); auditoria final 9/10 com alterações aplicadas.",
+      "seller_question": "A caixa já fez as reprogramações da Nissan? O óleo da caixa já foi mudado?"
     },
     {
       "id": "ford-powershift-dps6",
@@ -1665,7 +1685,8 @@
           "kind": "official"
         }
       ],
-      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 8/10. Alterações finais aplicadas: sources."
+      "review_notes": "Auditado duas vezes por agentes independentes (2026-11-14); reauditoria 8/10. Alterações finais aplicadas: sources.",
+      "seller_question": "A caixa já teve alguma reparação (embraiagem ou centralina)? Tem as faturas?"
     },
     {
       "id": "psa-dv6-turbo",
@@ -1753,7 +1774,8 @@
           "kind": "trade"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 9/10.",
+      "seller_question": "O turbo já foi substituído? Se sim, trocaram também o tubo de óleo?"
     },
     {
       "id": "vag-20tdi-pd",
@@ -1900,7 +1922,8 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "O módulo da bomba de óleo já foi substituído pela versão revista? Tem a fatura?"
     },
     {
       "id": "vag-20tdi-pd-16v-head",
@@ -1979,7 +2002,8 @@
           "kind": "forum"
         }
       ],
-      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10."
+      "review_notes": "Auditado três vezes por agentes independentes (2026-11-14); auditoria final 8/10.",
+      "seller_question": "O carro perde líquido de refrigeração? Já teve alguma reparação na cabeça do motor?"
     }
   ]
 }

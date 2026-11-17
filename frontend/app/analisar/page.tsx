@@ -9,27 +9,9 @@ import { LoadingSteps } from "@/components/analysis/loading-steps"
 import { AnalysisError } from "@/components/analysis/analysis-error"
 import { PasteFallback } from "@/components/analysis/paste-fallback"
 import { BuyerPassCard } from "@/components/analysis/buyer-pass-card"
-import { SellerMessage } from "@/components/analysis/seller-message"
-import { VerdictCard } from "@/components/analysis/verdict-card"
-import { MetricsGrid } from "@/components/analysis/metrics-grid"
-import { MarketBasis } from "@/components/analysis/market-basis"
-import { AnomalyBadge } from "@/components/analysis/anomaly-badge"
-import { EngineWatchList, KnownFailureAlert, RecallChecklist } from "@/components/analysis/dealbreaker-warning"
-import { PriceHistory } from "@/components/analysis/price-history"
-import { FlagsList } from "@/components/analysis/flags-list"
-import { EngineCard } from "@/components/analysis/engine-card"
-import { SellerRead } from "@/components/analysis/seller-read"
-import { TextPanel } from "@/components/analysis/text-panel"
-import { InspectionChecklist } from "@/components/analysis/inspection-checklist"
-import { NegotiationPanel } from "@/components/analysis/negotiation-panel"
-import { NegotiationNumbers } from "@/components/analysis/negotiation-numbers"
-import { CostOfOwnership } from "@/components/analysis/cost-of-ownership"
-import { EquipmentCard } from "@/components/analysis/equipment-card"
-import { MaintenanceEstimate } from "@/components/analysis/maintenance-estimate"
-import { DepreciationChart } from "@/components/analysis/depreciation-chart"
+import { AnalysisBody } from "@/components/analysis/analysis-body"
 import { ChecksGrid } from "@/components/analysis/checks-grid"
 import { QuickProfile } from "@/components/analysis/quick-profile"
-import { TrustPanel } from "@/components/shared/trust-panel"
 import { ShareButton } from "@/components/shared/share-button"
 import { MicroFeedback } from "@/components/shared/micro-feedback"
 import { WizardBridge } from "@/components/shared/wizard-bridge"
@@ -182,92 +164,7 @@ function AnalisarContent() {
       {/* ── Result ── */}
       {result && !loading && (
         <div className="mt-12 space-y-5">
-          <KnownFailureAlert data={result.dealbreakers} />
-
-          <AnomalyBadge anomaly={result.anomaly} />
-
-          <VerdictCard
-            listing={result.listing}
-            deal={result.deal}
-            analysis={result.analysis}
-            fit={result.fit}
-            sourceLabel={result.source_label}
-          />
-
-          <MetricsGrid deal={result.deal} analysis={result.analysis} />
-
-          <MarketBasis deal={result.deal} listing={result.listing} />
-
-          <PriceHistory data={result.price_history} />
-
-          <EquipmentCard analysis={result.analysis} />
-
-          <FlagsList
-            greenFlags={result.analysis.green_flags || []}
-            redFlags={result.analysis.red_flags || []}
-          />
-
-          {result.analysis.engine_analysis && (
-            <EngineCard
-              engineCode={result.analysis.engine_code}
-              engineAnalysis={result.analysis.engine_analysis}
-            />
-          )}
-
-          <SellerRead
-            sellerAnalysis={result.analysis.seller_analysis}
-            sellerRead={result.analysis.seller_read}
-          />
-
-          {result.analysis.verdict_narrative && (
-            <TextPanel label="Veredicto" accent filled>
-              {result.analysis.verdict_narrative}
-            </TextPanel>
-          )}
-
-          {result.analysis.extras_analysis && (
-            <TextPanel label="Equipamento & valor">
-              {result.analysis.extras_analysis}
-            </TextPanel>
-          )}
-
-          <EngineWatchList data={result.dealbreakers} />
-
-          <RecallChecklist data={result.dealbreakers} year={result.listing?.year} />
-
-          <InspectionChecklist items={result.inspection_checklist || []} />
-
-          <NegotiationNumbers data={result.negotiation} />
-
-          <NegotiationPanel
-            script={result.analysis.negotiation_script}
-            tips={result.negotiation ? [] : result.negotiation_tips || []}
-          />
-
-          <CostOfOwnership data={result.cost_of_ownership} />
-
-          {result.maintenance_estimate && (
-            <MaintenanceEstimate estimate={result.maintenance_estimate} />
-          )}
-
-          {result.depreciation && (
-            <DepreciationChart
-              depreciation={result.depreciation}
-              currentPrice={result.listing.price}
-            />
-          )}
-
-          <TrustPanel
-            reliability={result.reliability}
-            reliabilityLimited={!result.reliability}
-            modelName={
-              result.listing
-                ? `${result.listing.brand_name || ""} ${result.listing.model_name || ""}`.trim()
-                : undefined
-            }
-          />
-
-          <SellerMessage result={result} />
+          <AnalysisBody result={result} />
 
           <BuyerPassCard analysisId={result.analysis_id} />
 

@@ -269,6 +269,7 @@ export interface AnalysisResult {
   analysis: AnalysisDetails
   inspection_checklist: string[]
   negotiation_tips: string[]
+  negotiation_plan?: NegotiationPlan | null
   negotiation?: NegotiationNumbers | null
   anomaly?: Anomaly | null
   price_history?: PriceHistory | null
@@ -386,4 +387,24 @@ export interface ConciergePayload {
   consent_dealer: boolean
   listing_url: string | null
   listing_verdict: string | null
+}
+
+export interface NegotiationPlan {
+  numbers: {
+    asking: number
+    opening: number
+    target: number
+    ceiling: number
+    comparables?: number | null
+    confidence?: string | null
+  } | null
+  note?: string | null
+  arguments: { kind: string; eur?: number | null; text: string; conditional?: boolean }[]
+  walk_away: { ceiling: number; ceiling_unproven?: number; text: string } | null
+  messages: {
+    first_contact: string
+    offer: string
+    counters: { if: string; reply: string }[]
+  }
+  seller: "stand" | "particular"
 }

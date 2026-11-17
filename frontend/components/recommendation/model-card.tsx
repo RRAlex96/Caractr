@@ -65,8 +65,8 @@ export function ModelCard({
           </h3>
           {rec.price_range && (
             <span className="font-mono text-[11px] text-gold">
-              {rec.price_range.year ? `De ${rec.price_range.year}: ` : ""}
-              {rec.price_range.min?.toLocaleString("pt-PT")} — {rec.price_range.max?.toLocaleString("pt-PT")} EUR
+              {rec.price_range.year ? `${rec.price_range.year} · ` : ""}
+              {rec.price_range.min === rec.price_range.max ? `${rec.price_range.min?.toLocaleString("pt-PT")} €` : `${rec.price_range.min?.toLocaleString("pt-PT")}–${rec.price_range.max?.toLocaleString("pt-PT")} €`}
             </span>
           )}
         </div>
@@ -99,7 +99,7 @@ export function ModelCard({
         <div className="mb-5 border-l-2 border-border pl-3.5">
           <p className="text-xs font-light leading-relaxed text-muted-foreground/70">
             <span className="mr-1.5 font-mono text-[9px] uppercase tracking-[1px] text-muted-foreground/50">
-              Tradeoff
+              A ter em conta
             </span>
             {rec.tradeoff}
           </p>
@@ -113,12 +113,12 @@ export function ModelCard({
       <div className="mb-1 flex flex-wrap gap-2">
         {rec.is_wildcard && (
           <span className="rounded-full bg-gold/10 px-3.5 py-1 font-mono text-[10px] tracking-[1px] text-gold">
-            WILDCARD
+            Uma sugestão diferente
           </span>
         )}
         {rec.is_stretch && (
           <span className="rounded-full bg-gold/10 px-3.5 py-1 font-mono text-[10px] tracking-[1px] text-gold">
-            STRETCH
+            Um pouco acima do orçamento
           </span>
         )}
         {rec.body_type && !rec.is_wildcard && !rec.is_stretch && (

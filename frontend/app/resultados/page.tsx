@@ -173,6 +173,7 @@ export default function ResultadosPage() {
               rank={1}
             />
             <TrustPanel
+                compact
               reliability={first.reliability}
               market={first.market}
               modelName={first.full_name}
@@ -208,6 +209,7 @@ export default function ResultadosPage() {
                 rank={i + 2}
               />
               <TrustPanel
+                compact
                 reliability={rec.reliability}
                 market={rec.market}
                 modelName={rec.full_name}
