@@ -3,11 +3,14 @@ Caractr — Standvirtual series and sub-models
 
 For BMW, Mercedes-Benz, Lexus and the Porsche 911 the site has two levels: a
 series ("Série 5", "Classe A", "NX") and its sub-models ("530", "A 180",
-"NX 350h"). Only the sub-model works as the model in the search path:
+"NX 350h"). Since mid-November 2026 the site applies make, series and
+sub-model as one filter, make_model_engine_code = "make|series|sub-model", and
+a sub-model is only found together with its series (checked live 2026-11-17):
 
-    /carros/bmw/530                                   the 530s
-    /carros/bmw?search[filter_enum_model]=serie-5     every Série 5
-    /carros/bmw/serie-5                               not recognised: every BMW
+    /carros/bmw?search[make_model_engine_code]=bmw|serie-5|530   the 530s
+    /carros/bmw?search[filter_enum_model]=serie-5                every Série 5
+    /carros/bmw/530                       applied as "bmw|530": scoped, 0 results
+    /carros/bmw/serie-5                   not recognised: every BMW
 
 Our catalogue names these cars by the series ("Serie 5", "Classe A"), so a car
 that does not come with the site's own slug (any listing that is not from
@@ -72,6 +75,21 @@ def find_series(make: Optional[str], model_name: Optional[str]) -> Optional[str]
             if matched and (best is None or len(alias) > best[0]):
                 best = (len(alias), series_id)
     return best[1] if best else None
+
+
+def series_of_variant(make: Optional[str], variant_id: Optional[str]) -> Optional[str]:
+    """The series id a sub-model id of `make` belongs to ("320" -> "serie-3",
+    "a-180" -> "classe-a"); None when it is not one of the site's sub-models.
+    A sub-model id is unique within its make."""
+    for series_id, (_, variants) in SV_SERIES.get(make or "", {}).items():
+        if variant_id in variants:
+            return series_id
+    return None
+
+
+def is_series_id(make: Optional[str], model_id: Optional[str]) -> bool:
+    """True when `model_id` is one of the site's series ids of `make` ("serie-3")."""
+    return bool(model_id) and model_id in SV_SERIES.get(make or "", {})
 
 
 def _split_name(variant_name: str) -> tuple:

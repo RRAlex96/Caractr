@@ -1,8 +1,9 @@
 """Series-level models and Standvirtual's sub-models.
 
 Our catalogue files BMW, Mercedes and Lexus cars under the series ("Serie 3",
-"Classe A", "NX"). The site only takes a sub-model ("320", "a-180", "nx-300h")
-in the search path; "/carros/bmw/serie-3" is every BMW. A car that does not
+"Classe A", "NX"). The site finds a sub-model ("320", "a-180", "nx-300h") only
+with its series, make_model_engine_code = "bmw|serie-3|320"; "/carros/bmw/320"
+finds nothing and "/carros/bmw/serie-3" is every BMW. A car that does not
 come with the site's own slug must be searched under the sub-model its title
 names, and must get no live reference when it names none: against the whole
 series the reference is off by more than 20% for one car in four.
@@ -13,7 +14,7 @@ import pytest
 
 from app.scrapers import dispatcher
 from app.scrapers.standvirtual import _build_search_url, is_series_model, sv_model_slug_for
-from app.scrapers.sv_series import find_series, find_variant
+from app.scrapers.sv_series import find_series, find_variant, is_series_id, series_of_variant
 from app.scrapers.sv_series_data import SV_SERIES
 from app.services import ad_analysis_service as svc
 from app.services.ad_analysis_service import _market_model_slug
@@ -124,13 +125,43 @@ def test_search_url_for_a_series_and_for_a_sub_model():
     assert "search[filter_enum_fuel_type][0]=plugin-hybrid" in url
     assert _build_search_url("Mercedes-Benz", "Classe A") == f"{base}/mercedes-benz?search[filter_enum_model]=classe-a"
     assert _build_search_url("BMW", "Série 3", page=2) == f"{base}/bmw?search[filter_enum_model]=serie-3&page=2"
-    # A sub-model goes in the path: from the catalogue name or the given slug.
-    assert _build_search_url("BMW", "530") == f"{base}/bmw/530"
-    assert _build_search_url("Mercedes-Benz", "A 180") == f"{base}/mercedes-benz/a-180"
-    assert _build_search_url("Mercedes-Benz", "Classe A", model_slug_override="a-180") == f"{base}/mercedes-benz/a-180"
+    # A sub-model is a filter with its series (the path, "/carros/bmw/530", is
+    # applied as "bmw|530" and finds nothing): from the catalogue name...
+    assert _build_search_url("BMW", "530") == f"{base}/bmw?search[make_model_engine_code]=bmw|serie-5|530"
+    assert _build_search_url("Mercedes-Benz", "A 180") == (
+        f"{base}/mercedes-benz?search[make_model_engine_code]=mercedes-benz|classe-a|a-180")
+    assert _build_search_url("Lexus", "NX 300h") == f"{base}/lexus?search[make_model_engine_code]=lexus|nx|nx-300h"
+    # ... or the listing's own slug, which on a series make is the sub-model
+    assert _build_search_url("Mercedes-Benz", "Classe A", model_slug_override="a-180") == (
+        f"{base}/mercedes-benz?search[make_model_engine_code]=mercedes-benz|classe-a|a-180")
+    assert _build_search_url("Porsche", "911", model_slug_override="991") == (
+        f"{base}/porsche?search[make_model_engine_code]=porsche|911-todos|991")
+    # ... or, at times, the series
+    assert _build_search_url("BMW", "Serie 3", model_slug_override="serie-3") == (
+        f"{base}/bmw?search[filter_enum_model]=serie-3")
+    # The other filters follow it.
+    url = _build_search_url("BMW", "Serie 3", None, 2016, 2020, "Diesel", "320", 2, (161, 219))
+    assert url == (f"{base}/bmw?search[make_model_engine_code]=bmw|serie-3|320"
+                   "&search[filter_float_first_registration_year:from]=2016"
+                   "&search[filter_float_first_registration_year:to]=2020"
+                   "&search[filter_enum_fuel_type][0]=diesel"
+                   "&search[filter_float_engine_power:from]=161&search[filter_float_engine_power:to]=219"
+                   "&page=2")
     # Everything else is unchanged.
     assert _build_search_url("Renault", "Clio") == f"{base}/renault/clio"
     assert _build_search_url("Mercedes-Benz", "EQA") == f"{base}/mercedes-benz/eqa"
+
+
+def test_every_sub_model_is_searched_with_its_own_series():
+    for make, series in SV_SERIES.items():
+        for series_id, (_, variants) in series.items():
+            assert is_series_id(make, series_id) and series_of_variant(make, series_id) is None
+            for variant_id in variants:
+                assert series_of_variant(make, variant_id) == series_id
+                url = _build_search_url(make, "x", model_slug_override=variant_id)
+                assert url.endswith(f"/{make}?search[make_model_engine_code]={make}|{series_id}|{variant_id}")
+    assert series_of_variant("bmw", "serie-3") is None and series_of_variant("renault", "clio") is None
+    assert not is_series_id("bmw", "320") and not is_series_id("renault", "clio")
 
 
 def test_series_model_helpers_take_our_brand_names():

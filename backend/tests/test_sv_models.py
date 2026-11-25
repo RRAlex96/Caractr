@@ -134,7 +134,7 @@ def test_model_names_map_to_the_sites_models(make, model, model_id):
     # A series or a sub-model is still decided first (sv_series).
     ("BMW", "Serie 3", "/bmw?search[filter_enum_model]=serie-3"),
     ("Mercedes-Benz", "E Coupé", "/mercedes-benz?search[filter_enum_model]=classe-e"),
-    ("BMW", "X3", "/bmw/x3"),
+    ("BMW", "X3", "/bmw?search[make_model_engine_code]=bmw|serie-x|x3"),
     # Unknown to the site's list: a plain slug, without accents.
     ("Renault", "Modèle Nouveau", "/renault/modele-nouveau"),
 ])
