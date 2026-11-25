@@ -1,3 +1,5 @@
+> **Historical document (March 2026).** For the current picture, read the [guide for reviewers](GUIDE.md).
+
 # Caractr — Technical Architecture & Engineering Reference
 
 **Version:** 4.3

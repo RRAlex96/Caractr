@@ -32,7 +32,12 @@ Thumbs.db
 frontend/.env.local
 
 # Docs (generated)
-docs/
+docs/*
+!docs/ARCHITECTURE.md
+!docs/PRODUCT_OVERVIEW.md
+!docs/GUIDE.md
+!docs/img/
+!docs/deck/
 .vercel
 
 # stray 0-byte artifacts from mistyped commands
