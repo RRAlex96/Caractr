@@ -24,7 +24,7 @@ from app.services.ad_analysis_service import _power_range, _resolve_model_from_u
 URL = "https://www.standvirtual.com/carros/anuncio/vw-golf-1-6-tdi-ID8PabCd.html"
 
 ENGINE = {"version": "1.6 TDI Confortline", "engine_displacement_cc": 1598, "engine_power_hp": 115,
-          "transmission": "Manual", "fuel_type": "Diesel"}
+          "transmission": "Manual", "fuel_type": "Diesel", "sv_model_slug": "golf"}
 
 
 def _row(**over):
