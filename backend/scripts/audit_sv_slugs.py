@@ -47,6 +47,22 @@ def _catalogue_from_db() -> list:
     return [[r[0], r[1]] for r in rows]
 
 
+def _scope_row(search: dict) -> dict:
+    """What the site did with a search: the make and model it applied (read by
+    standvirtual.applied_make_model, which knows both the old filter_enum_make /
+    filter_enum_model and the combined make_model_engine_code = "make|model" of
+    mid-November 2026), the total and the models on the first page."""
+    from app.scrapers import standvirtual as sv
+    make, model = sv.applied_make_model(sv._search_meta(search))
+    models_on_page = {}
+    for edge in search.get("edges") or []:
+        for p in (edge.get("node") or {}).get("parameters") or []:
+            if p.get("key") == "model":
+                models_on_page[p.get("value")] = models_on_page.get(p.get("value"), 0) + 1
+    return {"applied_make": make, "applied_model": model, "total": search.get("totalCount"),
+            "models_on_page": models_on_page, "result": "scoped" if make and model else "unscoped"}
+
+
 def _check(client: httpx.Client, brand: str, model: str) -> dict:
     from app.scrapers import standvirtual as sv
     url = sv._build_search_url(brand, model)
@@ -59,20 +75,7 @@ def _check(client: httpx.Client, brand: str, model: str) -> dict:
         return {**row, "result": "error", "error": repr(e)}
     if search is None:
         return {**row, "result": "error", "error": "no search data in the page"}
-    applied = {}
-    for f in search.get("appliedFilters") or []:
-        applied.setdefault(f.get("name"), []).append(f.get("value"))
-    row["applied_make"] = applied.get("filter_enum_make")
-    row["applied_model"] = applied.get("filter_enum_model")
-    row["total"] = search.get("totalCount")
-    models_on_page = {}
-    for edge in search.get("edges") or []:
-        for p in (edge.get("node") or {}).get("parameters") or []:
-            if p.get("key") == "model":
-                models_on_page[p.get("value")] = models_on_page.get(p.get("value"), 0) + 1
-    row["models_on_page"] = models_on_page
-    row["result"] = "scoped" if row["applied_make"] and row["applied_model"] else "unscoped"
-    return row
+    return {**row, **_scope_row(search)}
 
 
 def main() -> int:
@@ -113,6 +116,11 @@ def main() -> int:
     for r in rows:
         if r["result"] != "scoped":
             print(f"  {r['result'].upper():9} {r['brand']} {r['model']!r}: {r['url']}  applied make={r.get('applied_make')} model={r.get('applied_model')}")
+    # Scoped yet empty: a rare model, or a slug the site applies but files
+    # nothing under (sub-models searched in the path, 2026-11-17). Worth a look.
+    for r in rows:
+        if r["result"] == "scoped" and r.get("total") == 0:
+            print(f"  EMPTY     {r['brand']} {r['model']!r}: {r['url']}  applied make={r.get('applied_make')} model={r.get('applied_model')}")
     return 0 if all(r["result"] == "scoped" for r in rows) else 1
 
 
